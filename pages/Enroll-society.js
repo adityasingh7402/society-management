@@ -1,11 +1,12 @@
 import Head from 'next/head';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FaPhoneAlt } from "react-icons/fa";
 import Link from 'next/link';
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
-import { auth } from '../lib/firebase'; // Importing the auth instance
+import axios from 'axios'; // Import axios for making requests
+import { useRouter } from 'next/router'
 
 export default function Enroll() {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     societyName: '',
@@ -15,62 +16,39 @@ export default function Enroll() {
     managerEmail: '',
     societyAddress: '',
     zipCode: '',
-    description: '',
-    societyImages: null,
+    description: '',  // Added description field
     otp: '',
     verificationId: '',
   });
   const [otpSent, setOtpSent] = useState(false);
-  const [loadingOtp, setLoadingOtp] = useState(false); // Added loading state
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
-
-  useEffect(() => {
-    // Enable appVerificationDisabledForTesting for testing purposes
-    if (auth) {
-      auth.settings.appVerificationDisabledForTesting = true;
-    }
-
-    // Initialize RecaptchaVerifier for testing (can be 'normal' or 'invisible')
-    const verifier = new RecaptchaVerifier('recaptcha-container', {
-      size: 'invisible',  // You can choose 'normal', 'invisible' or 'compact'
-      callback: (response) => {
-        console.log('Recaptcha verified:', response);
-      },
-      'expired-callback': () => {
-        console.log('Recaptcha expired');
-      },
-    }, auth);
-  }, []);
+  const [loadingOtp, setLoadingOtp] = useState(false);
 
   const handleNext = () => setCurrentStep(currentStep + 1);
   const handleBack = () => setCurrentStep(currentStep - 1);
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-  const handleFileChange = (e) => setFormData({ ...formData, societyImages: e.target.files });
 
-  // Send OTP using Firebase authentication
+  // Function to handle sending OTP using Twilio
   const handleOtpSend = async () => {
-    if (!recaptchaVerifier) {
-      alert("reCAPTCHA not initialized");
-      return;
-    }
-
     const phoneNumber = `+91${formData.managerPhone}`;
-    setLoadingOtp(true); // Show loading state while OTP is being sent
+    setLoadingOtp(true);
 
     try {
-      const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-      setFormData({ ...formData, verificationId: confirmationResult.verificationId });
-      setOtpSent(true); // OTP sent successfully, allow OTP input
-      setLoadingOtp(false); // Hide loading state once OTP is sent
+      const response = await axios.post('/api/send-otp', { phoneNumber });
+
+      if (response.data.success) {
+        setFormData({ ...formData, verificationId: response.data.verificationId });
+        setOtpSent(true);
+      } else {
+        alert('Failed to send OTP. Please try again.');
+      }
     } catch (error) {
-      console.error("Error sending OTP:", error);
-      alert("Failed to send OTP. Please try again.");
-      setLoadingOtp(false); // Hide loading state in case of error
+      console.error('Error sending OTP:', error);
+      alert('Failed to send OTP. Please try again.');
     }
+    setLoadingOtp(false);
   };
 
-  // Verify OTP and Submit data
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -79,46 +57,51 @@ export default function Enroll() {
       return;
     }
 
-    // Verify OTP with the backend API
-    const otpResponse = await fetch('/api/verify-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        otp: formData.otp,
-        verificationId: formData.verificationId,
-      }),
-    });
-
-    const otpData = await otpResponse.json();
-
-    if (otpData.success) {
-      // Proceed with the society data submission
-      const formDataToSubmit = new FormData();
-      formDataToSubmit.append('societyName', formData.societyName);
-      formDataToSubmit.append('societyType', formData.societyType);
-      formDataToSubmit.append('managerName', formData.managerName);
-      formDataToSubmit.append('managerPhone', formData.managerPhone);
-      formDataToSubmit.append('managerEmail', formData.managerEmail);
-      formDataToSubmit.append('societyAddress', formData.societyAddress);
-      formDataToSubmit.append('zipCode', formData.zipCode);
-      formDataToSubmit.append('description', formData.description);
-      formDataToSubmit.append('societyImages', formData.societyImages[0]);
-
-      const societyResponse = await fetch('/api/society', {
+    try {
+      // Verify OTP with backend
+      const otpResponse = await fetch('/api/verify-otp', {
         method: 'POST',
-        body: formDataToSubmit,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          otp: formData.otp,
+          phoneNumber: `+91${formData.managerPhone}`, // Correctly format the phone number
+        }),
       });
 
-      const societyData = await societyResponse.json();
+      const otpData = await otpResponse.json();
 
-      if (societyData.success) {
-        alert('Society enrolled successfully!');
-        // Optionally, reset form or navigate
+      if (otpData.success) {
+        // OTP verification was successful, now proceed with submitting the society data
+        const formDataToSubmit = new FormData();
+
+        // Loop through the form data and append it to the FormData object
+        Object.keys(formData).forEach((key) => {
+          formDataToSubmit.append(key, formData[key]);
+        });
+
+        // Send the society data to the server
+        const societyResponse = await fetch('/api/society', {
+          method: 'POST',
+          body: formDataToSubmit,
+        });
+
+        const societyData = await societyResponse.json();
+
+        if (societyData.success) {
+          // If the society data is successfully saved, show a success alert
+          alert('Society enrolled successfully!');
+          router.push('/societyLogin');
+        } else {
+          // If there was an error while saving the society data, show a failure alert
+          alert('Failed to save society data.');
+        }
       } else {
-        alert('Failed to save society data.');
+        // If OTP verification fails, show an alert for invalid OTP
+        alert('OTP verification failed. Please try again.');
       }
-    } else {
-      alert('OTP verification failed. Please try again.');
+    } catch (error) {
+      console.error('Error verifying OTP:', error);
+      alert('There was an error verifying the OTP. Please try again.');
     }
   };
 
@@ -127,10 +110,8 @@ export default function Enroll() {
       <Head>
         <title>Enroll Your Society - Society Management System</title>
         <meta name="description" content="Enroll your society in our management system and get started!" />
-        <script>window.flutterfire_web_sdk_version = '9.22.1';</script>
       </Head>
 
-      {/* Header Section */}
       <header className="bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-white shadow-lg sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-3xl font-bold">SocietyManage</h1>
@@ -155,24 +136,24 @@ export default function Enroll() {
           <div className="mb-8">
             <div className="relative pt-1 pb-3">
               <div className="flex mb-2 items-center justify-between">
-                <div className="flex text-xs mr-2 font-semibold uppercase w-1/4 items-center justify-center">
-                  <span>Step 1</span>
-                </div>
-                <div className="flex text-xs mr-2 font-semibold uppercase w-1/4 items-center justify-center">
-                  <span>Step 2</span>
-                </div>
-                <div className="flex text-xs mr-2 font-semibold uppercase w-1/4 items-center justify-center">
-                  <span>Step 3</span>
-                </div>
-                <div className="flex text-xs mr-2 font-semibold uppercase w-1/4 items-center justify-center">
-                  <span>Submit</span>
-                </div>
+                {['Step 1', 'Step 2', 'Step 3', 'Submit'].map((step, index) => (
+                  <div
+                    key={index}
+                    className={`flex text-xs mr-2 font-semibold uppercase w-1/4 items-center justify-center ${currentStep > index ? 'text-blue-600' : 'text-gray-400'
+                      }`}
+                  >
+                    {step}
+                  </div>
+                ))}
               </div>
-              <div className="flex mb-2">
-                <div className={`flex w-1/4 items-center justify-center h-2 rounded-lg bg-blue-600 ${currentStep >= 1 ? "w-full" : ""}`} />
-                <div className={`flex w-1/4 items-center justify-center h-2 rounded-lg ${currentStep >= 2 ? "bg-blue-600" : "bg-gray-300"}`} />
-                <div className={`flex w-1/4 items-center justify-center h-2 rounded-lg ${currentStep >= 3 ? "bg-blue-600" : "bg-gray-300"}`} />
-                <div className={`flex w-1/4 items-center justify-center h-2 rounded-lg ${currentStep === 4 ? "bg-blue-600" : "bg-gray-300"}`} />
+              <div className="flex">
+                {[1, 2, 3, 4].map((step) => (
+                  <div
+                    key={step}
+                    className={`flex w-1/4 items-center justify-center h-2 rounded-lg ${currentStep >= step ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -184,7 +165,9 @@ export default function Enroll() {
               {currentStep === 1 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
                   <div className="w-full">
-                    <label htmlFor="societyName" className="block text-lg font-medium text-gray-700">Society Name</label>
+                    <label htmlFor="societyName" className="block text-lg font-medium text-gray-700">
+                      Society Name
+                    </label>
                     <input
                       type="text"
                       id="societyName"
@@ -197,7 +180,9 @@ export default function Enroll() {
                     />
                   </div>
                   <div className="w-full">
-                    <label htmlFor="societyType" className="block text-lg font-medium text-gray-700">Society Type</label>
+                    <label htmlFor="societyType" className="block text-lg font-medium text-gray-700">
+                      Society Type
+                    </label>
                     <select
                       id="societyType"
                       name="societyType"
@@ -219,7 +204,9 @@ export default function Enroll() {
               {currentStep === 2 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
                   <div className="w-full">
-                    <label htmlFor="managerName" className="block text-lg font-medium text-gray-700">Manager's Name</label>
+                    <label htmlFor="managerName" className="block text-lg font-medium text-gray-700">
+                      Manager's Name
+                    </label>
                     <input
                       type="text"
                       id="managerName"
@@ -232,9 +219,10 @@ export default function Enroll() {
                     />
                   </div>
                   <div className="w-full">
-                    <label htmlFor="managerPhone" className="block text-lg font-medium text-gray-700">Manager's Phone</label>
+                    <label htmlFor="managerPhone" className="block text-lg font-medium text-gray-700">
+                      Manager's Phone
+                    </label>
                     <div className="flex items-center space-x-2">
-                      <FaPhoneAlt />
                       <input
                         type="tel"
                         id="managerPhone"
@@ -247,41 +235,147 @@ export default function Enroll() {
                       />
                     </div>
                   </div>
+
+                  <div className="w-full">
+                    <label htmlFor="managerEmail" className="block text-lg font-medium text-gray-700">
+                      Manager's Email
+                    </label>
+                    <input
+                      type="email"
+                      id="managerEmail"
+                      name="managerEmail"
+                      value={formData.managerEmail}
+                      onChange={handleChange}
+                      required
+                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter manager's email"
+                    />
+                  </div>
                 </div>
               )}
 
-              {/* Step 3 - OTP Verification */}
+              {/* Step 3 - Society Address, Zip, Description */}
               {currentStep === 3 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
+                  <div className="w-full">
+                    <label htmlFor="societyAddress" className="block text-lg font-medium text-gray-700">
+                      Society Address
+                    </label>
+                    <input
+                      type="text"
+                      id="societyAddress"
+                      name="societyAddress"
+                      value={formData.societyAddress}
+                      onChange={handleChange}
+                      required
+                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter society's address"
+                    />
+                  </div>
+                  <div className="w-full">
+                    <label htmlFor="zipCode" className="block text-lg font-medium text-gray-700">
+                      Zip Code
+                    </label>
+                    <input
+                      type="text"
+                      id="zipCode"
+                      name="zipCode"
+                      value={formData.zipCode}
+                      onChange={handleChange}
+                      required
+                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter zip code"
+                    />
+                  </div>
+
+                  <div className="w-full">
+                    <label htmlFor="description" className="block text-lg font-medium text-gray-700">
+                      Description
+                    </label>
+                    <textarea
+                      id="description"
+                      name="description"
+                      value={formData.description}
+                      onChange={handleChange}
+                      required
+                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter a description for the society"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4 - OTP Verification */}
+              {currentStep === 4 && (
                 <div>
-                  <label htmlFor="otp" className="block text-lg font-medium text-gray-700">Enter OTP</label>
-                  <input
-                    type="text"
-                    id="otp"
-                    name="otp"
-                    value={formData.otp}
-                    onChange={handleChange}
-                    required
-                    disabled={!otpSent} // Disable until OTP is sent
-                    className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter OTP"
-                  />
-                  <div className="mt-4">
-                    {!otpSent ? (
+                  {!otpSent ? (
+                    <div>
+                      <div className="mobile-show text-2xl text-gray-700 bg-gray-100 p-2 rounded-md shadow-md">
+                        OTP sends to this no. <span className="font-bold text-gray-900">+91 {formData.managerPhone}</span>
+                      </div>
                       <button
                         type="button"
                         onClick={handleOtpSend}
-                        disabled={loadingOtp} // Disable button while OTP is being sent
-                        className={`w-full p-4 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${loadingOtp && "opacity-50"}`}
+                        disabled={loadingOtp}
+                        className={`mt-4 w-full py-3 text-white rounded-md ${loadingOtp ? 'bg-gray-400' : 'bg-blue-600'}`}
                       >
-                        {loadingOtp ? "Sending OTP..." : "Send OTP"}
+                        {loadingOtp ? 'Sending OTP...' : 'Send OTP'}
                       </button>
-                    ) : (
+
+                      {/* <label htmlFor="managerPhone" className="block text-lg font-medium text-gray-700">
+                        Manager's Phone Number
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="tel"
+                          id="managerPhone"
+                          name="managerPhone"
+                          value={formData.managerPhone}
+                          onChange={handleChange}
+                          required
+                          className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter manager's phone number"
+                        />
+                      </div>
                       <button
                         type="button"
-                        onClick={handleSubmit}
-                        className="w-full p-4 text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        onClick={handleOtpSend}
+                        disabled={loadingOtp}
+                        className={`mt-4 w-full py-3 text-white rounded-md ${loadingOtp ? 'bg-gray-400' : 'bg-blue-600'}`}
                       >
-                        Submit Society Details
+                        {loadingOtp ? 'Sending OTP...' : 'Send OTP'}
+                      </button> */}
+                    </div>
+                  ) : (
+                    <div>
+                      <label htmlFor="otp" className="block text-lg font-medium text-gray-700">
+                        Enter OTP
+                      </label>
+                      <input
+                        type="text"
+                        id="otp"
+                        name="otp"
+                        value={formData.otp}
+                        onChange={handleChange}
+                        required
+                        className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter OTP"
+                      />
+                      <div className="mt-4">
+                        <FaPhoneAlt className="text-blue-600" /> <span className="text-blue-600">OTP has been sent to the manager's phone</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between mt-6">
+                    {/* {currentStep > 1 && (
+                      <button type="button" onClick={handleBack} className="bg-gray-300 text-black px-6 py-3 rounded-md">
+                        Back
+                      </button>
+                    )} */}
+                    {otpSent && (
+                      <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-md">
+                        Submit
                       </button>
                     )}
                   </div>
@@ -289,24 +383,12 @@ export default function Enroll() {
               )}
 
               {/* Navigation Buttons */}
-              <div className="flex justify-between">
-                {currentStep > 1 && (
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="px-6 py-2 text-white bg-gray-600 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                  >
-                    Back
-                  </button>
+              <div className="flex justify-between mt-6">
+                {currentStep < 4 && (
+                  <button type="button" onClick={handleNext} className="bg-blue-600 text-white px-6 py-3 rounded-md">Next</button>
                 )}
-                {currentStep < 3 && (
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    className="px-6 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    Next
-                  </button>
+                {currentStep > 1 && (
+                  <button type="button" onClick={handleBack} className="bg-gray-300 text-black px-6 py-3 rounded-md">Back</button>
                 )}
               </div>
             </form>

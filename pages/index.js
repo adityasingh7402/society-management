@@ -1,11 +1,18 @@
-// pages/index.js
 import Head from 'next/head';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FcSwitchCamera } from "react-icons/fc";
 import Link from 'next/link';
 
 export default function Home() {
+  const [isSocietyLogged, setIsSocietyLogged] = useState(false);
+
+  useEffect(() => {
+    // Check localStorage for the "Society" key
+    const society = localStorage.getItem("Society");
+    setIsSocietyLogged(!!society); // Update state based on existence of the "Society" key
+  }, []);
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <Head>
@@ -19,8 +26,14 @@ export default function Home() {
           <h1 className="text-3xl font-bold">SocietyManage</h1>
           <nav>
             <ul className="flex space-x-6">
-              <Link href={"/"}>  <div className="hover:underline text-lg font-medium">Society Login</div></Link>
-              <Link href={"/Contact"}> <div className="hover:underline text-lg font-medium">Contact</div></Link>
+              <Link href={isSocietyLogged ? "/Society-dashboard" : "/societyLogin"}>
+                <div className="hover:underline text-lg font-medium">
+                  {isSocietyLogged ? "Dashboard" : "Society Login"}
+                </div>
+              </Link>
+              <Link href={"/Contact"}>
+                <div className="hover:underline text-lg font-medium">Contact</div>
+              </Link>
             </ul>
           </nav>
         </div>
@@ -35,13 +48,19 @@ export default function Home() {
             transition={{ duration: 1 }}
           >
             <h1 className="text-6xl font-extrabold mb-6">Manage Your Society with Ease</h1>
-            <p className="text-lg mb-8">Streamline communication, manage finances, and ensure security with our all-in-one platform.</p>
-            <Link href={"./Enroll-society"}><button className="bg-white text-blue-600 px-8 py-3 rounded-full text-xl shadow-lg hover:bg-gray-100">Enroll Society</button></Link>
+            <p className="text-lg mb-8">
+              Streamline communication, manage finances, and ensure security with our all-in-one platform.
+            </p>
+            <Link href={"./Enroll-society"}>
+              <button className="bg-white text-blue-600 px-8 py-3 rounded-full text-xl shadow-lg hover:bg-gray-100">
+                Enroll Society
+              </button>
+            </Link>
           </motion.div>
         </div>
         <div className="ball flex justify-center items-center mt-14">
           <motion.div
-            className=" transform -translate-x-1/2 w-20 h-20 bg-blue-500 rounded-full animate-bounce"
+            className="transform -translate-x-1/2 w-20 h-20 bg-blue-500 rounded-full animate-bounce"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 1 }}
@@ -49,7 +68,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features Section */}
       <section id="features" className="py-20 bg-gray-100">
         <div className="container mx-auto px-6">
           <h2 className="text-4xl font-bold text-center mb-12">Key Features</h2>
@@ -83,7 +101,12 @@ export default function Home() {
       <footer id="contact" className="bg-gray-800 text-white py-8">
         <div className="container mx-auto px-6 text-center">
           <p>&copy; {new Date().getFullYear()} SocietyManage. All rights reserved.</p>
-          <p>Contact us at <a href="mailto:support@societymanage.com" className="text-blue-400 hover:underline">support@societymanage.com</a></p>
+          <p>
+            Contact us at{" "}
+            <a href="mailto:support@societymanage.com" className="text-blue-400 hover:underline">
+              support@societymanage.com
+            </a>
+          </p>
         </div>
       </footer>
     </div>

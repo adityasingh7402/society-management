@@ -1,21 +1,29 @@
-// pages/api/send-otp.js
-import { getAuth, signInWithPhoneNumber } from 'firebase/auth';
-import firebaseApp from '../../lib/firebase'; // Assuming firebaseApp is initialized
+import twilio from 'twilio';
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
-  }
+  if (req.method === 'POST') {
+    const { phoneNumber } = req.body;
 
-  const { phoneNumber, appVerifier } = req.body; // Use appVerifier passed from the client
+    // Accessing Twilio credentials from environment variables
+    const client = new twilio(
+      process.env.TWILIO_ACCOUNT_SID, 
+      process.env.TWILIO_AUTH_TOKEN
+    );
+    try {
+      // Send OTP request using Twilio
+      const verification = await client.verify.services(process.env.TWILIO_SERVICE_SID)
+        .verifications.create({ to: phoneNumber, channel: 'sms' });
 
-  try {
-    const auth = getAuth(firebaseApp);
-    const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
-
-    res.status(200).json({ success: true, verificationId: confirmationResult.verificationId });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error sending OTP', error: error.message });
+      if (verification.sid) {
+        res.status(200).json({ success: true, verificationId: verification.sid });
+      } else {
+        res.status(400).json({ success: false, message: 'Failed to send OTP' });
+      }
+    } catch (error) {
+      console.error('Error sending OTP:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  } else {
+    res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 }

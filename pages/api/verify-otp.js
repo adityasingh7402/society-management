@@ -1,23 +1,24 @@
-// pages/api/verify-otp.js
-import { getAuth, PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
-import { app } from '../../lib/firebase'; // Assuming app is initialized here
+import { verifyOtp } from '../../lib/twilio'; // Import your verifyOtp function
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
-  }
+  if (req.method === 'POST') {
+    const { otp, phoneNumber } = req.body;
+    console.log(otp, phoneNumber);
 
-  const { otp, verificationId } = req.body;
+    try {
+      // Call the verifyOtp function
+      const isVerified = await verifyOtp(otp, phoneNumber);
 
-  try {
-    const auth = getAuth(app); // Get the auth instance from the initialized app
-
-    const credential = PhoneAuthProvider.credential(verificationId, otp);
-    const userCredential = await signInWithCredential(auth, credential);
-
-    res.status(200).json({ success: true, user: userCredential.user });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error verifying OTP', error: error.message });
+      if (isVerified) {
+        res.status(200).json({ success: true, message: 'OTP verified successfully' });
+      } else {
+        res.status(400).json({ success: false, message: 'Invalid OTP' });
+      }
+    } catch (error) {
+      console.error('Error verifying OTP:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  } else {
+    res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 }
