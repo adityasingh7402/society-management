@@ -12,7 +12,6 @@ export default function SocietyProfile() {
         societyAddress: '',
         zipCode: '',
         description: '',
-        societyImages: [],
     });
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,12 +54,8 @@ export default function SocietyProfile() {
     }, [router]);
 
     const handleChange = (e) => {
-        const { name, value, files } = e.target;
-        if (name === 'image') {
-            setFormData({ ...formData, societyImages: files });
-        } else {
-            setFormData({ ...formData, [name]: value });
-        }
+        const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
     };
 
     const handlePreviewSubmit = (e) => {
@@ -72,23 +67,15 @@ export default function SocietyProfile() {
         e.preventDefault();
         setIsSubmitting(true);
 
-        const form = new FormData();
-        Object.keys(formData).forEach((key) => {
-            if (key === 'societyImages') {
-                Array.from(formData[key]).forEach((image) => form.append('societyImages', image));
-            } else {
-                form.append(key, formData[key]);
-            }
-        });
-
         try {
             const token = localStorage.getItem('Society');
             const response = await fetch('/api/Society-Api/update-society-profile', {
                 method: 'PUT',
                 headers: {
+                    'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: form,
+                body: JSON.stringify(formData),
             });
 
             if (!response.ok) {
@@ -97,7 +84,7 @@ export default function SocietyProfile() {
 
             const data = await response.json();
             alert('Profile updated successfully!');
-            setFormData(data);
+            setFormData(data.data); // Update form data with the response data
             setShowModal(false);
         } catch (error) {
             console.error('Error updating profile:', error);
@@ -160,36 +147,6 @@ export default function SocietyProfile() {
                         className="border border-gray-300 rounded-md p-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
-
-                {/* Upload Images */}
-                <div className="flex flex-col">
-                    <label className="font-semibold text-gray-700">Upload Society Images:</label>
-                    <input
-                        type="file"
-                        name="image"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => setFormData({ ...formData, societyImages: e.target.files })}
-                        className="mt-2 border border-gray-300 p-3 rounded-md focus:outline-none"
-                    />
-                </div>
-
-                {/* Image Preview */}
-                {formData.societyImages.length > 0 && (
-                    <div>
-                        <h3 className="font-semibold text-gray-700 mb-2">Image Preview:</h3>
-                        <div className="flex flex-wrap gap-4">
-                            {Array.from(formData.societyImages).map((image, index) => (
-                                <img
-                                    key={index}
-                                    src={URL.createObjectURL(image)}
-                                    alt={`Preview ${index}`}
-                                    className="w-20 h-20 object-cover rounded-md border"
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
 
                 <button
                     type="submit"

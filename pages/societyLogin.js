@@ -64,7 +64,7 @@ export default function Login() {
   
           alert(`Welcome to ${society.name}!`);
           // Redirect to the dashboard or homepage
-          window.location.href = '/dashboard';
+          window.location.href = '/Society-dashboard';
         } else {
           alert('Society details not found. Please try again.');
         }

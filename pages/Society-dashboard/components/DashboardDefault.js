@@ -1,12 +1,7 @@
 // components/DashboardDefault.js
 import React, { useEffect, useState } from 'react';
-import DashboardCard from './DashboardCard';
-import { Splide, SplideSlide } from '@splidejs/react-splide';
-import '@splidejs/react-splide/css';
 
 const DashboardDefault = () => {
-  const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   // useEffect(() => {
   //   const fetchDashboardData = async () => {
@@ -25,38 +20,93 @@ const DashboardDefault = () => {
   //   fetchDashboardData();
   // }, []);
 
-  if (loading) return <p>Loading...</p>;
-
   return (
     <div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <DashboardCard title="Total Donations" amount={`${dashboardData.totalDonations}`} />
-        <DashboardCard title="Total NGOs" amount={dashboardData.totalNGOs} />
-        <DashboardCard title="Total Volunteers" amount={dashboardData.totalVolunteers}/>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h4 className="text-gray-600">Donation Images</h4>
-          <Splide
-            options={{
-              type: 'loop',
-              perPage: 3,
-              gap: '1rem',
-              autoplay: true,
-              pauseOnHover: true,
-            }}
-            className="mt-4"
-          >
-            {dashboardData.donationImages.map((image, index) => (
-              <SplideSlide key={index}>
-                <img
-                  src={image.paymentScreenshot}
-                  alt={`Donation Image ${index + 1}`}
-                  className="w-full h-64 object-cover rounded"
-                />
-              </SplideSlide>
-            ))}
-          </Splide>
+      <div className="p-6">
+        {/* <h1 className="text-6xl font-bold mb-6">Society Management Dashboard</h1> */}
+
+        {/* Resident Management & Property Management */}
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold mb-4">Resident Management & Property Management</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">🏠</div>
+              <div className="text-lg font-medium">Owner Profiles</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">👨‍💼</div>
+              <div className="text-lg font-medium">Tenant Profiles</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">🏡</div>
+              <div className="text-lg font-medium">Properties</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">📋</div>
+              <div className="text-lg font-medium">Ownership Records</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Finance Management & Maintenance Requests */}
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold mb-4">Finance Management & Maintenance Requests</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">💰</div>
+              <div className="text-lg font-medium">Maintenance Bills</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">📊</div>
+              <div className="text-lg font-medium">Payment Tracking</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">🛠️</div>
+              <div className="text-lg font-medium">Tickets</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Notices & Community Features */}
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold mb-4">Notices & Community Features</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">📢</div>
+              <div className="text-lg font-medium">Announcements</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">📊</div>
+              <div className="text-lg font-medium">Polls & Surveys</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">💬</div>
+              <div className="text-lg font-medium">Discussion Forums</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Security Management & Emergency Protocols */}
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold mb-4">Security Management & Emergency Protocols</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">👮</div>
+              <div className="text-lg font-medium">Visitor Logs</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">📦</div>
+              <div className="text-lg font-medium">Delivery Management</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">🚨</div>
+              <div className="text-lg font-medium">Emergency Alerts</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-2">📜</div>
+              <div className="text-lg font-medium">Incident Logs</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
