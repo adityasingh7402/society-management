@@ -118,7 +118,7 @@ export default function Enroll() {
           <nav>
             <ul className="flex space-x-6">
               <Link href={"/"}><div className="hover:underline text-lg font-medium">Home</div></Link>
-              <Link href={"/contact"}><div className="hover:underline text-lg font-medium">Contact</div></Link>
+              <Link href={"/societyLogin"}><div className="hover:underline text-lg font-medium">Login</div></Link>
             </ul>
           </nav>
         </div>

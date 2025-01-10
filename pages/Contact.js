@@ -19,7 +19,7 @@ export default function Contact() {
           <nav>
             <ul className="flex space-x-6">
               <Link href={"/"}><div className="hover:underline text-lg font-medium">Home</div></Link>
-              <Link href={"/contact"}><div className="hover:underline text-lg font-medium">Contact</div></Link>
+              <Link href={"/Enroll-society"}><div className="hover:underline text-lg font-medium">Enroll Society</div></Link>
             </ul>
           </nav>
         </div>
