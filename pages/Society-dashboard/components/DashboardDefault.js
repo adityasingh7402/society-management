@@ -27,8 +27,8 @@ const DashboardDefault = () => {
 
         {/* Resident Management & Property Management */}
         <div className="mb-10">
-          <h2 className="text-xl font-semibold mb-4">Resident Management & Property Management</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
+          <h2 className="text-base text-blue-800 font-semibold mb-4">Resident Management & Property Management</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
               <div className="text-4xl mb-2">🏠</div>
               <div className="text-lg font-medium">Owner Profiles</div>
@@ -50,8 +50,8 @@ const DashboardDefault = () => {
 
         {/* Finance Management & Maintenance Requests */}
         <div className="mb-10">
-          <h2 className="text-xl font-semibold mb-4">Finance Management & Maintenance Requests</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
+          <h2 className="text-base text-blue-800 font-semibold mb-4">Finance Management & Maintenance Requests</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
               <div className="text-4xl mb-2">💰</div>
               <div className="text-lg font-medium">Maintenance Bills</div>
@@ -69,8 +69,8 @@ const DashboardDefault = () => {
 
         {/* Notices & Community Features */}
         <div className="mb-10">
-          <h2 className="text-xl font-semibold mb-4">Notices & Community Features</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
+          <h2 className="text-base text-blue-800 font-semibold mb-4">Notices & Community Features</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
               <div className="text-4xl mb-2">📢</div>
               <div className="text-lg font-medium">Announcements</div>
@@ -88,8 +88,8 @@ const DashboardDefault = () => {
 
         {/* Security Management & Emergency Protocols */}
         <div className="mb-10">
-          <h2 className="text-xl font-semibold mb-4">Security Management & Emergency Protocols</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
+          <h2 className="text-base text-blue-800 font-semibold mb-4">Security Management & Emergency Protocols</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
               <div className="text-4xl mb-2">👮</div>
               <div className="text-lg font-medium">Visitor Logs</div>
