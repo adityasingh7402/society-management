@@ -15,7 +15,7 @@ export default function Contact() {
       {/* Header Section */}
       <header className="bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-white shadow-lg sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="text-3xl font-bold">SocietyManage</h1>
+          <h1 className="sm:text-xl md:text-3xl font-bold">SocietyManage</h1>
           <nav>
             <ul className="flex space-x-6">
               <Link href={"/"}><div className="hover:underline text-lg font-medium">Home</div></Link>
