@@ -384,11 +384,11 @@ export default function Enroll() {
 
               {/* Navigation Buttons */}
               <div className="flex justify-between mt-6">
-                {currentStep < 4 && (
-                  <button type="button" onClick={handleNext} className="bg-blue-600 text-white px-6 py-3 rounded-md">Next</button>
-                )}
                 {currentStep > 1 && (
                   <button type="button" onClick={handleBack} className="bg-gray-300 text-black px-6 py-3 rounded-md">Back</button>
+                )}
+                {currentStep < 4 && (
+                  <button type="button" onClick={handleNext} className="bg-blue-600 text-white px-6 py-3 rounded-md">Next</button>
                 )}
               </div>
             </form>

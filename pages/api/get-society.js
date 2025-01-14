@@ -24,8 +24,7 @@ export default async function handler(req, res) {
           societyId: society.societyId,
           managerPhone: society.managerPhone,
         },
-        process.env.JWT_SECRET, // Use a secret key stored in your .env file
-        { expiresIn: '7d' } // Token expires in 7 days
+        process.env.JWT_SECRET
       );
 
       return res.status(200).json({
