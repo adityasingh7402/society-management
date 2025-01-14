@@ -62,7 +62,7 @@ export default function Login() {
           // Step 3: Store JWT Token in LocalStorage
           localStorage.setItem('Society', token);
   
-          alert(`Welcome to ${society.name}!`);
+          // alert(`Welcome to ${society.name}!`);
           // Redirect to the dashboard or homepage
           window.location.href = '/Society-dashboard';
         } else {

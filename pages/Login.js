@@ -21,7 +21,7 @@ export default function Login() {
     setLoadingOtp(true);
 
     try {
-      const endpoint = userType === 'resident' ? '/api/send-otp' : '/api/send-otp';
+      const endpoint = '/api/send-otp'; // Same for both resident and tenant
       const response = await axios.post(endpoint, { phoneNumber: fullPhoneNumber });
 
       if (response.data.success) {
@@ -45,36 +45,60 @@ export default function Login() {
     }
 
     try {
-      const verifyEndpoint = userType === 'resident' ? '/api/send-otp' : '/api/send-otp';
-      const detailsEndpoint = userType === 'resident' ? '/api/Resident-Api/get-resident' : '/api/get-tenant-details';
+      const verifyEndpoint = '/api/verify-otp'; // Same for both resident and tenant
+      const detailsEndpoint =
+        userType === 'resident'
+          ? '/api/Resident-Api/get-resident'
+          : '/api/get-tenant-details';
 
       // Step 1: Verify OTP
-      const response = await axios.post(verifyEndpoint, {
+      const verifyResponse = await axios.post(verifyEndpoint, {
         otp,
         phoneNumber: `+91${phoneNumber}`,
         verificationId,
       });
 
-      if (response.data.success) {
-        // Step 2: Fetch User Details
-        console.log(detailsEndpoint)
-        const detailsResponse = await axios.post(detailsEndpoint, {
-          phoneNumber: `+91${phoneNumber}`,
-        });
+      if (verifyResponse.data.success) {
+        if (userType === 'resident') {
+          // Step 2: Fetch Resident Details using Fetch API
+          const detailsResponse = await fetch(detailsEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phoneNumber: `+91${phoneNumber}` }),
+          });
 
-        if (detailsResponse.data.success) {
-          const { details, token } = detailsResponse.data;
+          const detailsData = await detailsResponse.json();
 
-          // Step 3: Store JWT Token in LocalStorage
-          const userKey = userType === 'resident' ? 'Resident' : 'Tenant';
-          localStorage.setItem(userKey, token);
+          if (detailsData.success) {
+            const { details, token } = detailsData;
 
-          alert(`Welcome, ${details.name}!`);
-          // Redirect to the dashboard or homepage
-          const redirectPath = userType === 'resident' ? '/Resident-dashboard' : '/Tenant-dashboard';
-          window.location.href = redirectPath;
+            // Step 3: Store JWT Token in LocalStorage
+            localStorage.setItem('Resident', token);
+
+            // alert(`Welcome, ${details.name}!`);
+            // Redirect to the Resident dashboard
+            window.location.href = '/Resident-dashboard';
+          } else {
+            alert('Resident details not found. Please try again.');
+          }
         } else {
-          alert('User details not found. Please try again.');
+          // Step 2: Fetch Tenant Details using Axios
+          const detailsResponse = await axios.post(detailsEndpoint, {
+            phoneNumber: `+91${phoneNumber}`,
+          });
+
+          if (detailsResponse.data.success) {
+            const { details, token } = detailsResponse.data;
+
+            // Step 3: Store JWT Token in LocalStorage
+            localStorage.setItem('Tenant', token);
+
+            // alert(`Welcome, ${details.name}!`);
+            // Redirect to the Tenant dashboard
+            window.location.href = '/Tenant-dashboard';
+          } else {
+            alert('Tenant details not found. Please try again.');
+          }
         }
       } else {
         alert('Invalid OTP. Please try again.');
@@ -84,6 +108,7 @@ export default function Login() {
       alert('An error occurred. Please try again.');
     }
   };
+
 
   return (
     <div className="bg-gray-50 min-h-screen">

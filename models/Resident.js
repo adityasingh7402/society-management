@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 const residentSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  phone: { type: String, required: true },
-  email: { type: String, required: true, unique: true }, // Ensure the email is unique
+  phone: { type: String, required: true, unique: true }, // Ensure the email is unique
+  email: { type: String, required: true }, 
   address: { type: String, required: true },
   unitNumber: { type: String, required: true },
   societyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true },

@@ -6,6 +6,7 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const { societyId, name, phone, email, address, unitNumber } = req.body;
 
+    console.log(societyId, name, phone, email, address, unitNumber )
     // Step 1: Input Validation
     if (!societyId || !name || !phone || !email || !address || !unitNumber) {
       return res.status(400).json({ message: 'All fields are required' });
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
       }
 
       // Step 4: Check if a resident with the same email already exists
-      const existingResident = await Resident.findOne({ email });
+      const existingResident = await Resident.findOne({ phone });
 
       if (existingResident) {
         return res.status(400).json({ message: 'Resident with this email already exists' });

@@ -9,6 +9,7 @@ export default async function handler(req, res) {
     const { phoneNumber } = req.body;
 
     console.log(phoneNumber);
+    console.log("number is phoneNumber", phoneNumber)
     try {
       // Fetch the resident by their phone number
       const resident = await Resident.findOne({ phone: phoneNumber });

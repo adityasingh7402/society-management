@@ -25,8 +25,12 @@ export default function ResidentSignup() {
 
     const handleOtpChange = (e) => setOtp(e.target.value);
 
+    const getFormattedPhoneNumber = () => {
+        return formData.phone.startsWith('+91') ? formData.phone : `+91${formData.phone}`;
+    };
+
     const sendOtp = async () => {
-        const phoneNumber = `+91${formData.phone}`;
+        const phoneNumber = getFormattedPhoneNumber();
         try {
             const response = await axios.post('/api/send-otp', { phoneNumber });
             if (response.data.success) {
@@ -42,6 +46,7 @@ export default function ResidentSignup() {
     };
 
     const verifyOtp = async () => {
+        const phoneNumber = getFormattedPhoneNumber();
         try {
             // Verify OTP
             const otpResponse = await fetch('/api/verify-otp', {
@@ -49,7 +54,7 @@ export default function ResidentSignup() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     otp: otp,
-                    phoneNumber: `+91${formData.phone}`, // Format the phone number correctly
+                    phoneNumber: phoneNumber, // Use formatted phone number
                 }),
             });
 
@@ -59,25 +64,17 @@ export default function ResidentSignup() {
                 setOtpError('');
 
                 // OTP is valid, now submit the resident data
-                const formDataToSubmit = new FormData();
-
-                // Loop through the form data and append it to the FormData object
-                Object.keys(formData).forEach((key) => {
-                    formDataToSubmit.append(key, formData[key]);
-                });
-
-                // Send the resident data to the server
                 const submitResponse = await fetch('/api/Resident-Api/resident', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }, // Set Content-Type to JSON
-                    body: JSON.stringify(formData), // Convert formData to JSON
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...formData, phone: phoneNumber }), // Use formatted phone number in formData
                 });
 
                 const submitData = await submitResponse.json();
 
                 if (submitData.message === 'Resident signed up successfully!') {
                     alert('Resident signed up successfully!');
-                    router.push('/Login'); // Redirect after successful signup
+                    router.push('/ResidentLogin'); // Redirect after successful signup
                 } else {
                     alert('Error in resident signup.');
                 }

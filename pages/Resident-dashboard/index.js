@@ -14,13 +14,13 @@ export default function Home() {
         const fetchProfile = async () => {
             setLoading(true);
             try {
-                const token = localStorage.getItem("Society");
+                const token = localStorage.getItem("Resident");
                 if (!token) {
-                    router.push("/societyLogin");
+                    router.push("/Login");
                     return;
                 }
 
-                const response = await fetch("/api/Society-Api/get-society-details", {
+                const response = await fetch("/api/Resident-Api/get-resident-details", {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -32,7 +32,7 @@ export default function Home() {
             } catch (error) {
                 console.error("Error fetching profile:", error);
                 if (error.message === "Failed to fetch profile") {
-                    router.push("/societyLogin");
+                    router.push("/Login");
                 }
             } finally {
                 setLoading(false);
