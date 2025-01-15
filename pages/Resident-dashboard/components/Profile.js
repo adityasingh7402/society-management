@@ -1,17 +1,16 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 
-export default function SocietyProfile() {
+export default function Profile() {
     const [formData, setFormData] = useState({
-        societyId: '',
-        societyName: '',
-        societyType: '',
-        managerName: '',
-        managerPhone: '',
-        managerEmail: '',
-        societyAddress: '',
-        zipCode: '',
-        description: '',
+        name: "",
+        phone: "",
+        email: "",
+        address: "",
+        unitNumber: "",
+        societyId: "",
+        societyName: "",
+        residentId: "",
     });
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,28 +21,28 @@ export default function SocietyProfile() {
         const fetchProfile = async () => {
             setLoading(true);
             try {
-                const token = localStorage.getItem('Society');
+                const token = localStorage.getItem("Resident");
                 if (!token) {
-                    router.push('/societyLogin');
+                    router.push("/Login");
                     return;
                 }
 
-                const response = await fetch('/api/Society-Api/get-society-details', {
+                const response = await fetch("/api/Resident-Api/get-resident-details", {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to fetch profile');
+                    throw new Error("Failed to fetch profile");
                 }
 
                 const data = await response.json();
                 setFormData(data);
             } catch (error) {
-                console.error('Error fetching profile:', error);
-                if (error.message === 'Failed to fetch profile') {
-                    router.push('/societyLogin');
+                console.error("Error fetching profile:", error);
+                if (error.message === "Failed to fetch profile") {
+                    router.push("/Login");
                 }
             } finally {
                 setLoading(false);
@@ -68,26 +67,33 @@ export default function SocietyProfile() {
         setIsSubmitting(true);
 
         try {
-            const token = localStorage.getItem('Society');
-            const response = await fetch('/api/Society-Api/update-society-profile', {
-                method: 'PUT',
+            const token = localStorage.getItem("Resident");
+            const response = await fetch("/api/Resident-Api/update-resident-profile", {
+                method: "PUT",
                 headers: {
-                    'Content-Type': 'application/json',
+                    "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    name: formData.name,
+                    phone: formData.phone,
+                    email: formData.email,
+                    address: formData.address,
+                    residentId: formData.residentId,
+                    unitNumber: formData.unitNumber,
+                }),
             });
 
             if (!response.ok) {
-                throw new Error('Failed to update profile');
+                throw new Error("Failed to update profile");
             }
 
             const data = await response.json();
-            alert('Profile updated successfully!');
-            setFormData(data.data); // Update form data with the response data
+            alert("Profile updated successfully!");
+            setFormData({ ...formData, ...data.data }); // Update editable fields
             setShowModal(false);
         } catch (error) {
-            console.error('Error updating profile:', error);
+            console.error("Error updating profile:", error);
         } finally {
             setIsSubmitting(false);
         }
@@ -97,33 +103,53 @@ export default function SocietyProfile() {
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
-            <h1 className="text-4xl font-bold text-blue-600 mb-8 text-center">Society Profile</h1>
+            <h1 className="text-4xl font-bold text-blue-600 mb-8 text-center">Resident Profile</h1>
 
             <form
                 onSubmit={handlePreviewSubmit}
                 className="space-y-6 bg-white p-8 shadow-md rounded-lg max-w-4xl mx-auto"
             >
-                {/* Read-only Society ID */}
-                <div className="flex flex-col mb-6">
-                    <label className="font-semibold text-gray-700">Society ID:</label>
-                    <input
-                        type="text"
-                        name="societyId"
-                        value={formData.societyId}
-                        readOnly
-                        className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
-                    />
+                {/* Read-only fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex flex-col">
+                        <label className="font-semibold text-gray-700">Society ID:</label>
+                        <input
+                            type="text"
+                            name="societyId"
+                            value={formData.societyId}
+                            readOnly
+                            className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
+                        />
+                    </div>
+                    <div className="flex flex-col">
+                        <label className="font-semibold text-gray-700">Society Name:</label>
+                        <input
+                            type="text"
+                            name="societyName"
+                            value={formData.societyName}
+                            readOnly
+                            className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
+                        />
+                    </div>
+                    <div className="flex flex-col">
+                        <label className="font-semibold text-gray-700">Resident ID:</label>
+                        <input
+                            type="text"
+                            name="residentId"
+                            value={formData.residentId}
+                            readOnly
+                            className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
+                        />
+                    </div>
                 </div>
 
-                {/* Two inputs per row */}
+                {/* Editable fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {['societyName', 'societyType', 'managerName', 'managerPhone', 'managerEmail', 'societyAddress', 'zipCode'].map((field) => (
+                    {["name", "phone", "email", "address", "unitNumber"].map((field) => (
                         <div key={field} className="flex flex-col">
-                            <label className="font-semibold text-gray-700 capitalize">
-                                {field.replace(/([A-Z])/g, ' $1')}:
-                            </label>
+                            <label className="font-semibold text-gray-700 capitalize">{field}:</label>
                             <input
-                                type={field === 'managerEmail' ? 'email' : 'text'}
+                                type="text"
                                 name={field}
                                 value={formData[field]}
                                 onChange={handleChange}
@@ -133,19 +159,6 @@ export default function SocietyProfile() {
                             />
                         </div>
                     ))}
-                </div>
-
-                {/* Description */}
-                <div className="flex flex-col">
-                    <label className="font-semibold text-gray-700">Description:</label>
-                    <textarea
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        placeholder="Enter a brief description"
-                        required
-                        className="border border-gray-300 rounded-md p-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
                 </div>
 
                 <button
@@ -164,11 +177,9 @@ export default function SocietyProfile() {
                         <p className="text-gray-600 mb-4">Make changes if needed before updating.</p>
 
                         <form onSubmit={handleFinalSubmit} className="space-y-4">
-                            {['societyName', 'societyType', 'managerName', 'managerPhone', 'managerEmail', 'societyAddress', 'zipCode', 'description'].map((key) => (
+                            {["name", "phone", "email", "address", "unitNumber"].map((key) => (
                                 <div key={key} className="flex flex-col">
-                                    <label className="font-semibold text-gray-700 capitalize">
-                                        {key.replace(/([A-Z])/g, ' $1')}:
-                                    </label>
+                                    <label className="font-semibold text-gray-700 capitalize">{key}:</label>
                                     <input
                                         type="text"
                                         name={key}
@@ -182,10 +193,12 @@ export default function SocietyProfile() {
                                 type="submit"
                                 disabled={isSubmitting}
                                 className={`w-full py-3 px-6 text-white rounded-md ${
-                                    isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
+                                    isSubmitting
+                                        ? "bg-gray-400 cursor-not-allowed"
+                                        : "bg-green-500 hover:bg-green-600"
                                 }`}
                             >
-                                {isSubmitting ? 'Updating...' : 'Update Profile'}
+                                {isSubmitting ? "Updating..." : "Update Profile"}
                             </button>
                         </form>
                         <button

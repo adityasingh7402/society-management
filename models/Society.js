@@ -9,9 +9,9 @@ const SocietySchema = new mongoose.Schema({
   societyName: { type: String, required: true },
   societyType: { type: String, required: true },
   managerName: { type: String, required: true },
-  managerPhone: { type: String, required: true, unique: true}, // Ensure the email is unique
+  managerPhone: { type: String, required: true, unique: true }, // Ensure the email is unique
   managerEmail: { type: String, required: true },
-  societyAddress: { type: String, required: true }, 
+  societyAddress: { type: String, required: true },
   zipCode: { type: String, required: true },
   description: { type: String, required: true },
   societyImages: [String], // Store image URLs

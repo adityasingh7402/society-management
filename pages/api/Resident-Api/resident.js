@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const { societyId, name, phone, email, address, unitNumber } = req.body;
 
-    console.log(societyId, name, phone, email, address, unitNumber )
+    // console.log(societyId, name, phone, email, address, unitNumber )
     // Step 1: Input Validation
     if (!societyId || !name || !phone || !email || !address || !unitNumber) {
       return res.status(400).json({ message: 'All fields are required' });
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       const existingResident = await Resident.findOne({ phone });
 
       if (existingResident) {
-        return res.status(400).json({ message: 'Resident with this email already exists' });
+        return res.status(400).json({ message: 'Resident with this Mobile already exists' });
       }
 
       // Step 5: Create the new resident document
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
       await newResident.save();
 
       // Step 6: Add the new resident's ID to the society's resident list
-      console.log(society.residents)
+      // console.log(society.residents)
       if (!society.residents) {
         society.residents = []; // Ensure residents is an array
       }

@@ -74,7 +74,7 @@ export default function ResidentSignup() {
 
                 if (submitData.message === 'Resident signed up successfully!') {
                     alert('Resident signed up successfully!');
-                    router.push('/ResidentLogin'); // Redirect after successful signup
+                    router.push('/Login'); // Redirect after successful signup
                 } else {
                     alert('Error in resident signup.');
                 }

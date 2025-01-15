@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import DashboardDefault from "./components/DashboardDefault";
-import SocietyProfile from "./components/SocietyProfile";
+import Profile from "./components/Profile";
 
 export default function Home() {
     const router = useRouter();
@@ -55,8 +55,8 @@ export default function Home() {
 
     const renderComponent = () => {
         switch (component) {
-            case "SocietyProfile":
-                return <SocietyProfile />;
+            case "Profile":
+                return <Profile />;
             case "DashboardDefault":
             default:
                 return <DashboardDefault />;
@@ -96,14 +96,14 @@ export default function Home() {
                         >
                             Dashboard
                         </li>
-                        <li
+                        {/* <li
                             className={`mb-3 flex items-center p-2 rounded cursor-pointer ${
-                                activeLink === "SocietyProfile" ? "bg-green-900" : ""
+                                activeLink === "Profile" ? "bg-green-900" : ""
                             }`}
-                            onClick={() => handleComponent("SocietyProfile", "SocietyProfile")}
+                            onClick={() => handleComponent("Profile", "Profile")}
                         >
                             Society Profile
-                        </li>
+                        </li> */}
                     </ul>
                     <button
                         onClick={handleLogout}
