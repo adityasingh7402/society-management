@@ -32,6 +32,7 @@ export default function Home() {
             } catch (error) {
                 console.error("Error fetching profile:", error);
                 if (error.message === "Failed to fetch profile") {
+                    localStorage.removeItem("Society");
                     router.push("/societyLogin");
                 }
             } finally {

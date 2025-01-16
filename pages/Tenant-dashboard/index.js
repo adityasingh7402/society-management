@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import DashboardDefault from "./components/DashboardDefault";
-import SocietyProfile from "./components/SocietyProfile";
+import Profile from "./components/Profile";
 
 export default function Home() {
     const router = useRouter();
@@ -14,13 +14,13 @@ export default function Home() {
         const fetchProfile = async () => {
             setLoading(true);
             try {
-                const token = localStorage.getItem("Society");
+                const token = localStorage.getItem("Resident");
                 if (!token) {
-                    router.push("/societyLogin");
+                    router.push("/Login");
                     return;
                 }
 
-                const response = await fetch("/api/Society-Api/get-society-details", {
+                const response = await fetch("/api/Resident-Api/get-resident-details", {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -32,7 +32,8 @@ export default function Home() {
             } catch (error) {
                 console.error("Error fetching profile:", error);
                 if (error.message === "Failed to fetch profile") {
-                    router.push("/societyLogin");
+                    router.push("/Login");
+                    localStorage.removeItem("Resident");
                 }
             } finally {
                 setLoading(false);
@@ -43,7 +44,7 @@ export default function Home() {
     }, [router]);
 
     const handleLogout = () => {
-        localStorage.removeItem("Society");
+        localStorage.removeItem("Resident");
         router.push("/"); // Redirect to the home page
     };
 
@@ -55,8 +56,8 @@ export default function Home() {
 
     const renderComponent = () => {
         switch (component) {
-            case "SocietyProfile":
-                return <SocietyProfile />;
+            case "Profile":
+                return <Profile />;
             case "DashboardDefault":
             default:
                 return <DashboardDefault />;
@@ -96,14 +97,14 @@ export default function Home() {
                         >
                             Dashboard
                         </li>
-                        <li
+                        {/* <li
                             className={`mb-3 flex items-center p-2 rounded cursor-pointer ${
-                                activeLink === "SocietyProfile" ? "bg-green-900" : ""
+                                activeLink === "Profile" ? "bg-green-900" : ""
                             }`}
-                            onClick={() => handleComponent("SocietyProfile", "SocietyProfile")}
+                            onClick={() => handleComponent("Profile", "Profile")}
                         >
                             Society Profile
-                        </li>
+                        </li> */}
                     </ul>
                     <button
                         onClick={handleLogout}
@@ -131,7 +132,7 @@ export default function Home() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
                     </button>
-                    <h1 className="text-xl font-semibold">Welcome to Society Panel</h1>
+                    <h1 className="text-xl font-semibold">Welcome to Resident Panel</h1>
                 </header>
                 {loading ? <p>Loading...</p> : renderComponent()}
             </main>

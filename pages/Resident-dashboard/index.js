@@ -33,6 +33,7 @@ export default function Home() {
                 console.error("Error fetching profile:", error);
                 if (error.message === "Failed to fetch profile") {
                     router.push("/Login");
+                    localStorage.removeItem("Resident");
                 }
             } finally {
                 setLoading(false);
@@ -43,7 +44,7 @@ export default function Home() {
     }, [router]);
 
     const handleLogout = () => {
-        localStorage.removeItem("Society");
+        localStorage.removeItem("Resident");
         router.push("/"); // Redirect to the home page
     };
 
@@ -131,7 +132,7 @@ export default function Home() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
                     </button>
-                    <h1 className="text-xl font-semibold">Welcome to Society Panel</h1>
+                    <h1 className="text-xl font-semibold">Welcome to Resident Panel</h1>
                 </header>
                 {loading ? <p>Loading...</p> : renderComponent()}
             </main>

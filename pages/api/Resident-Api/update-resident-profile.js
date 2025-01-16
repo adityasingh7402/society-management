@@ -27,10 +27,30 @@ export default async function handler(req, res) {
       email,
       address,
       unitNumber,
+      additionalNumbers, // Array of additional phone numbers
     } = req.body;
 
     if (!residentId) {
       return res.status(400).json({ error: 'Resident ID is required.' });
+    }
+
+    // Validate additional phone numbers if provided
+    if (additionalNumbers) {
+      const isValidNumbers = additionalNumbers.every(
+        (num) => /^\+91\d{10}$/.test(num)
+      );
+      if (!isValidNumbers) {
+        return res
+          .status(400)
+          .json({ error: 'All additional phone numbers must start with +91 and be 13 characters long.' });
+      }
+
+      // Limit additional numbers to three
+      if (additionalNumbers.length > 3) {
+        return res
+          .status(400)
+          .json({ error: 'You can only add up to three additional phone numbers.' });
+      }
     }
 
     // Find the resident by ID and update their editable fields
@@ -42,6 +62,7 @@ export default async function handler(req, res) {
         ...(email && { email }),
         ...(address && { address }),
         ...(unitNumber && { unitNumber }),
+        ...(additionalNumbers && { additionalNumbers }), // Update additional numbers if provided
       },
       { new: true } // Return the updated document
     );

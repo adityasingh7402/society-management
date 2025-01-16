@@ -37,6 +37,7 @@ export default async function handler(req, res) {
         email,
         address,
         unitNumber,
+        societyCode: society.societyId,
         societyId: society._id, // Link to the society by _id
         societyName: society.societyName, // Store the society name
       });
