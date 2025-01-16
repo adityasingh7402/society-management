@@ -14,7 +14,7 @@ export default function Profile() {
         societyCode: "",
         societyId: "",
         societyName: "",
-        residentId: "",
+        tenantId: "", // Change to tenantId
     });
     const [showModal, setShowModal] = useState(false);
     const [copySuccess, setCopySuccess] = useState(false);
@@ -24,13 +24,13 @@ export default function Profile() {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const token = localStorage.getItem("Resident");
+                const token = localStorage.getItem("Tenant");
                 if (!token) {
                     router.push("/Login");
                     return;
                 }
 
-                const response = await fetch("/api/Resident-Api/get-resident-details", {
+                const response = await fetch("/api/Tenant-Api/get-tenant-details", {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -92,7 +92,7 @@ export default function Profile() {
     };
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(formData.residentId);
+        navigator.clipboard.writeText(formData.tenantId); // Copy tenantId instead of residentId
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 2000);
     };
@@ -102,8 +102,8 @@ export default function Profile() {
         setIsSubmitting(true);
 
         try {
-            const token = localStorage.getItem("Resident");
-            const response = await fetch("/api/Resident-Api/update-resident-profile", {
+            const token = localStorage.getItem("Tenant");
+            const response = await fetch("/api/Tenant-Api/update-tenant-profile", {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -136,7 +136,7 @@ export default function Profile() {
                     <span className="text-base">Back</span>
                 </button>
             </div>
-            <h1 className="text-4xl font-bold text-blue-600 mb-8 text-center">Resident Profile</h1>
+            <h1 className="text-4xl font-bold text-blue-600 mb-8 text-center">Tenant Profile</h1>
 
             <form
                 onSubmit={handlePreviewSubmit}
@@ -145,29 +145,29 @@ export default function Profile() {
                 {/* Read-only fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col">
-                        <label className="font-semibold text-gray-700">Resident ID:</label>
+                        <label className="font-semibold text-gray-700">Tenant ID:</label>
                         <div className="relative">
                             <input
                                 type="text"
-                                name="residentId"
-                                value={formData.residentId}
+                                name="tenantId" // Use tenantId instead of residentId
+                                value={formData.tenantId}
                                 readOnly
                                 className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none w-full"
                             />
-                            <button
+                            {/* <button
                                 onClick={(e) => {
                                     e.preventDefault(); // Prevent form submission
                                     handleCopy();
                                 }}
                                 className="absolute top-1/2 right-2 transform -translate-y-1/2 text-gray-500 hover:text-gray-800"
-                                title="Copy Resident ID"
+                                title="Copy Tenant ID"
                             >
                                 <FiCopy size={20} />
-                            </button>
+                            </button> */}
                         </div>
-                        {copySuccess && (
+                        {/* {copySuccess && (
                             <span className="text-blue-700 text-sm mt-1">Copied!</span>
-                        )}
+                        )} */}
                     </div>
                     <div className="flex flex-col">
                         <label className="font-semibold text-gray-700">Society ID:</label>
@@ -179,6 +179,18 @@ export default function Profile() {
                             className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
                         />
                     </div>
+                    {formData.residentCode && (
+                        <div className="flex flex-col">
+                            <label className="font-semibold text-gray-700">Resident ID:</label>
+                            <input
+                                type="text"
+                                name="societyId"
+                                value={formData.residentCode}
+                                readOnly
+                                className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
+                            />
+                        </div>
+                    )}
                     <div className="flex flex-col">
                         <label className="font-semibold text-gray-700">Society Name:</label>
                         <input
@@ -189,6 +201,16 @@ export default function Profile() {
                             className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
                         />
                     </div>
+                    {formData.parentName && (<div className="flex flex-col">
+                        <label className="font-semibold text-gray-700">Onwer Name:</label>
+                        <input
+                            type="text"
+                            name="societyName"
+                            value={formData.parentName}
+                            readOnly
+                            className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
+                        />
+                    </div>)}
                 </div>
 
                 {/* Editable fields */}
@@ -208,20 +230,6 @@ export default function Profile() {
                         </div>
                     ))}
 
-                    {/* Phone number validation and input */}
-                    {/* <div className="flex flex-col">
-                        <label className="font-semibold text-gray-700">Phone Number:</label>
-                        <input
-                            type="text"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            placeholder="+91 1234567890"
-                            required
-                            className="border border-gray-300 rounded-md p-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div> */}
-
                     {/* Additional phone numbers */}
                     {formData.additionalNumbers.map((number, index) => (
                         <div key={index} className="flex items-center space-x-2">
@@ -235,13 +243,6 @@ export default function Profile() {
                                     placeholder="+913847384738" // Placeholder for additional numbers
                                 />
                             </div>
-                            {/* <button
-                                type="button"
-                                onClick={() => handleRemoveNumber(index)}
-                                className="text-red-500 hover:text-red-700"
-                            >
-                                Remove
-                            </button> */}
                         </div>
                     ))}
                     <button
@@ -292,29 +293,37 @@ export default function Profile() {
                                     <button
                                         type="button"
                                         onClick={() => handleRemoveNumber(index)}
-                                        className="text-red-500 hover:text-red-700"
+                                        className="text-red-500"
                                     >
                                         Remove
                                     </button>
                                 </div>
                             ))}
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className={`w-full py-3 px-6 text-white rounded-md ${isSubmitting
-                                    ? "bg-gray-400 cursor-not-allowed"
-                                    : "bg-green-500 hover:bg-green-600"
-                                    }`}
-                            >
-                                {isSubmitting ? "Updating..." : "Update Profile"}
-                            </button>
+                            <div className="flex justify-between">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="bg-gray-300 text-gray-700 py-2 px-6 rounded-md"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="bg-blue-500 text-white py-2 px-6 rounded-md"
+                                >
+                                    Confirm Update
+                                </button>
+                            </div>
                         </form>
-                        <button
-                            onClick={() => setShowModal(false)}
-                            className="w-full mt-4 bg-gray-300 text-gray-800 py-3 px-6 rounded-md hover:bg-gray-400 transition-colors"
-                        >
-                            Cancel
-                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Submit state */}
+            {isSubmitting && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+                        <p className="text-lg font-semibold text-blue-600">Submitting...</p>
                     </div>
                 </div>
             )}

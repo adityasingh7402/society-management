@@ -14,13 +14,13 @@ export default function Home() {
         const fetchProfile = async () => {
             setLoading(true);
             try {
-                const token = localStorage.getItem("Resident");
+                const token = localStorage.getItem("Tenant");
                 if (!token) {
                     router.push("/Login");
                     return;
                 }
 
-                const response = await fetch("/api/Resident-Api/get-resident-details", {
+                const response = await fetch("/api/Tenant-Api/get-tenant-details", {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -33,7 +33,7 @@ export default function Home() {
                 console.error("Error fetching profile:", error);
                 if (error.message === "Failed to fetch profile") {
                     router.push("/Login");
-                    localStorage.removeItem("Resident");
+                    localStorage.removeItem("Tenant");
                 }
             } finally {
                 setLoading(false);
@@ -44,7 +44,7 @@ export default function Home() {
     }, [router]);
 
     const handleLogout = () => {
-        localStorage.removeItem("Resident");
+        localStorage.removeItem("Tenant");
         router.push("/"); // Redirect to the home page
     };
 
@@ -132,7 +132,7 @@ export default function Home() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
                     </button>
-                    <h1 className="text-xl font-semibold">Welcome to Resident Panel</h1>
+                    <h1 className="text-xl font-semibold">Welcome to Tenant Panel</h1>
                 </header>
                 {loading ? <p>Loading...</p> : renderComponent()}
             </main>

@@ -49,7 +49,7 @@ export default function Login() {
       const detailsEndpoint =
         userType === 'resident'
           ? '/api/Resident-Api/get-resident'
-          : '/api/get-tenant-details';
+          : '/api/Tenant-Api/get-tenant';
 
       // Step 1: Verify OTP
       const verifyResponse = await axios.post(verifyEndpoint, {

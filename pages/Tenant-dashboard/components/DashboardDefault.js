@@ -6,71 +6,36 @@ const DashboardDefault = () => {
   return (
     <div>
       <div className="p-6">
-        {/* Resident Owner Dashboard */}
-        {/* <h1 className="text-6xl font-bold mb-6">Resident Owner Dashboard</h1> */}
+        {/* Tenant Dashboard */}
 
         {/* Profile Management */}
         <div className="mb-10 select-none">
           <h2 className="text-base text-blue-800 font-semibold mb-4">Profile Management</h2>
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <Link href={'/Resident-dashboard/components/Profile'}>
+            <Link href={'/Tenant-dashboard/components/Profile'}>
               <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
                 <div className="text-4xl mb-2">👤</div>
-                <div className="text-lg font-medium text-center">Update Contact Details</div>
+                <div className="text-lg font-medium text-center">Update Personal Details</div>
               </div>
             </Link>
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">📄</div>
-              <div className="text-lg font-medium text-center">Ownership Information</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">🏠</div>
-              <div className="text-lg font-medium text-center">House Status</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Property Actions */}
-        <div className="mb-10 select-none">
-          <h2 className="text-base text-blue-800 font-semibold mb-4">Property Actions</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">📋</div>
-              <div className="text-lg font-medium text-center">List Property for Sale</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">📦</div>
-              <div className="text-lg font-medium text-center">List Items for Sale</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tenant Details */}
-        <div className="mb-10 select-none">
-          <h2 className="text-base text-blue-800 font-semibold mb-4">Tenant Details</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">🧑‍💼</div>
-              <div className="text-lg font-medium text-center">View Tenant Information</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
               <div className="text-4xl mb-2">✍️</div>
-              <div className="text-lg font-medium text-center">Manage Lease Agreements</div>
+              <div className="text-lg font-medium text-center">View Lease Agreements</div>
             </div>
           </div>
         </div>
 
-        {/* Utility Bills */}
+        {/* Tenant Actions */}
         <div className="mb-10 select-none">
-          <h2 className="text-base text-blue-800 font-semibold mb-4">Utility Bills</h2>
+          <h2 className="text-base text-blue-800 font-semibold mb-4">Tenant Actions</h2>
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">💡</div>
-              <div className="text-lg font-medium text-center">View Pending Bills</div>
+              <div className="text-4xl mb-2">🏡</div>
+              <div className="text-lg font-medium text-center">Submit Move-In Request</div>
             </div>
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">📑</div>
-              <div className="text-lg font-medium text-center">Payment History</div>
+              <div className="text-4xl mb-2">🚪</div>
+              <div className="text-lg font-medium text-center">Submit Move-Out Request</div>
             </div>
           </div>
         </div>
@@ -81,23 +46,30 @@ const DashboardDefault = () => {
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
               <div className="text-4xl mb-2">🛠️</div>
-              <div className="text-lg font-medium text-center">File New Request</div>
+              <div className="text-lg font-medium text-center">File New Maintenance Request</div>
             </div>
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
               <div className="text-4xl mb-2">🔍</div>
-              <div className="text-lg font-medium text-center">Track Ticket Status</div>
+              <div className="text-lg font-medium text-center">Track Maintenance Status</div>
             </div>
           </div>
         </div>
 
-        {/* Notices / Polls & Surveys */}
+        {/* Notices */}
         <div className="mb-10 select-none">
-          <h2 className="text-base text-blue-800 font-semibold mb-4">Notices / Polls & Surveys</h2>
+          <h2 className="text-base text-blue-800 font-semibold mb-4">Notices</h2>
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
               <div className="text-4xl mb-2">📢</div>
               <div className="text-lg font-medium text-center">View Announcements</div>
             </div>
+          </div>
+        </div>
+
+        {/* Polls & Surveys */}
+        <div className="mb-10 select-none">
+          <h2 className="text-base text-blue-800 font-semibold mb-4">Polls & Surveys</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
               <div className="text-4xl mb-2">📊</div>
               <div className="text-lg font-medium text-center">Participate in Polls</div>
@@ -105,13 +77,13 @@ const DashboardDefault = () => {
           </div>
         </div>
 
-        {/* Visitor Pre-Approvals */}
+        {/* Delivery Notifications */}
         <div className="mb-10 select-none">
-          <h2 className="text-base text-blue-800 font-semibold mb-4">Visitor Pre-Approvals</h2>
+          <h2 className="text-base text-blue-800 font-semibold mb-4">Delivery Notifications</h2>
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">🛂</div>
-              <div className="text-lg font-medium text-center">Notify Security</div>
+              <div className="text-4xl mb-2">📦</div>
+              <div className="text-lg font-medium text-center">Get Notified on Deliveries</div>
             </div>
           </div>
         </div>
@@ -128,6 +100,7 @@ const DashboardDefault = () => {
         </div>
       </div>
     </div>
+
   );
 };
 
