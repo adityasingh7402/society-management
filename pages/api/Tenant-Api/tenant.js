@@ -78,7 +78,7 @@ export default async function handler(req, res) {
         unitNumber,
         [parentIdField]: parent._id, // Convert the id to ObjectId if valid
         societyCode, // Add society code if available
-        societyName: parentName, // Add society name or resident name
+        societyName: societyName, // Add society name or resident name
         parentType: idType,
         parentName: parentName, // Name of the parent (Society or Resident)
       });

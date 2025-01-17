@@ -20,6 +20,8 @@ const SocietySchema = new mongoose.Schema({
   residents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Resident' }],
   // Tenants Management
   tenants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tenants' }],
+  // Security Management
+  security: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Security' }],
   // Utility Bills (Bills/Utility Maintenance)
   utilityBills: [{ type: mongoose.Schema.Types.ObjectId, ref: 'UtilityBill' }],
   // Maintenance Requests (Repair Maintenance)

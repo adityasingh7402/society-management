@@ -73,7 +73,7 @@ export default function TenantSignup() {
                     console.error("Missing ID value. Ensure that societyId or residentId is provided.");
                     return;
                 }
-                const submitResponse = await fetch('/api/Tenants-Api/tenant', {
+                const submitResponse = await fetch('/api/Tenant-Api/tenant', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...formData, phone: phoneNumber, id: id }), // Use formatted phone number in formData
