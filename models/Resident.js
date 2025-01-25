@@ -2,12 +2,11 @@ import mongoose from 'mongoose';
 
 const residentSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  phone: { type: String, required: true, unique: true }, // Primary phone number, must be unique
+  phone: { type: String, required: true, unique: true },
   additionalNumbers: {
-    type: [String], // Array of strings for additional phone numbers
+    type: [String],
     validate: {
       validator: function (v) {
-        // Validator to ensure each number starts with "+91" and is 13 characters long
         return v.every(num => /^\+91\d{10}$/.test(num));
       },
       message: props => `Invalid phone number(s) in additionalNumbers: ${props.value}`,
@@ -21,12 +20,12 @@ const residentSchema = new mongoose.Schema({
   societyName: { type: String, required: true },
   residentId: {
     type: String,
-    unique: true, // Ensure this field is unique
+    unique: true,
     default: function () {
-      return `R-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; // Generate a unique residentId
+      return `R-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     },
   },
-  tenants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tenant' }], // Array of tenant references
+  tenants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tenant' }],
 });
 
 const Resident = mongoose.models.Resident || mongoose.model('Resident', residentSchema);
