@@ -22,7 +22,7 @@ const DashboardDefault = () => {
 
   return (
     <div>
-      <div className="p-6">
+      <div className="pl-20 pt-10">
         {/* <h1 className="text-6xl font-bold mb-6">Society Management Dashboard</h1> */}
 
         {/* Resident Management & Property Management */}
