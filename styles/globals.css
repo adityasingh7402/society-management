@@ -1,3 +1,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+/* globals.css */
+@keyframes circle-to-container {
+    0% {
+      transform: scale(0);
+      border-radius: 50%;
+    }
+    50% {
+      transform: scale(1.2);
+      border-radius: 20%;
+    }
+    100% {
+      transform: scale(1);
+      border-radius: 16px; /* Match the container's border radius */
+    }
+  }
+  
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  
+  .circle-to-container {
+    animation: circle-to-container 0.5s ease-out forwards;
+  }
+  
+  .fade-in {
+    animation: fade-in 0.3s ease-out forwards;
+  }

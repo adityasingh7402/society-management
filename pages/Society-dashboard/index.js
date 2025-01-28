@@ -150,7 +150,7 @@ export default function Home() {
 
 
                 {/* Main content */}
-                <main className="flex-1 bg-gray-100 lg:ml-64">
+                <main className="flex-1 bg-gray-100 lg:ml-80">
                     {/* Header with the sidebar toggle button */}
 
                     {/* Render the main content */}
