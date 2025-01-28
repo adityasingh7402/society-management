@@ -22,8 +22,8 @@ const SecuritySchema = new mongoose.Schema(
       unique: true,
     },
     guardImage: {
-      type: String, // Store the URL or path to the image
-      required: false, // Optional if the image is not mandatory
+      type: String,
+      required: false,
     },
     shiftTimings: {
       start: { type: String, required: true },
@@ -58,7 +58,7 @@ const SecuritySchema = new mongoose.Schema(
         description: { type: String, required: true },
         reportedBy: { type: String, required: true },
         reportedTime: { type: Date, default: Date.now },
-        attachments: [String], // Store file or image URLs
+        attachments: [String],
         resolutionStatus: { type: String, enum: ['Resolved', 'Pending'], default: 'Pending' },
       },
     ],

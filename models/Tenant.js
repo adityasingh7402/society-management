@@ -19,21 +19,21 @@ const tenantSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Society',
     required: function() {
-      return this.parentType === 'societyId'; // Only required if parentType is 'societyId'
+      return this.parentType === 'societyId'; 
     },
   },
   residentId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Resident',
     required: function() {
-      return this.parentType === 'residentId'; // Only required if parentType is 'residentId'
+      return this.parentType === 'residentId'; 
     },
   },
   societyCode: { type: String, required: function() {
-    return this.parentType === 'societyId'; // Required if parentType is 'societyId'
+    return this.parentType === 'societyId';
   }},
   residentCode: { type: String, required: function() {
-    return this.parentType === 'residentId'; // Required if parentType is 'societyId'
+    return this.parentType === 'residentId';
   }},
 //   societyName: { type: String, required: function() {
 //     return this.parentType === 'societyId'; // Required if parentType is 'societyId'
@@ -44,9 +44,9 @@ const tenantSchema = new mongoose.Schema({
       return `T-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; 
     },
   },
-  parentType: { type: String, required: true }, // 'societyId' or 'residentId'
+  parentType: { type: String, required: true },
   societyName: { type: String, required: true },
-  parentName: { type: String, required: true }, // Name of the parent (Society or Resident)
+  parentName: { type: String, required: true },
 });
 
 const Tenant = mongoose.models.Tenant || mongoose.model('Tenant', tenantSchema);
