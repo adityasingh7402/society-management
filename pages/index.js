@@ -16,7 +16,7 @@ export default function Home() {
   return (
     <div className="bg-gray-50 min-h-screen">
       <Head>
-        <title>Society Management System</title>
+        <title>Society Management Application</title>
         <meta name="description" content="Simplify your society management with our comprehensive solution." />
       </Head>
 
