@@ -14,7 +14,9 @@ export default function Enroll() {
     managerName: '',
     managerPhone: '',
     managerEmail: '',
-    societyAddress: '',
+    street: '',
+    city: '',
+    state: '',
     zipCode: '',
     description: '',  // Added description field
     otp: '',
@@ -125,7 +127,7 @@ export default function Enroll() {
       </header>
 
       {/* Enrollment Section */}
-      <section className="py-20 bg-gray-100 min-h-screen">
+      <section className="py-10 bg-gray-100 min-h-screen">
         <div className="container mx-auto px-6">
           <div className="text-center mb-3 lg:mb-10">
             <h2 className="text-4xl font-bold text-blue-600 mb-5">Enroll Your Society</h2>
@@ -258,36 +260,65 @@ export default function Enroll() {
               {currentStep === 3 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
                   <div className="w-full">
-                    <label htmlFor="societyAddress" className="block text-lg font-medium text-gray-700">
-                      Society Address
+                    <label htmlFor="street" className="block text-lg font-medium text-gray-700">
+                      Street
                     </label>
                     <input
                       type="text"
-                      id="societyAddress"
-                      name="societyAddress"
-                      value={formData.societyAddress}
+                      id="street"
+                      name="street"
+                      value={formData.street}
                       onChange={handleChange}
                       required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter society's address"
+                      className="w-full p-4 border border-gray-300 rounded-md focus:ring-blue-500"
+                      placeholder="Enter street address"
                     />
                   </div>
                   <div className="w-full">
-                    <label htmlFor="zipCode" className="block text-lg font-medium text-gray-700">
-                      Zip Code
+                    <label htmlFor="city" className="block text-lg font-medium text-gray-700">
+                      City
                     </label>
                     <input
                       type="text"
-                      id="zipCode"
-                      name="zipCode"
-                      value={formData.zipCode}
+                      id="city"
+                      name="city"
+                      value={formData.city}
                       onChange={handleChange}
                       required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter zip code"
+                      className="w-full p-4 border border-gray-300 rounded-md focus:ring-blue-500"
+                      placeholder="Enter city"
                     />
                   </div>
-
+                  <div className="w-full">
+                    <label htmlFor="state" className="block text-lg font-medium text-gray-700">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      id="state"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleChange}
+                      required
+                      className="w-full p-4 border border-gray-300 rounded-md focus:ring-blue-500"
+                      placeholder="Enter state"
+                    />
+                  </div>
+                  <div className="w-full">
+                    <label htmlFor="pinCode" className="block text-lg font-medium text-gray-700">
+                      Pin Code
+                    </label>
+                    <input
+                      type="text"
+                      id="pinCode"
+                      name="pinCode"
+                      value={formData.pinCode}
+                      onChange={handleChange}
+                      required
+                      className="w-full p-4 border border-gray-300 rounded-md focus:ring-blue-500"
+                      placeholder="Enter pin code"
+                    />
+                  </div>
                   <div className="w-full">
                     <label htmlFor="description" className="block text-lg font-medium text-gray-700">
                       Description
@@ -304,6 +335,7 @@ export default function Enroll() {
                   </div>
                 </div>
               )}
+
 
               {/* Step 4 - OTP Verification */}
               {currentStep === 4 && (

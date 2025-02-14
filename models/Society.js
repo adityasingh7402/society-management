@@ -11,8 +11,13 @@ const SocietySchema = new mongoose.Schema({
   managerName: { type: String, required: true },
   managerPhone: { type: String, required: true, unique: true },
   managerEmail: { type: String, required: true },
-  societyAddress: { type: String, required: true },
-  zipCode: { type: String, required: true },
+  
+  // Address Fields
+  street: { type: String, required: true },
+  city: { type: String, required: true },
+  state: { type: String, required: true },
+  pinCode: { type: String, required: true },
+  
   description: { type: String, required: true },
   societyImages: [String],
 

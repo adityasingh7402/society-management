@@ -26,7 +26,7 @@ const DashboardDefault = () => {
         {/* <h1 className="text-6xl font-bold mb-6">Society Management Dashboard</h1> */}
 
         {/* Resident Management & Property Management */}
-        <div className="mb-10 select-none">
+        <div className="mb-10">
           <h2 className="text-base text-blue-800 font-semibold mb-4">Resident Management & Property Management</h2>
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
@@ -49,7 +49,7 @@ const DashboardDefault = () => {
         </div>
 
         {/* Finance Management & Maintenance Requests */}
-        <div className="mb-10 select-none">
+        <div className="mb-10">
           <h2 className="text-base text-blue-800 font-semibold mb-4">Finance Management & Maintenance Requests</h2>
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
@@ -72,7 +72,7 @@ const DashboardDefault = () => {
         </div>
 
         {/* Notices & Community Features */}
-        <div className="mb-10 select-none">
+        <div className="mb-10">
           <h2 className="text-base text-blue-800 font-semibold mb-4">Notices & Community Features</h2>
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">
@@ -91,7 +91,7 @@ const DashboardDefault = () => {
         </div>
 
         {/* Security Management & Emergency Protocols */}
-        <div className="mb-10 select-none">
+        <div className="mb-10">
           <h2 className="text-base text-blue-800 font-semibold mb-4">Security Management & Emergency Protocols</h2>
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-10 bg-white border rounded-lg shadow hover:shadow-md transition-shadow">

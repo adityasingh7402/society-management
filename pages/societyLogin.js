@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useState } from 'react';
 import axios from 'axios';
 import { FaPhoneAlt } from "react-icons/fa";
+import Link from 'next/link';
 
 export default function Login() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -41,7 +42,7 @@ export default function Login() {
       alert('Please enter a valid OTP.');
       return;
     }
-  
+
     try {
       // Step 1: Verify OTP
       const response = await axios.post('/api/verify-otp', {
@@ -49,19 +50,19 @@ export default function Login() {
         phoneNumber: `+91${phoneNumber}`,
         verificationId,
       });
-  
+
       if (response.data.success) {
         // Step 2: Fetch Society Details
         const societyResponse = await axios.post('/api/get-society', {
           phoneNumber: `+91${phoneNumber}`,
         });
-  
+
         if (societyResponse.data.success) {
           const { society, token } = societyResponse.data;
-  
+
           // Step 3: Store JWT Token in LocalStorage
           localStorage.setItem('Society', token);
-  
+
           // alert(`Welcome to ${society.name}!`);
           // Redirect to the dashboard or homepage
           window.location.href = '/Society-dashboard';
@@ -76,7 +77,7 @@ export default function Login() {
       alert('An error occurred. Please try again.');
     }
   };
-  
+
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -105,7 +106,7 @@ export default function Login() {
         <div className="container mx-auto px-6">
           <div className="max-w-lg mx-auto bg-white shadow-md rounded-lg p-8">
             <h2 className="text-2xl font-bold text-center text-blue-600 mb-6">Login</h2>
-            
+
             {/* Phone Number Input */}
             {!otpSent ? (
               <div>
@@ -131,6 +132,8 @@ export default function Login() {
                 >
                   {loadingOtp ? 'Sending OTP...' : 'Send OTP'}
                 </button>
+                <Link href={'./Enroll-society'}><div className="aingupLink pt-3 font-medium pr-1 flex justify-end items-center"><p className='text-blue-800 text-sm'>Enroll Society</p></div></Link>
+
               </div>
             ) : (
               <div>

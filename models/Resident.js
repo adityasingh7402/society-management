@@ -26,6 +26,11 @@ const residentSchema = new mongoose.Schema({
     },
   },
   tenants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tenant' }],
+  societyVerification: {
+    type: String,
+    enum: ['Approved', 'Reject', 'Pending'],
+    default: 'Pending',
+  },
 });
 
 const Resident = mongoose.models.Resident || mongoose.model('Resident', residentSchema);
