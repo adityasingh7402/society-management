@@ -1,9 +1,9 @@
 import React from 'react'
 
-const OwnerProfile = () => {
+const PollsSurveys = () => {
   return (
-    <div>OwnerProfile</div>
+    <div>PollsSurveys</div>
   )
 }
 
-export default OwnerProfile
+export default PollsSurveys

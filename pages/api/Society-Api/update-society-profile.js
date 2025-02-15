@@ -27,8 +27,10 @@ export default async function handler(req, res) {
       managerName,
       managerPhone,
       managerEmail,
-      societyAddress,
-      zipCode,
+      street,
+      city,
+      state,
+      pinCode,
       description,
     } = req.body;
 
@@ -46,8 +48,10 @@ export default async function handler(req, res) {
         managerName,
         managerPhone: managerPhone.startsWith('+91') ? managerPhone : `+91${managerPhone}`, // Add prefix only if not already present
         managerEmail,
-        societyAddress,
-        zipCode,
+        street,
+        city,
+        state,
+        pinCode,
         description,
       },
       { new: true } // Return the updated document

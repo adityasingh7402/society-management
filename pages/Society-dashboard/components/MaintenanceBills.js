@@ -1,9 +1,9 @@
 import React from 'react'
 
-const OwnerProfile = () => {
+const MaintenanceBills = () => {
   return (
-    <div>OwnerProfile</div>
+    <div>MaintenanceBills</div>
   )
 }
 
-export default OwnerProfile
+export default MaintenanceBills

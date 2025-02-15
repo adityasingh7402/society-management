@@ -18,6 +18,7 @@ const residentSchema = new mongoose.Schema({
     street: { type: String, required: true },
     city: { type: String, required: true },
     state: { type: String, required: true },
+    pinCode: { type: String, required: true },
   },
   unitNumber: { type: String, required: true },
   societyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true },

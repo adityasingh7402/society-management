@@ -2,8 +2,21 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import DashboardDefault from "./components/DashboardDefault";
 import SocietyProfile from "./components/SocietyProfile";
-import Link from "next/link";
-import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaChartBar, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt } from "react-icons/fa";
+import OwnerProfiles from "./components/OwnerProfile";
+import TenantProfiles from "./components/TenantProfile";
+import MaintenanceBills from "./components/MaintenanceBills";
+import UtilityBills from "./components/UtilityBills";
+import PaymentTracking from "./components/PaymentTracking";
+import Tickets from "./components/Tickets";
+import Announcements from "./components/Announcements";
+import PollsSurveys from "./components/PollsSurveys";
+import DiscussionForums from "./components/DiscussionForums";
+import VisitorLogs from "./components/VisitorLogs";
+import DeliveryManagement from "./components/DeliveryManagement";
+import EmergencyAlerts from "./components/EmergencyAlerts";
+import IncidentLogs from "./components/IncidentLogs";
+import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt } from "react-icons/fa";
+import { CiLogout } from "react-icons/ci";
 
 export default function Home() {
     const router = useRouter();
@@ -61,9 +74,36 @@ export default function Home() {
 
     const renderComponent = () => {
         switch (component) {
+            case "DashboardDefault":
+                return <DashboardDefault />;
             case "SocietyProfile":
                 return <SocietyProfile />;
-            case "DashboardDefault":
+            case "OwnerProfiles":
+                return <OwnerProfiles />;
+            case "TenantProfiles":
+                return <TenantProfiles />;
+            case "MaintenanceBills":
+                return <MaintenanceBills />;
+            case "UtilityBills":
+                return <UtilityBills />;
+            case "PaymentTracking":
+                return <PaymentTracking />;
+            case "Tickets":
+                return <Tickets />;
+            case "Announcements":
+                return <Announcements />;
+            case "PollsSurveys":
+                return <PollsSurveys />;
+            case "DiscussionForums":
+                return <DiscussionForums />;
+            case "VisitorLogs":
+                return <VisitorLogs />;
+            case "DeliveryManagement":
+                return <DeliveryManagement />;
+            case "EmergencyAlerts":
+                return <EmergencyAlerts />;
+            case "IncidentLogs":
+                return <IncidentLogs />;
             default:
                 return <DashboardDefault />;
         }
@@ -99,79 +139,118 @@ export default function Home() {
                         <ul className="text-base pb-20">
                             <li className="mb-1 font-semibold text-gray-400 px-5">Main</li>
                             <li
-                                className={`mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Dashboard" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Dashboard" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
                                 onClick={() => handleComponent("DashboardDefault", "Dashboard")}
                             >
                                 Dashboard
                             </li>
                             <li
-                                className={`mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "SocietyProfile" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "SocietyProfile" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
                                 onClick={() => handleComponent("SocietyProfile", "SocietyProfile")}
                             >
                                 Society Profile
                             </li>
 
-                            <li className="mb-1 font-semibold text-gray-400 px-5">Resident Management</li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
+                            <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Resident Management</li>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "OwnerProfiles" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("OwnerProfiles", "OwnerProfiles")}
+                            >
                                 <FaUserTie className="mr-3" />
-                                <Link href="/owner-profiles">Owner Profiles</Link>
+                                Owner Profiles
                             </li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "TenantProfiles" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("TenantProfiles", "TenantProfiles")}
+                            >
                                 <FaUsers className="mr-3" />
-                                <Link href="/tenant-profiles">Tenant Profiles</Link>
+                                Tenant Profiles
                             </li>
 
-                            <li className="mb-1 font-semibold text-gray-400 px-5">Finance & Maintenance</li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
+                            <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Finance & Maintenance</li>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "MaintenanceBills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("MaintenanceBills", "MaintenanceBills")}
+                            >
                                 <FaWrench className="mr-3" />
-                                <Link href="/maintenance-bills">Maintenance Bills</Link>
+                                Maintenance Bills
                             </li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <FaWrench className="mr-3" />
-                                <Link href="/utility-bills">Utility Bills</Link>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "UtilityBills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("UtilityBills", "UtilityBills")}
+                            >
+                                <FaClipboardList className="mr-3" />
+                                Utility Bills
                             </li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <FaWrench className="mr-3" />
-                                <Link href="/payment-tracking">Payment Tracking</Link>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "PaymentTracking" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("PaymentTracking", "PaymentTracking")}
+                            >
+                                <FaMoneyBill className="mr-3" />
+                                Payment Tracking
                             </li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <FaWrench className="mr-3" />
-                                <Link href="/tickets">Ticketss</Link>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Tickets" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("Tickets", "Tickets")}
+                            >
+                                <FaStickyNote className="mr-3" />
+                                Tickets
                             </li>
 
-                            <li className="mb-1 font-semibold text-gray-400 px-5">Notices & Community</li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
+                            <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Notices & Community</li>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Announcements" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("Announcements", "Announcements")}
+                            >
                                 <FaBullhorn className="mr-3" />
-                                <Link href="/announcements">Announcements</Link>
+                                Announcements
                             </li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <FaBullhorn className="mr-3" />
-                                <Link href="/polls-surveys">Polls & Surveys</Link>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "PollsSurveys" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("PollsSurveys", "PollsSurveys")}
+                            >
+                                <FaPoll className="mr-3" />
+                                Polls & Surveys
                             </li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <FaBullhorn className="mr-3" />
-                                <Link href="/discussion-forums">Discussion Forums</Link>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "DiscussionForums" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("DiscussionForums", "DiscussionForums")}
+                            >
+                                <FaComments className="mr-3" />
+                                Discussion Forums
                             </li>
 
-                            <li className="mb-1 font-semibold text-gray-400 px-5">Security & Emergency</li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <FaExclamationTriangle className="mr-3" />
-                                <Link href="/visitor-logs">Visitor Logs</Link>
+                            <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Security & Emergency</li>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "VisitorLogs" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("VisitorLogs", "VisitorLogs")}
+                            >
+                                <FaUserShield className="mr-3" />
+                                Visitor Logs
                             </li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <FaExclamationTriangle className="mr-3" />
-                                <Link href="/delivery-management">Delivery Management</Link>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "DeliveryManagement" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("DeliveryManagement", "DeliveryManagement")}
+                            >
+                                <FaBox className="mr-3" />
+                                Delivery Management
                             </li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "EmergencyAlerts" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("EmergencyAlerts", "EmergencyAlerts")}
+                            >
                                 <FaExclamationTriangle className="mr-3" />
-                                <Link href="/emergency-alerts">Emergency Alerts</Link>
+                                Emergency Alerts
                             </li>
-                            <li className="mb-2 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <FaExclamationTriangle className="mr-3" />
-                                <Link href="/incident-logs">Incident Logs</Link>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "IncidentLogs" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("IncidentLogs", "IncidentLogs")}
+                            >
+                                <FaFileAlt className="mr-3" />
+                                Incident Logs
                             </li>
-                            <li onClick={handleLogout} className="mb-2 flex text-lg items-center py-2 px-5 rounded cursor-pointer transition-all bg-red-800 hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <FaExclamationTriangle className="mr-3" />
+                            <li onClick={handleLogout} className="mb-1 flex text-lg items-center py-2 px-5 rounded cursor-pointer transition-all bg-red-800 hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
+                                <CiLogout className="mr-3" />
                                 <a>Logout</a>
                             </li>
 

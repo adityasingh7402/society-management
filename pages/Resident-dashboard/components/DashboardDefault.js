@@ -13,7 +13,7 @@ const DashboardDefault = () => {
       {/* Floating Circle Button */}
       <button
         onClick={togglePopup}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 z-50"
+        className="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 z-10"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -33,10 +33,10 @@ const DashboardDefault = () => {
 
       {/* Popup Container */}
       {isPopupOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
           {/* Animated Container */}
           <div
-            className="bg-gray-100 rounded-2xl p-6 w-11/12 max-w-2xl relative circle-to-container"
+            className="bg-gray-100 rounded-2xl p-6 w-11/12 bottom-7 max-w-2xl relative circle-to-container"
             style={{
               transformOrigin: 'bottom right', // Start animation from the bottom-right corner
             }}
@@ -135,8 +135,8 @@ const DashboardDefault = () => {
 
           {/* Right Side - Content */}
           <div className="flex-1 w-full">
-            <div className="space-y-4 text-center md:text-left flex justify-center items-start flex-col">
-              <h1 className="text-4xl font-bold">Society</h1>
+            <div className="space-y-1 text-center md:text-left flex justify-center items-start flex-col">
+              <h1 className="text-5xl font-bold">Society</h1>
               <p className="text-sm sm:text-base text-left text-gray-300 max-w-xl">
                 Connecting people and building communities through meaningful interactions and shared experiences.
               </p>

@@ -9,8 +9,10 @@ export default function SocietyProfile() {
         managerName: '',
         managerPhone: '',
         managerEmail: '',
-        societyAddress: '',
-        zipCode: '',
+        street: '',
+        city: '',
+        state: '',
+        pinCode: '',
         description: '',
     });
     const [loading, setLoading] = useState(true);
@@ -117,7 +119,7 @@ export default function SocietyProfile() {
 
                 {/* Two inputs per row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {['societyName', 'societyType', 'managerName', 'managerPhone', 'managerEmail', 'societyAddress', 'zipCode'].map((field) => (
+                    {['societyName', 'societyType', 'managerName', 'managerPhone', 'managerEmail', 'street', 'city', 'state', 'pinCode'].map((field) => (
                         <div key={field} className="flex flex-col">
                             <label className="font-semibold text-gray-700 capitalize">
                                 {field.replace(/([A-Z])/g, ' $1')}:
@@ -158,13 +160,13 @@ export default function SocietyProfile() {
 
             {/* Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                    <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto">
                         <h2 className="text-xl font-bold mb-4">Confirm & Update</h2>
                         <p className="text-gray-600 mb-4">Make changes if needed before updating.</p>
 
-                        <form onSubmit={handleFinalSubmit} className="space-y-4">
-                            {['societyName', 'societyType', 'managerName', 'managerPhone', 'managerEmail', 'societyAddress', 'zipCode', 'description'].map((key) => (
+                        <form onSubmit={handleFinalSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {['societyName', 'societyType', 'managerName', 'managerPhone', 'managerEmail', 'street', 'city', 'state', 'pinCode', 'description'].map((key) => (
                                 <div key={key} className="flex flex-col">
                                     <label className="font-semibold text-gray-700 capitalize">
                                         {key.replace(/([A-Z])/g, ' $1')}:
@@ -178,25 +180,29 @@ export default function SocietyProfile() {
                                     />
                                 </div>
                             ))}
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className={`w-full py-3 px-6 text-white rounded-md ${
-                                    isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
-                                }`}
-                            >
-                                {isSubmitting ? 'Updating...' : 'Update Profile'}
-                            </button>
+                            <div className="col-span-1 md:col-span-2">
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className={`w-full py-3 px-6 text-white rounded-md ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
+                                        }`}
+                                >
+                                    {isSubmitting ? 'Updating...' : 'Update Profile'}
+                                </button>
+                            </div>
+                            <div className="col-span-1 md:col-span-2">
+                                <button
+                                    onClick={() => setShowModal(false)}
+                                    className="w-full bg-gray-300 text-gray-800 py-3 px-6 rounded-md hover:bg-gray-400 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </form>
-                        <button
-                            onClick={() => setShowModal(false)}
-                            className="w-full mt-4 bg-gray-300 text-gray-800 py-3 px-6 rounded-md hover:bg-gray-400 transition-colors"
-                        >
-                            Cancel
-                        </button>
                     </div>
                 </div>
             )}
+
         </div>
     );
 }
