@@ -1,13 +1,18 @@
 import Head from 'next/head';
-import { useState } from 'react';
-import axios from 'axios'; // Import axios for making requests
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useRouter } from 'next/router';
 
 export default function ResidentSignup() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState(1);
     const [formData, setFormData] = useState({
+        societyName: '',
         societyId: '',
+        street: '',
+        city: '',
+        state: '',
+        pinCode: '',
         name: '',
         phone: '',
         email: '',
@@ -17,11 +22,42 @@ export default function ResidentSignup() {
     const [otp, setOtp] = useState('');
     const [otpSent, setOtpSent] = useState(false);
     const [otpError, setOtpError] = useState('');
+    const [societies, setSocieties] = useState([]); // List of societies for dropdown
+    const [filteredSocieties, setFilteredSocieties] = useState([]); // Filtered list based on user input
 
     const handleNext = () => setCurrentStep(currentStep + 1);
     const handleBack = () => setCurrentStep(currentStep - 1);
 
-    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
+
+        // Ensure societies is an array before filtering
+        if (name === 'societyName' && Array.isArray(societies)) {
+            const filtered = societies.filter(society =>
+                society?.societyName?.toLowerCase().includes(value.toLowerCase())
+            );
+            setFilteredSocieties(filtered);
+        }
+
+        console.log("so", societies);
+        console.log("fs", filteredSocieties);
+    };
+
+
+
+    const handleSocietySelect = (society) => {
+        setFormData({
+            ...formData,
+            societyName: society.societyName,
+            street: society.street,
+            city: society.city,
+            state: society.state,
+            societyId: society.societyId,
+            pinCode: society.pinCode,
+        });
+        setFilteredSocieties([]); // Clear the dropdown after selection
+    };
 
     const handleOtpChange = (e) => setOtp(e.target.value);
 
@@ -54,7 +90,7 @@ export default function ResidentSignup() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     otp: otp,
-                    phoneNumber: phoneNumber, // Use formatted phone number
+                    phoneNumber: phoneNumber,
                 }),
             });
 
@@ -67,14 +103,14 @@ export default function ResidentSignup() {
                 const submitResponse = await fetch('/api/Resident-Api/resident', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...formData, phone: phoneNumber }), // Use formatted phone number in formData
+                    body: JSON.stringify({ ...formData, phone: phoneNumber }),
                 });
 
                 const submitData = await submitResponse.json();
 
                 if (submitData.message === 'Resident signed up successfully!') {
                     alert('Resident signed up successfully!');
-                    router.push('/Login'); // Redirect after successful signup
+                    router.push('/Login');
                 } else {
                     alert('Error in resident signup.');
                 }
@@ -87,6 +123,20 @@ export default function ResidentSignup() {
         }
     };
 
+    // Fetch societies list on component mount
+    useEffect(() => {
+        const fetchSocieties = async () => {
+            try {
+                const response = await fetch('/api/societies');
+                const data = await response.json();
+                setSocieties(data.societies || []); // Ensure it stays an array
+            } catch (error) {
+                console.error("Failed to fetch societies", error);
+            }
+        };
+
+        fetchSocieties();
+    }, []);
 
     return (
         <div className="bg-gray-50 min-h-screen">
@@ -108,7 +158,7 @@ export default function ResidentSignup() {
             </header>
 
             {/* Signup Form */}
-            <section className="py-20 bg-gray-100 min-h-screen">
+            <section className="py-10 bg-gray-100 min-h-screen">
                 <div className="container mx-auto px-6">
                     <div className="text-center mb-3 lg:mb-10">
                         <h2 className="text-4xl font-bold text-blue-600 mb-5">Resident Signup</h2>
@@ -118,25 +168,97 @@ export default function ResidentSignup() {
                     {/* Form Sections */}
                     <div className="bg-white shadow-lg rounded-lg p-8">
                         <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
-                            {/* Step 1 - Resident Details */}
+                            {/* Step 1 - Society Details */}
                             {currentStep === 1 && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
-                                    <div className="w-full">
-                                        <label htmlFor="societyId" className="block text-lg font-medium text-gray-700">
-                                            Society ID
+                                    {/* Society Name Input with Autocomplete */}
+                                    <div className="w-full relative">
+                                        <label htmlFor="societyName" className="block text-lg font-medium text-gray-700">
+                                            Society Name
                                         </label>
                                         <input
                                             type="text"
-                                            id="societyId"
-                                            name="societyId"
-                                            value={formData.societyId}
+                                            id="societyName"
+                                            name="societyName"
+                                            value={formData.societyName || ""}
                                             onChange={handleChange}
                                             required
                                             className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder="Enter your society's ID"
+                                            placeholder="Enter your society's name"
+                                        />
+
+                                        {/* Autocomplete Suggestions */}
+                                        {filteredSocieties.length > 0 && (
+                                            <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto">
+                                                {filteredSocieties.map((society) => (
+                                                    <div
+                                                        key={society._id}  // ✅ Fixed Key
+                                                        onClick={() => handleSocietySelect(society)}
+                                                        className="p-2 hover:bg-gray-100 cursor-pointer"
+                                                    >
+                                                        {society.societyName}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Street Input */}
+                                    <div className="w-full">
+                                        <label htmlFor="street" className="block text-lg font-medium text-gray-700">
+                                            Street
+                                        </label>
+                                        <input
+                                            type="text"
+                                            id="street"
+                                            name="street"
+                                            value={formData.street}
+                                            onChange={handleChange}
+                                            required
+                                            className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Enter street"
                                         />
                                     </div>
 
+                                    {/* City Input */}
+                                    <div className="w-full">
+                                        <label htmlFor="city" className="block text-lg font-medium text-gray-700">
+                                            City
+                                        </label>
+                                        <input
+                                            type="text"
+                                            id="city"
+                                            name="city"
+                                            value={formData.city}
+                                            onChange={handleChange}
+                                            required
+                                            className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Enter city"
+                                        />
+                                    </div>
+
+                                    {/* State Input */}
+                                    <div className="w-full">
+                                        <label htmlFor="state" className="block text-lg font-medium text-gray-700">
+                                            State
+                                        </label>
+                                        <input
+                                            type="text"
+                                            id="state"
+                                            name="state"
+                                            value={formData.state}
+                                            onChange={handleChange}
+                                            required
+                                            className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Enter state"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Step 2 - Contact Details */}
+                            {currentStep === 2 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
                                     <div className="w-full">
                                         <label htmlFor="name" className="block text-lg font-medium text-gray-700">
                                             Name
@@ -152,12 +274,6 @@ export default function ResidentSignup() {
                                             placeholder="Enter your name"
                                         />
                                     </div>
-                                </div>
-                            )}
-
-                            {/* Step 2 - Contact Details */}
-                            {currentStep === 2 && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
                                     <div className="w-full">
                                         <label htmlFor="phone" className="block text-lg font-medium text-gray-700">
                                             Phone
@@ -195,7 +311,7 @@ export default function ResidentSignup() {
                             {/* Step 3 - Address and Unit Number */}
                             {currentStep === 3 && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
-                                    <div className="w-full">
+                                    {/* <div className="w-full">
                                         <label htmlFor="address" className="block text-lg font-medium text-gray-700">
                                             Address
                                         </label>
@@ -209,7 +325,7 @@ export default function ResidentSignup() {
                                             className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             placeholder="Enter your address"
                                         />
-                                    </div>
+                                    </div> */}
 
                                     <div className="w-full">
                                         <label htmlFor="unitNumber" className="block text-lg font-medium text-gray-700">
@@ -293,7 +409,6 @@ export default function ResidentSignup() {
                     </div>
                 </div>
             </section>
-
         </div>
     );
 }

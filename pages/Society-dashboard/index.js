@@ -183,7 +183,7 @@ export default function Home() {
                 </aside>
 
                 {/* Main Content */}
-                <main className="flex-1 bg-gray-100 lg:ml-80 p-5">
+                <main className="flex-1 bg-gray-100 lg:ml-80">
                     {loading ? <p>Loading...</p> : renderComponent()}
                 </main>
             </div>

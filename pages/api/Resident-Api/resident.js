@@ -4,11 +4,10 @@ import Resident from '../../../models/Resident';
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
-    const { societyId, name, phone, email, address, unitNumber } = req.body;
+    const { societyId, name, phone, email, street, city, state, unitNumber, pinCode } = req.body;
 
-    // console.log(societyId, name, phone, email, address, unitNumber )
     // Step 1: Input Validation
-    if (!societyId || !name || !phone || !email || !address || !unitNumber) {
+    if (!societyId || !name || !phone || !email || !street || !city || !state || !unitNumber) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -23,35 +22,39 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: 'Society ID not found' });
       }
 
-      // Step 4: Check if a resident with the same email already exists
+      // Step 4: Check if a resident with the same phone number already exists
       const existingResident = await Resident.findOne({ phone });
 
       if (existingResident) {
         return res.status(400).json({ message: 'Resident with this Mobile already exists' });
       }
 
-      // Step 5: Create the new resident document
+      // Step 5: Create the new resident document with structured address
       const newResident = new Resident({
         name,
         phone,
         email,
-        address,
         unitNumber,
         societyCode: society.societyId,
         societyId: society._id, // Link to the society by _id
         societyName: society.societyName, // Store the society name
+        address: {
+          societyName: society.societyName, // Automatically set from the found society
+          street,
+          city,
+          state,
+          pinCode
+        }
       });
 
       await newResident.save();
 
       // Step 6: Add the new resident's ID to the society's resident list
-      // console.log(society.residents)
-      if (!society.residents) {
+      if (!Array.isArray(society.residents)) {
         society.residents = []; // Ensure residents is an array
       }
       society.residents.push(newResident._id);
       await society.save();
-      console.log(society.residents)
 
       // Step 7: Respond with success message
       res.status(200).json({ message: 'Resident signed up successfully!' });

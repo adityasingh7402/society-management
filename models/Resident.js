@@ -13,7 +13,12 @@ const residentSchema = new mongoose.Schema({
     },
   },
   email: { type: String, required: true },
-  address: { type: String, required: true },
+  address: {
+    societyName: { type: String, required: true },
+    street: { type: String, required: true },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+  },
   unitNumber: { type: String, required: true },
   societyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true },
   societyCode: { type: String, required: true },
