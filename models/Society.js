@@ -1,5 +1,23 @@
 import mongoose from 'mongoose';
 
+// Define the schema for a flat
+const FlatSchema = new mongoose.Schema({
+  flatNumber: { type: String, required: true }, // Flat number (e.g., A-101)
+  residents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Resident' }], // Array of residents in the flat
+});
+
+// Define the schema for a floor
+const FloorSchema = new mongoose.Schema({
+  flats: [FlatSchema], // Array of flats on the floor
+});
+
+// Define the schema for a block
+const BlockSchema = new mongoose.Schema({
+  blockName: { type: String, required: true }, // Block name (e.g., A, B, C)
+  floors: [FloorSchema], // Array of floors in the block
+});
+
+// Update the SocietySchema to include the apartment structure
 const SocietySchema = new mongoose.Schema({
   societyId: {
     type: String,
@@ -43,6 +61,9 @@ const SocietySchema = new mongoose.Schema({
   // Emergency Protocols
   emergencyNotifications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'EmergencyNotification' }],
   emergencyIncidents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'EmergencyIncident' }],
+
+  // Apartment Structure
+  apartmentStructure: [BlockSchema], // Array of blocks in the apartment structure
 }, { timestamps: true });
 
 export default mongoose.models.Society || mongoose.model('Society', SocietySchema);

@@ -11,6 +11,7 @@ import Tickets from "./components/Tickets";
 import Announcements from "./components/Announcements";
 import PollsSurveys from "./components/PollsSurveys";
 import DiscussionForums from "./components/DiscussionForums";
+import ApartmentStructureForm from "./components/ApartmentStructureForm";
 import VisitorLogs from "./components/VisitorLogs";
 import DeliveryManagement from "./components/DeliveryManagement";
 import EmergencyAlerts from "./components/EmergencyAlerts";
@@ -78,6 +79,8 @@ export default function Home() {
                 return <DashboardDefault />;
             case "SocietyProfile":
                 return <SocietyProfile />;
+            case "ApartmentStructureForm":
+                return <ApartmentStructureForm />;
             case "OwnerProfiles":
                 return <OwnerProfiles />;
             case "TenantProfiles":
@@ -149,6 +152,12 @@ export default function Home() {
                                 onClick={() => handleComponent("SocietyProfile", "SocietyProfile")}
                             >
                                 Society Profile
+                            </li>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "ApartmentStructureForm" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("ApartmentStructureForm", "ApartmentStructureForm")}
+                            >
+                                Apartment Structure Form
                             </li>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Resident Management</li>
