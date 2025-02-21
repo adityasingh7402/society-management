@@ -33,12 +33,12 @@ const DashboardDefault = () => {
 
       {/* Popup Container */}
       {isPopupOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           {/* Animated Container */}
           <div
-            className="bg-gray-100 rounded-2xl p-6 w-11/12 bottom-7 max-w-2xl relative circle-to-container"
+            className="bg-gray-100 rounded-2xl p-6 w-11/12 flex justify-center items-center max-w-2xl relative circle-to-container"
             style={{
-              transformOrigin: 'bottom right', // Start animation from the bottom-right corner
+              transformOrigin: 'center center',
             }}
           >
             {/* Close Button */}
@@ -88,7 +88,7 @@ const DashboardDefault = () => {
               </div>
               <div className="flex flex-col items-center transition-colors cursor-pointer">
                 <div className="flex items-center justify-center w-16 h-16 bg-white text-blue-900 text-3xl rounded-full mb-2">
-                  🧑‍💼
+                  🧑
                 </div>
                 <div className="text-sm font-medium text-center mt-2">Tenant</div>
               </div>
@@ -111,7 +111,7 @@ const DashboardDefault = () => {
       )}
 
       {/* Rest of the Dashboard Content */}
-      <div className="bg-[#001a3d] text-white h-[27vh] py-8 px-6 sm:px-6 lg:px-8 flex items-center flex-col justify-center">
+      <div className="bg-[#001a3d] text-white min-h-max py-8 px-6 sm:px-6 lg:px-8 flex items-center flex-col justify-center">
         <div className="flex flex-row items-center justify-between max-w-6xl mx-auto gap-8 mb-5">
           {/* Left Side - User Icon */}
           <div className="flex-shrink-0">
@@ -201,7 +201,7 @@ const DashboardDefault = () => {
           <h2 className="text-sm text-[#001a3d] font-semibold mb-4">Tenant Details</h2>
           <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
             <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">🧑‍💼</div>
+              <div className="text-4xl mb-2">🧑</div>
               <div className="text-sm font-medium text-center">Tenant Info</div>
             </div>
             <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">

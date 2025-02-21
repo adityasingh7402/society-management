@@ -139,6 +139,19 @@ export default function ApartmentStructureForm() {
     }
   };
 
+  // Function to update flat number with block name
+  const updateFlatNumber = (blockIndex, floorIndex, flatIndex, value) => {
+    const updatedBlocks = [...blocks];
+    const blockName = updatedBlocks[blockIndex].blockName;
+    updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber = blockName ? `${blockName}-${value}` : value;
+    setBlocks(updatedBlocks);
+  };
+
+  // Function to get the display value for the flat number input
+  const getFlatNumberDisplayValue = (flatNumber) => {
+    return flatNumber.split('-')[1] || flatNumber;
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -146,7 +159,7 @@ export default function ApartmentStructureForm() {
   return (
     <form onSubmit={handleSubmit} className="p-4 space-y-4">
       {blocks.map((block, blockIndex) => (
-        <div key={blockIndex} className="border p-4 rounded">
+        <div key={blockIndex} className="p-4 rounded">
           <div className="flex justify-between items-center">
             <input
               type="text"
@@ -162,7 +175,7 @@ export default function ApartmentStructureForm() {
             <button
               type="button"
               onClick={() => removeBlock(blockIndex)}
-              className="ml-2 p-2 bg-red-500 text-white rounded"
+              className="ml-2 p-2 min-w-max text-gray-900 bg-gradient-to-r from-red-200 via-red-300 to-yellow-200 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400 font-medium rounded-lg text-sm px-5 py-2.5 text-center"
             >
               Remove Block
             </button>
@@ -170,18 +183,18 @@ export default function ApartmentStructureForm() {
           <button
             type="button"
             onClick={() => addFloor(blockIndex)}
-            className="mt-2 p-2 bg-blue-500 text-white rounded"
+            className="mt-2 text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2"
           >
             Add Floor
           </button>
           {block.floors.map((floor, floorIndex) => (
-            <div key={floorIndex} className="ml-4 mt-4 border-l p-4">
+            <div key={floorIndex} className="ml-4 mt-4 border-l border-green-300 p-4">
               <div className="flex justify-between items-center">
                 <h3>Floor {floorIndex + 1}</h3>
                 <button
                   type="button"
                   onClick={() => removeFloor(blockIndex, floorIndex)}
-                  className="ml-2 p-2 bg-red-500 text-white rounded"
+                  className="ml-2 p-2 text-gray-900 bg-gradient-to-r from-red-200 via-red-300 to-yellow-200 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2"
                 >
                   Remove Floor
                 </button>
@@ -189,7 +202,7 @@ export default function ApartmentStructureForm() {
               <button
                 type="button"
                 onClick={() => addFlat(blockIndex, floorIndex)}
-                className="mt-2 p-2 bg-green-500 text-white rounded"
+                className="mt-2 p-2 text-white bg-gradient-to-br from-green-400 to-blue-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2"
               >
                 Add Flat
               </button>
@@ -198,22 +211,22 @@ export default function ApartmentStructureForm() {
                   <div className="flex justify-between items-center">
                     <input
                       type="text"
-                      placeholder="Flat Number (e.g., A-101)"
-                      value={flat.flatNumber}
-                      onChange={(e) => {
-                        const updatedBlocks = [...blocks];
-                        updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber = e.target.value;
-                        setBlocks(updatedBlocks);
-                      }}
+                      placeholder="Flat Number (e.g., 101)"
+                      value={getFlatNumberDisplayValue(flat.flatNumber)}
+                      onChange={(e) => updateFlatNumber(blockIndex, floorIndex, flatIndex, e.target.value)}
                       className="w-full p-2 border rounded"
                     />
                     <button
                       type="button"
                       onClick={() => removeFlat(blockIndex, floorIndex, flatIndex)}
-                      className="ml-2 p-2 bg-red-500 text-white rounded"
+                      className="ml-2 p-2 min-w-max text-gray-900 bg-gradient-to-r from-red-200 via-red-300 to-yellow-200 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400 font-medium rounded-lg text-sm px-5 py-2.5 text-center"
                     >
                       Remove Flat
                     </button>
+                  </div>
+                  {/* Display the full flat number (e.g., A-101) */}
+                  <div className="mt-1 text-sm text-gray-600">
+                    Full Flat Number: {flat.flatNumber}
                   </div>
                 </div>
               ))}
@@ -224,11 +237,11 @@ export default function ApartmentStructureForm() {
       <button
         type="button"
         onClick={addBlock}
-        className="p-2 bg-purple-500 text-white rounded"
+        className="p-2 text-white bg-gradient-to-br from-pink-500 to-orange-400 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-pink-200 dark:focus:ring-pink-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2"
       >
         Add Block
       </button>
-      <button type="submit" className="p-2 bg-green-600 text-white rounded">
+      <button type="submit" className="p-2 text-white bg-gradient-to-br from-green-400 to-blue-600 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2">
         Save Structure
       </button>
     </form>

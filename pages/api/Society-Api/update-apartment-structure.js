@@ -21,6 +21,8 @@ export default async function handler(req, res) {
     // }
 
     const { societyId, apartmentStructure } = req.body;
+    console.log(societyId, apartmentStructure)
+
 
     if (!societyId || !apartmentStructure) {
       return res.status(400).json({ error: 'Society ID and apartment structure are required.' });

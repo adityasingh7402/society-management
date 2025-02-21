@@ -39,6 +39,18 @@ const residentSchema = new mongoose.Schema({
   },
 });
 
+// Add a virtual field to fetch the resident's flat information
+residentSchema.virtual('flat', {
+  ref: 'Society', // Reference the Society model
+  localField: '_id', // Resident's _id
+  foreignField: 'apartmentStructure.blocks.flats.residents', // Path to the residents array in the Society model
+  justOne: true, // Return only one flat (since a resident belongs to one flat)
+});
+
+// Enable virtuals to be included in JSON responses
+residentSchema.set('toJSON', { virtuals: true });
+residentSchema.set('toObject', { virtuals: true });
+
 const Resident = mongoose.models.Resident || mongoose.model('Resident', residentSchema);
 
 export default Resident;
