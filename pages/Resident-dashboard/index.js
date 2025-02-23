@@ -5,7 +5,7 @@ import Profile from "./components/Profile";
 import Link from "next/link";
 import { CiLogout } from "react-icons/ci";
 import { FaUser, FaFileAlt, FaHome, FaClipboardList, FaBox, FaUserTie, FaFileSignature, FaLightbulb, FaHistory, FaTools, FaSearch, FaBullhorn, FaChartBar, FaIdBadge, FaExclamationTriangle } from "react-icons/fa";
-import { IoCloseOutline } from "react-icons/io5";
+import { IoCloseOutline, IoCameraReverseOutline } from "react-icons/io5";
 
 export default function Home() {
     const router = useRouter();
@@ -13,6 +13,7 @@ export default function Home() {
     const [activeLink, setActiveLink] = useState("Dashboard");
     const [loading, setLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Sidebar visibility
+    const [residentDetails, setResidentDetails] = useState({});
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -33,6 +34,8 @@ export default function Home() {
                 if (!response.ok) {
                     throw new Error("Failed to fetch profile");
                 }
+                const data = await response.json();
+                setResidentDetails(data);
             } catch (error) {
                 console.error("Error fetching profile:", error);
                 if (error.message === "Failed to fetch profile") {
@@ -99,7 +102,7 @@ export default function Home() {
             <div className="flex flex-1">
                 {/* Sidebar */}
                 <aside
-                    className={`bg-gray-900 text-white w-80 py-5 fixed left-0 max-h-screen overflow-y-scroll z-40 transform transition-transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
+                    className={`bg-gray-900 text-white w-80 py-5 fixed left-0 h-full overflow-y-scroll z-40 transform transition-transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
                 >
                     <button
                         className="lg:hidden absolute top-4 right-4 text-black"
@@ -122,7 +125,20 @@ export default function Home() {
                     </button>
                     <nav>
                         <ul className="text-base pb-20">
-                            <li className="mb-1 font-semibold text-gray-400 px-5">Profile Management</li>
+                            <li className="flex justify-start items-center space-x-4 px-2 border-b border-gray-600 pb-4">
+                                <div className="image-side relative w-16 h-16">
+                                    <img src="./profile.png" alt="Profile" className="w-full h-full rounded-full object-cover" />
+                                    <div className="changeProfile z-50 w-12 h-5 bottom-0 rounded-b-full bg-white bg-opacity-60 absolute left-1/2 -translate-x-1/2 flex justify-center items-center shadow-md">
+                                        <IoCameraReverseOutline className="text-black text-xl" />
+                                    </div>
+                                </div>
+                                <div className="details-side">
+                                    <p className="userName font-semibold text-xl">{residentDetails.name}</p>
+                                    <p className="flatNo font-semibold"> Flat No: <span className="font-normal">A-202</span></p>
+                                    <p className="Passcode font-semibold">Passcode: <span className="font-normal">{residentDetails.residentId}</span></p>
+                                </div>
+                            </li>
+                            <li className="mb-1 font-semibold text-gray-400 px-5 pt-2">Profile Management</li>
                             <Link href={"./Resident-dashboard/components/Profile"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaUser className="mr-2" /> Profile</li></Link>
                             <Link href={"./Resident-dashboard/components/Ownership"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaFileAlt className="mr-2" /> Ownership</li></Link>
                             <Link href={"./Resident-dashboard/components/House"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaHome className="mr-2" /> House</li></Link>

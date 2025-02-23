@@ -28,7 +28,9 @@ const residentSchema = new mongoose.Schema({
     type: String,
     unique: true,
     default: function () {
-      return `R-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const timestamp = Math.floor(Date.now() / 1000).toString().slice(-4);
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      return `R-${timestamp}${randomNum}`;
     },
   },
   tenants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tenant' }],
@@ -37,19 +39,15 @@ const residentSchema = new mongoose.Schema({
     enum: ['Approved', 'Reject', 'Pending'],
     default: 'Pending',
   },
+  flatDetails: {
+    blockName: { type: String },
+    floorIndex: { type: Number },
+    flatNumber: { type: String }
+  }
 });
 
-// Add a virtual field to fetch the resident's flat information
-residentSchema.virtual('flat', {
-  ref: 'Society', // Reference the Society model
-  localField: '_id', // Resident's _id
-  foreignField: 'apartmentStructure.blocks.flats.residents', // Path to the residents array in the Society model
-  justOne: true, // Return only one flat (since a resident belongs to one flat)
-});
-
-// Enable virtuals to be included in JSON responses
-residentSchema.set('toJSON', { virtuals: true });
-residentSchema.set('toObject', { virtuals: true });
+residentSchema.set('toJSON', { virtuals: false });
+residentSchema.set('toObject', { virtuals: false });
 
 const Resident = mongoose.models.Resident || mongoose.model('Resident', residentSchema);
 
