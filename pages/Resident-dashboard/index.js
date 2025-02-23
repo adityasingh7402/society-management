@@ -47,6 +47,17 @@ export default function Home() {
         fetchProfile();
     }, [router]);
 
+    useEffect(() => {
+        if (isSidebarOpen) {
+            document.body.style.overflow = "hidden"; // Disable scrolling for the entire page
+        } else {
+            document.body.style.overflow = "auto"; // Enable scrolling when sidebar is closed
+        }
+        return () => {
+            document.body.style.overflow = "auto"; // Reset on unmount
+        };
+    }, [isSidebarOpen]);
+
     const handleLogout = () => {
         localStorage.removeItem("Resident");
         router.push("/"); // Redirect to the home page
@@ -80,7 +91,7 @@ export default function Home() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                     </svg>
                 </button>}
-                {isSidebarOpen && <IoCloseOutline className="text-3xl" onClick={() => setIsSidebarOpen(!isSidebarOpen)}/>}
+                {isSidebarOpen && <IoCloseOutline className="text-3xl" onClick={() => setIsSidebarOpen(!isSidebarOpen)} />}
                 <div className="heading"> Welcome to Resident Panel </div>
             </div>
 
@@ -88,7 +99,7 @@ export default function Home() {
             <div className="flex flex-1">
                 {/* Sidebar */}
                 <aside
-                    className={`bg-gray-900 text-white w-80 py-5 fixed left-0 h-screen overflow-y-scroll z-40 transform transition-transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
+                    className={`bg-gray-900 text-white w-80 py-5 fixed left-0 max-h-screen overflow-y-scroll z-40 transform transition-transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
                 >
                     <button
                         className="lg:hidden absolute top-4 right-4 text-black"
@@ -112,65 +123,35 @@ export default function Home() {
                     <nav>
                         <ul className="text-base pb-20">
                             <li className="mb-1 font-semibold text-gray-400 px-5">Profile Management</li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/Profile"} className="flex items-center"><FaUser className="mr-2" /> Profile</Link>
-                            </li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/Ownership"} className="flex items-center"><FaFileAlt className="mr-2" /> Ownership</Link>
-                            </li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/House"} className="flex items-center"><FaHome className="mr-2" /> House</Link>
-                            </li>
+                            <Link href={"./Resident-dashboard/components/Profile"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaUser className="mr-2" /> Profile</li></Link>
+                            <Link href={"./Resident-dashboard/components/Ownership"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaFileAlt className="mr-2" /> Ownership</li></Link>
+                            <Link href={"./Resident-dashboard/components/House"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaHome className="mr-2" /> House</li></Link>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Property Actions</li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/SellProperty"} className="flex items-center"><FaClipboardList className="mr-2" /> Sell Property</Link>
-                            </li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/SellItems"} className="flex items-center"><FaBox className="mr-2" /> Sell Items</Link>
-                            </li>
+                            <Link href={"./Resident-dashboard/components/SellProperty"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaClipboardList className="mr-2" /> Sell Property</li></Link>
+                            <Link href={"./Resident-dashboard/components/SellItems"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaBox className="mr-2" /> Sell Items</li></Link>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Tenant Details</li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/TenantInfo"} className="flex items-center"><FaUserTie className="mr-2" /> Tenant Info</Link>
-                            </li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/Lease"} className="flex items-center"><FaFileSignature className="mr-2" /> Lease</Link>
-                            </li>
+                            <Link href={"./Resident-dashboard/components/TenantInfo"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaUserTie className="mr-2" /> Tenant Info</li></Link>
+                            <Link href={"./Resident-dashboard/components/Lease"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaFileSignature className="mr-2" /> Lease</li></Link>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Utility Bills</li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/Bills"} className="flex items-center"><FaLightbulb className="mr-2" /> Bills</Link>
-                            </li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/History"} className="flex items-center"><FaHistory className="mr-2" /> History</Link>
-                            </li>
+                            <Link href={"./Resident-dashboard/components/Bills"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaLightbulb className="mr-2" /> Bills</li></Link>
+                            <Link href={"./Resident-dashboard/components/History"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaHistory className="mr-2" /> History</li></Link>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Maintenance Tickets</li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/NewRequest"} className="flex items-center"><FaTools className="mr-2" /> New Request</Link>
-                            </li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/TrackRequest"} className="flex items-center"><FaSearch className="mr-2" /> Track Request</Link>
-                            </li>
+                            <Link href={"./Resident-dashboard/components/NewRequest"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaTools className="mr-2" /> New Request</li></Link>
+                            <Link href={"./Resident-dashboard/components/TrackRequest"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaSearch className="mr-2" /> Track Request</li></Link>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Notices / Polls & Surveys</li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/Announcements"} className="flex items-center"><FaBullhorn className="mr-2" /> Announcements</Link>
-                            </li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/Polls"} className="flex items-center"><FaChartBar className="mr-2" /> Polls</Link>
-                            </li>
+                            <Link href={"./Resident-dashboard/components/Announcements"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaBullhorn className="mr-2" /> Announcements</li></Link>
+                            <Link href={"./Resident-dashboard/components/Polls"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaChartBar className="mr-2" /> Polls</li></Link>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Visitor Pre-Approvals</li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/VisitorEntry"} className="flex items-center"><FaIdBadge className="mr-2" /> Visitor Entry</Link>
-                            </li>
+                            <Link href={"./Resident-dashboard/components/VisitorEntry"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaIdBadge className="mr-2" /> Visitor Entry</li></Link>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Emergency Alerts</li>
-                            <li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <Link href={"./Resident-dashboard/components/Emergency"} className="flex items-center"><FaExclamationTriangle className="mr-2" /> Emergency</Link>
-                            </li>
+                            <Link href={"./Resident-dashboard/components/Emergency"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaExclamationTriangle className="mr-2" /> Emergency</li></Link>
                             <li onClick={handleLogout} className="mb-1 flex text-lg items-center py-2 px-5 rounded cursor-pointer transition-all bg-red-800 hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
                                 <CiLogout className="mr-3" />
                                 <a>Logout</a>
@@ -180,7 +161,7 @@ export default function Home() {
                 </aside>
 
                 {/* Main content */}
-                <main className="flex-1 bg-gray-50 lg:ml-80">
+                <main className={`flex-1 bg-gray-50 lg:ml-80 transition-all duration-300 relative ${isSidebarOpen ? "bg-black bg-opacity-50 pointer-events-none" : "bg-opacity-100"}`}>
                     {loading ? <p>Loading...</p> : renderComponent()}
                 </main>
             </div>
