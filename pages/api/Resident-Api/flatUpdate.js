@@ -4,7 +4,8 @@ import Resident from "../../../models/Resident";
 
 export default async function handler(req, res) {
     if (req.method === 'POST') {
-        const { societyId, blockName, floorIndex, flatNumber, residentId } = req.body;
+        var { societyId, blockName, floorIndex, flatNumber, residentId } = req.body;
+        var floorIndex = floorIndex-1;
 
         if (!societyId || !blockName || floorIndex === undefined || !flatNumber || !residentId) {
             return res.status(400).json({ message: 'Missing required fields' });

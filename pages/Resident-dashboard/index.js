@@ -14,6 +14,7 @@ export default function Home() {
     const [loading, setLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Sidebar visibility
     const [residentDetails, setResidentDetails] = useState({});
+    const [flatNumber, setFlatNumber] = useState('');
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -36,6 +37,8 @@ export default function Home() {
                 }
                 const data = await response.json();
                 setResidentDetails(data);
+                setFlatNumber(data.flatDetails?.flatNumber || 'N/A');
+
             } catch (error) {
                 console.error("Error fetching profile:", error);
                 if (error.message === "Failed to fetch profile") {
@@ -104,7 +107,7 @@ export default function Home() {
                 <aside
                     className={`bg-gray-900 text-white w-80 py-5 fixed left-0 h-full overflow-y-scroll z-40 transform transition-transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
                 >
-                    <button
+                    {/* <button
                         className="lg:hidden absolute top-4 right-4 text-black"
                         onClick={() => setIsSidebarOpen(false)}
                     >
@@ -122,20 +125,36 @@ export default function Home() {
                                 d="M6 18L18 6M6 6l12 12"
                             />
                         </svg>
-                    </button>
+                    </button> */}
                     <nav>
                         <ul className="text-base pb-20">
                             <li className="flex justify-start items-center space-x-4 px-2 border-b border-gray-600 pb-4">
                                 <div className="image-side relative w-16 h-16">
-                                    <img src="./profile.png" alt="Profile" className="w-full h-full rounded-full object-cover" />
-                                    <div className="changeProfile z-50 w-12 h-5 bottom-0 rounded-b-full bg-white bg-opacity-60 absolute left-1/2 -translate-x-1/2 flex justify-center items-center shadow-md">
+                                    <img
+                                        src={residentDetails.userImage || "/profile.png"}
+                                        alt="Profile"
+                                        className="w-full h-full rounded-full object-cover"
+                                    />
+                                    <Link href={"./Resident-dashboard/components/uploadProfile"}><div className="changeProfile cursor-pointer z-50 w-12 h-5 bottom-0 rounded-b-full bg-white bg-opacity-60 absolute left-1/2 -translate-x-1/2 flex justify-center items-center shadow-md">
                                         <IoCameraReverseOutline className="text-black text-xl" />
-                                    </div>
+                                    </div></Link>
                                 </div>
                                 <div className="details-side">
-                                    <p className="userName font-semibold text-xl">{residentDetails.name}</p>
-                                    <p className="flatNo font-semibold"> Flat No: <span className="font-normal">A-202</span></p>
-                                    <p className="Passcode font-semibold">Passcode: <span className="font-normal">{residentDetails.residentId}</span></p>
+                                    <p className="userName font-semibold text-xl">{residentDetails?.name || 'N/A'}</p>
+                                    {flatNumber === 'N/A' ? (
+                                        <Link href="./Resident-dashboard/components/selectApartment">
+                                            <p className="flatNo rounded-2xl p-2 my-1 cursor-pointer text-center bg-blue-800 font-semibold">
+                                                Add Flat
+                                            </p>
+                                        </Link>
+                                    ) : (
+                                        <p className="flatNo font-semibold">
+                                            Flat No: <span className="font-normal">{flatNumber}</span>
+                                        </p>
+                                    )}
+                                    <p className="Passcode font-semibold">
+                                        Passcode: <span className="font-normal">{residentDetails?.residentId || 'N/A'}</span>
+                                    </p>
                                 </div>
                             </li>
                             <li className="mb-1 font-semibold text-gray-400 px-5 pt-2">Profile Management</li>

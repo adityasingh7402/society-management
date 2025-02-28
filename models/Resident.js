@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const residentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   phone: { type: String, required: true, unique: true },
+  userImage: {type: String},
   additionalNumbers: {
     type: [String],
     validate: {
