@@ -4,13 +4,14 @@ import Cropper from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
 import { FaArrowLeft } from "react-icons/fa";
 
-
-const uploadProfile = () => {
+const UploadProfile = () => {
     const [image, setImage] = useState(null); // Store the uploaded image
     const [croppedImage, setCroppedImage] = useState(null); // Store the cropped image
     const [residentDetails, setResidentDetails] = useState({});
     const [residentId, setResidentId] = useState('');
     const cropperRef = useRef(null); // Reference to the cropper instance
+    const cropperSectionRef = useRef(null); // Ref to scroll to cropper
+    const croppedImageRef = useRef(null); // Ref to scroll to cropped image
     const router = useRouter();
 
     useEffect(() => {
@@ -37,9 +38,6 @@ const uploadProfile = () => {
                 setResidentId(data._id);
             } catch (error) {
                 console.error("Error fetching profile:", error);
-                // localStorage.removeItem("Resident");
-                // router.push("/Login");
-            } finally {
             }
         };
 
@@ -53,6 +51,9 @@ const uploadProfile = () => {
             const reader = new FileReader();
             reader.onload = () => {
                 setImage(reader.result); // Set the image for cropping
+                setTimeout(() => {
+                    cropperSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 100);
             };
             reader.readAsDataURL(file);
         }
@@ -64,6 +65,10 @@ const uploadProfile = () => {
             const cropper = cropperRef.current.cropper;
             const croppedImageUrl = cropper.getCroppedCanvas().toDataURL(); // Get the cropped image
             setCroppedImage(croppedImageUrl);
+
+            setTimeout(() => {
+                croppedImageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 100);
         }
     };
 
@@ -104,7 +109,7 @@ const uploadProfile = () => {
 
     return (
         <>
-        <div className="m-6">
+            <div className="m-6">
                 <button
                     onClick={() => router.back()} // Navigate back to the previous page
                     className="flex items-center space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors"
@@ -113,60 +118,61 @@ const uploadProfile = () => {
                     <span className="text-base">Back</span>
                 </button>
             </div>
-        <div className="min-h-screen bg-gray-100 flex flex-col space-y-10 items-center justify-center p-4">
-            <div className="image-container flex justify-center items-center border border-gray-600 w-52 h-52 rounded-full">
-                <img className='rounded-full' src={residentDetails.userImage || "/profile.png"} alt="Profile" />
-            </div>
-            <h1 className="text-3xl text-center font-bold mb-8 text-gray-800">Upload and Crop Your Image</h1>
-            {/* File Input */}
-            <div className="mb-8">
-                <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-            </div>
-
-            {/* Image Cropper */}
-            {image && (
+            <div className="min-h-screen bg-gray-100 flex flex-col space-y-10 items-center justify-center p-4">
+                <div className="image-container flex justify-center items-center border border-gray-600 w-52 h-52 rounded-full">
+                    <img className='rounded-full' src={residentDetails.userImage || "/profile.png"} alt="Profile" />
+                </div>
+                <h1 className="text-3xl text-center font-bold mb-8 text-gray-800">Upload and Crop Your Image</h1>
+                
+                {/* File Input */}
                 <div className="mb-8">
-                    <Cropper
-                        src={image}
-                        style={{ height: 400, width: '100%' }}
-                        aspectRatio={1} // Square crop
-                        guides={true}
-                        ref={cropperRef}
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
+                </div>
+
+                {/* Image Cropper */}
+                {image && (
+                    <div ref={cropperSectionRef} className="mb-8">
+                        <Cropper
+                            src={image}
+                            style={{ height: 400, width: '100%' }}
+                            aspectRatio={1} // Square crop
+                            guides={true}
+                            ref={cropperRef}
+                        />
+                        <button
+                            onClick={handleCrop}
+                            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                        >
+                            Crop Image
+                        </button>
+                    </div>
+                )}
+
+                {/* Cropped Image Preview */}
+                {croppedImage && (
+                    <div ref={croppedImageRef} className="mb-8">
+                        <h2 className="text-xl font-semibold mb-4 text-gray-800">Cropped Image Preview</h2>
+                        <img src={croppedImage} alt="Cropped" className="max-w-full h-auto rounded-lg shadow-lg" />
+                    </div>
+                )}
+
+                {/* Upload Button */}
+                {croppedImage && (
                     <button
-                        onClick={handleCrop}
-                        className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                        onClick={handleUpload}
+                        className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
                     >
-                        Crop Image
+                        Upload Image
                     </button>
-                </div>
-            )}
-
-            {/* Cropped Image Preview */}
-            {croppedImage && (
-                <div className="mb-8">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Cropped Image Preview</h2>
-                    <img src={croppedImage} alt="Cropped" className="max-w-full h-auto rounded-lg shadow-lg" />
-                </div>
-            )}
-
-            {/* Upload Button */}
-            {croppedImage && (
-                <button
-                    onClick={handleUpload}
-                    className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
-                >
-                    Upload Image
-                </button>
-            )}
-        </div>
+                )}
+            </div>
         </>
     );
 };
 
-export default uploadProfile
+export default UploadProfile;
