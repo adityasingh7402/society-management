@@ -88,14 +88,14 @@ export default function Login() {
 
       <header className="bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-white shadow-lg sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="sm:text-xl md:text-3xl font-bold">SocietyManage</h1>
+          <Link href={"/"}><h1 className="sm:text-xl md:text-3xl font-bold">SocietyManage</h1></Link>
           <nav>
             <ul className="flex space-x-6">
               <li>
                 <a href="/" className="hover:underline text-lg font-medium">Home</a>
               </li>
               <li>
-                <a href="/contact" className="hover:underline text-lg font-medium">Contact</a>
+                <a href="/Contact" className="hover:underline text-lg font-medium">Contact</a>
               </li>
             </ul>
           </nav>
@@ -132,7 +132,7 @@ export default function Login() {
                 >
                   {loadingOtp ? 'Sending OTP...' : 'Send OTP'}
                 </button>
-                <Link href={'./Enroll-society'}><div className="aingupLink pt-3 font-medium pr-1 flex justify-end items-center"><p className='text-blue-800 text-sm'>Enroll Society</p></div></Link>
+                <Link href={'./Enroll-society'}><div className="aingupLink pt-3 font-medium pr-1 flex justify-end items-center"><p className="text-gray-700">Not registered yet? </p> <span className='text-blue-800 text-sm'>Enroll Society</span></div></Link>
 
               </div>
             ) : (

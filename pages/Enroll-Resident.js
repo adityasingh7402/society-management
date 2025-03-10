@@ -147,11 +147,11 @@ export default function ResidentSignup() {
 
             <header className="bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-white shadow-lg sticky top-0 z-50">
                 <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-                    <h1 className="sm:text-xl md:text-3xl font-bold">SocietyManage</h1>
+                <Link href={"/"}><h1 className="sm:text-xl md:text-3xl font-bold">SocietyManage</h1></Link>
                     <nav>
                         <ul className="flex space-x-6">
-                            <a href="/" className="hover:underline text-lg font-medium">Home</a>
-                            <a href="/login" className="hover:underline text-lg font-medium">Login</a>
+                            <a href="/Login" className="hover:underline text-lg font-medium">Login</a>
+                            <a href="/Contact" className="hover:underline text-lg font-medium">Contact</a>
                         </ul>
                     </nav>
                 </div>

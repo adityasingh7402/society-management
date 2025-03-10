@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useState } from 'react';
 import axios from 'axios';
+import Link from 'next/link';
 import { FaPhoneAlt } from "react-icons/fa";
 
 export default function Login() {
@@ -21,8 +22,7 @@ export default function Login() {
     setLoadingOtp(true);
 
     try {
-      const endpoint = '/api/send-otp'; // Same for both resident and tenant
-      const response = await axios.post(endpoint, { phoneNumber: fullPhoneNumber });
+      const response = await axios.post('/api/send-otp', { phoneNumber: fullPhoneNumber });
 
       if (response.data.success) {
         setVerificationId(response.data.verificationId);
@@ -45,60 +45,28 @@ export default function Login() {
     }
 
     try {
-      const verifyEndpoint = '/api/verify-otp'; // Same for both resident and tenant
-      const detailsEndpoint =
-        userType === 'resident'
-          ? '/api/Resident-Api/get-resident'
-          : '/api/Tenant-Api/get-tenant';
-
-      // Step 1: Verify OTP
-      const verifyResponse = await axios.post(verifyEndpoint, {
+      const verifyResponse = await axios.post('/api/verify-otp', {
         otp,
         phoneNumber: `+91${phoneNumber}`,
         verificationId,
       });
 
       if (verifyResponse.data.success) {
-        if (userType === 'resident') {
-          // Step 2: Fetch Resident Details using Fetch API
-          const detailsResponse = await fetch(detailsEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phoneNumber: `+91${phoneNumber}` }),
-          });
+        const detailsEndpoint =
+          userType === 'resident'
+            ? '/api/Resident-Api/get-resident'
+            : '/api/Tenant-Api/get-tenant';
 
-          const detailsData = await detailsResponse.json();
+        const detailsResponse = await axios.post(detailsEndpoint, {
+          phoneNumber: `+91${phoneNumber}`,
+        });
 
-          if (detailsData.success) {
-            const { details, token } = detailsData;
-
-            // Step 3: Store JWT Token in LocalStorage
-            localStorage.setItem('Resident', token);
-
-            // alert(`Welcome, ${details.name}!`);
-            // Redirect to the Resident dashboard
-            window.location.href = '/Resident-dashboard';
-          } else {
-            alert('Resident details not found. Please try again.');
-          }
+        if (detailsResponse.data.success) {
+          const { details, token } = detailsResponse.data;
+          localStorage.setItem(userType === 'resident' ? 'Resident' : 'Tenant', token);
+          window.location.href = userType === 'resident' ? '/Resident-dashboard' : '/Tenant-dashboard';
         } else {
-          // Step 2: Fetch Tenant Details using Axios
-          const detailsResponse = await axios.post(detailsEndpoint, {
-            phoneNumber: `+91${phoneNumber}`,
-          });
-
-          if (detailsResponse.data.success) {
-            const { details, token } = detailsResponse.data;
-
-            // Step 3: Store JWT Token in LocalStorage
-            localStorage.setItem('Tenant', token);
-
-            // alert(`Welcome, ${details.name}!`);
-            // Redirect to the Tenant dashboard
-            window.location.href = '/Tenant-dashboard';
-          } else {
-            alert('Tenant details not found. Please try again.');
-          }
+          alert(`${userType === 'resident' ? 'Resident' : 'Tenant'} details not found. Please try again.`);
         }
       } else {
         alert('Invalid OTP. Please try again.');
@@ -109,7 +77,6 @@ export default function Login() {
     }
   };
 
-
   return (
     <div className="bg-gray-50 min-h-screen">
       <Head>
@@ -119,14 +86,14 @@ export default function Login() {
 
       <header className="bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-white shadow-lg sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="sm:text-xl md:text-3xl font-bold">SocietyManage</h1>
+        <Link href={"/"}><h1 className="sm:text-xl md:text-3xl font-bold">SocietyManage</h1></Link>
           <nav>
             <ul className="flex space-x-6">
               <li>
-                <a href="/" className="hover:underline text-lg font-medium">Home</a>
+                <a href="/Resident-dashboard" className="hover:underline text-lg font-medium">Dashboard</a>
               </li>
               <li>
-                <a href="/contact" className="hover:underline text-lg font-medium">Contact</a>
+                <a href="/Contact" className="hover:underline text-lg font-medium">Contact</a>
               </li>
             </ul>
           </nav>
@@ -191,6 +158,7 @@ export default function Login() {
                   className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter the OTP"
                 />
+
                 <button
                   type="button"
                   onClick={handleLogin}
@@ -200,6 +168,17 @@ export default function Login() {
                 </button>
               </div>
             )}
+
+            {/* Enrollment Link */}
+            <div className="text-center flex justify-end mt-6">
+              <p className="text-gray-700">Not registered yet? </p>
+              <Link
+                href={userType === 'resident' ? '/Enroll-Resident' : '/Enroll-Tenants'}
+                className="text-blue-600 hover:underline font-medium"
+              >
+                 Enroll as {userType === 'resident' ? 'Resident' : 'Tenant'}
+              </Link>
+            </div>
           </div>
         </div>
       </section>

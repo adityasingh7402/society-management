@@ -66,7 +66,7 @@ export default function Home() {
 
     const handleLogout = () => {
         localStorage.removeItem("Resident");
-        router.push("/"); // Redirect to the home page
+        router.push("/Login"); // Redirect to the home page
     };
 
     const handleComponent = (item, linkName) => {
