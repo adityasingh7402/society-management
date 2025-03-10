@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useState } from 'react';
 import axios from 'axios'; // Import axios for making requests
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 
 export default function SecuritySignup() {

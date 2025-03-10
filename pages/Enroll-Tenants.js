@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useState } from 'react';
 import axios from 'axios'; // Import axios for making requests
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 export default function TenantSignup() {
     const router = useRouter();
