@@ -139,41 +139,46 @@ export default function ApartmentStructureForm() {
     }
   };
 
-  // Modify the getFlatNumberDisplayValue function to include blockIndex as a parameter
-const getFlatNumberDisplayValue = (fullFlatNumber, blockIndex) => {
-  // If there's no flat number, return empty string
-  if (!fullFlatNumber) {
-    return '';
-  }
-  
-  // Extract the number part after the hyphen and block name
-  const blockName = blocks[blockIndex]?.blockName;
-  if (blockName && fullFlatNumber === `${blockName}-`) {
-    return ''; // Return empty string if it's just the prefix
-  }
-  
-  return blockName && fullFlatNumber.startsWith(`${blockName}-`) 
-    ? fullFlatNumber.substring(blockName.length + 1) // +1 for the hyphen
-    : fullFlatNumber;
-};
+  // Check if flat is occupied
+  const isFlatOccupied = (flat) => {
+    return flat.residents && flat.residents.length > 0;
+  };
 
-// Update the updateFlatNumber function to handle backspace correctly
-const updateFlatNumber = (blockIndex, floorIndex, flatIndex, value) => {
-  const updatedBlocks = [...blocks];
-  const blockName = updatedBlocks[blockIndex].blockName;
-  
-  // Only add the blockName prefix if value is not empty
-  if (value === '') {
-    // If user deletes everything, set flatNumber to empty string
-    updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber = '';
-  } else {
-    // Otherwise, add the blockName prefix if blockName exists
-    updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber = 
-      blockName ? `${blockName}-${value}` : value;
-  }
-  
-  setBlocks(updatedBlocks);
-};
+  // Modify the getFlatNumberDisplayValue function to include blockIndex as a parameter
+  const getFlatNumberDisplayValue = (fullFlatNumber, blockIndex) => {
+    // If there's no flat number, return empty string
+    if (!fullFlatNumber) {
+      return '';
+    }
+    
+    // Extract the number part after the hyphen and block name
+    const blockName = blocks[blockIndex]?.blockName;
+    if (blockName && fullFlatNumber === `${blockName}-`) {
+      return ''; // Return empty string if it's just the prefix
+    }
+    
+    return blockName && fullFlatNumber.startsWith(`${blockName}-`) 
+      ? fullFlatNumber.substring(blockName.length + 1) // +1 for the hyphen
+      : fullFlatNumber;
+  };
+
+  // Update the updateFlatNumber function to handle backspace correctly
+  const updateFlatNumber = (blockIndex, floorIndex, flatIndex, value) => {
+    const updatedBlocks = [...blocks];
+    const blockName = updatedBlocks[blockIndex].blockName;
+    
+    // Only add the blockName prefix if value is not empty
+    if (value === '') {
+      // If user deletes everything, set flatNumber to empty string
+      updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber = '';
+    } else {
+      // Otherwise, add the blockName prefix if blockName exists
+      updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber = 
+        blockName ? `${blockName}-${value}` : value;
+    }
+    
+    setBlocks(updatedBlocks);
+  };
 
   if (loading) {
     return <div>Loading...</div>;
@@ -232,13 +237,30 @@ const updateFlatNumber = (blockIndex, floorIndex, flatIndex, value) => {
               {floor.flats.map((flat, flatIndex) => (
                 <div key={flatIndex} className="ml-4 mt-4">
                   <div className="flex justify-between items-center">
-                    <input
-                      type="text"
-                      placeholder="Flat Number (e.g., 101)"
-                      value={getFlatNumberDisplayValue(flat.flatNumber, blockIndex)}
-                      onChange={(e) => updateFlatNumber(blockIndex, floorIndex, flatIndex, e.target.value)}
-                      className="w-full p-2 border rounded"
-                    />
+                    <div className="flex-grow">
+                      <input
+                        type="text"
+                        placeholder="Flat Number (e.g., 101)"
+                        value={getFlatNumberDisplayValue(flat.flatNumber, blockIndex)}
+                        onChange={(e) => updateFlatNumber(blockIndex, floorIndex, flatIndex, e.target.value)}
+                        className="w-full p-2 border rounded"
+                      />
+                      {/* Status indicator */}
+                      <div className="mt-1 flex items-center">
+                        <div className="text-sm text-gray-600 mr-4">
+                          Full Flat Number: {flat.flatNumber}
+                        </div>
+                        {isFlatOccupied(flat) ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Occupied
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            Vacant
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeFlat(blockIndex, floorIndex, flatIndex)}
@@ -246,10 +268,6 @@ const updateFlatNumber = (blockIndex, floorIndex, flatIndex, value) => {
                     >
                       Remove Flat
                     </button>
-                  </div>
-                  {/* Display the full flat number (e.g., A-101) */}
-                  <div className="mt-1 text-sm text-gray-600">
-                    Full Flat Number: {flat.flatNumber}
                   </div>
                 </div>
               ))}
