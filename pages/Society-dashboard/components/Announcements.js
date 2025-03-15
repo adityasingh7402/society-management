@@ -14,7 +14,7 @@ export default function Announcements() {
       id: 1,
       title: "Maintenance Shutdown",
       description: "There will be a water supply shutdown on March 15th for maintenance work.",
-      image: "https://via.placeholder.com/150",
+      image: "https://www.charlieevent.com/assets/img/about-img.jpeg",
       date: "2025-03-15",
       time: "10:00 AM"
     },
@@ -22,7 +22,7 @@ export default function Announcements() {
       id: 2,
       title: "Society Meeting",
       description: "A general meeting will be held on March 20th at the community hall.",
-      image: "https://via.placeholder.com/150",
+      image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3DNasCvfOLMIxJyQtbNq7EfLkWnMazHE9xw&s",
       date: "2025-03-20",
       time: "05:00 PM"
     }
@@ -165,7 +165,7 @@ export default function Announcements() {
                     <img
                       src={announcement.image}
                       alt="Announcement"
-                      className="w-full h-auto rounded-md"
+                      className="w-1/3 h-auto rounded-md"
                     />
                   </div>
                 )}
