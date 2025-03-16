@@ -16,17 +16,23 @@ const CameraCapture = ({ onCapture }) => {
         if (navigator.permissions && navigator.permissions.query) {
           const result = await navigator.permissions.query({ name: 'camera' });
           setPermissionStatus(result.state);
-          
+  
           // Listen for permission changes
           result.onchange = () => {
             setPermissionStatus(result.state);
           };
+        } else {
+          // Fallback for browsers that don't support the Permissions API
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setPermissionStatus("granted");
+          stream.getTracks().forEach(track => track.stop()); // Stop the stream immediately
         }
       } catch (err) {
-        console.log("Permissions API not supported");
+        console.error("Camera error:", err);
+        setPermissionStatus("denied");
       }
     };
-    
+  
     checkCameraPermission();
   }, []);
 
