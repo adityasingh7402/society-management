@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 
 export default function SocietyProfile() {
@@ -98,111 +98,216 @@ export default function SocietyProfile() {
     if (loading) return <p className="text-center mt-10 text-gray-500">Loading...</p>;
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
-            <h1 className="text-4xl font-bold text-blue-600 mb-8 text-center">Society Profile</h1>
-
-            <form
-                onSubmit={handlePreviewSubmit}
-                className="space-y-6 bg-white p-8 shadow-md rounded-lg max-w-4xl mx-auto"
-            >
-                {/* Read-only Society ID */}
-                <div className="flex flex-col mb-6">
-                    <label className="font-semibold text-gray-700">Society ID:</label>
-                    <input
-                        type="text"
-                        name="societyId"
-                        value={formData.societyId}
-                        readOnly
-                        className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
-                    />
+        <div className="min-h-screen bg-gray-100">
+            {/* Header */}
+            <header className="bg-white shadow">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                    <h1 className="text-3xl font-bold text-gray-900">Society Profile</h1>
                 </div>
+            </header>
 
-                {/* Two inputs per row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {['societyName', 'societyType', 'managerName', 'managerPhone', 'managerEmail', 'street', 'city', 'state', 'pinCode'].map((field) => (
-                        <div key={field} className="flex flex-col">
-                            <label className="font-semibold text-gray-700 capitalize">
-                                {field.replace(/([A-Z])/g, ' $1')}:
-                            </label>
-                            <input
-                                type={field === 'managerEmail' ? 'email' : 'text'}
-                                name={field}
-                                value={formData[field]}
-                                onChange={handleChange}
-                                placeholder={`Enter ${field}`}
-                                required
-                                className="border border-gray-300 rounded-md p-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+            {/* Main Content */}
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Profile Form */}
+                <div className="bg-white rounded-lg shadow p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Society Profile</h2>
+                    <form onSubmit={handlePreviewSubmit}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Society ID */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Society ID</label>
+                                <input
+                                    type="text"
+                                    name="societyId"
+                                    value={formData.societyId}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    disabled
+                                />
+                            </div>
+
+                            {/* Society Name */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Society Name</label>
+                                <input
+                                    type="text"
+                                    name="societyName"
+                                    value={formData.societyName}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* Society Type */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Society Type</label>
+                                <input
+                                    type="text"
+                                    name="societyType"
+                                    value={formData.societyType}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* Manager Name */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Manager Name</label>
+                                <input
+                                    type="text"
+                                    name="managerName"
+                                    value={formData.managerName}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* Manager Phone */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Manager Phone</label>
+                                <input
+                                    type="text"
+                                    name="managerPhone"
+                                    value={formData.managerPhone}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* Manager Email */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Manager Email</label>
+                                <input
+                                    type="email"
+                                    name="managerEmail"
+                                    value={formData.managerEmail}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* Street */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Street</label>
+                                <input
+                                    type="text"
+                                    name="street"
+                                    value={formData.street}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* City */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">City</label>
+                                <input
+                                    type="text"
+                                    name="city"
+                                    value={formData.city}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* State */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">State</label>
+                                <input
+                                    type="text"
+                                    name="state"
+                                    value={formData.state}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* Pin Code */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Pin Code</label>
+                                <input
+                                    type="text"
+                                    name="pinCode"
+                                    value={formData.pinCode}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* Description */}
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700">Description</label>
+                                <textarea
+                                    name="description"
+                                    value={formData.description}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full rounded-md outline-0 hover:border-b hover:border-blue-500 focus:border-b border-gray-300 px-1 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    rows="4"
+                                    required
+                                />
+                            </div>
                         </div>
-                    ))}
+
+                        {/* Form Actions */}
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                type="submit"
+                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                            >
+                                Preview Changes
+                            </button>
+                        </div>
+                    </form>
                 </div>
+            </main>
 
-                {/* Description */}
-                <div className="flex flex-col">
-                    <label className="font-semibold text-gray-700">Description:</label>
-                    <textarea
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        placeholder="Enter a brief description"
-                        required
-                        className="border border-gray-300 rounded-md p-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-
-                <button
-                    type="submit"
-                    className="w-full bg-blue-500 text-white py-3 px-6 rounded-md hover:bg-blue-600 transition-colors"
-                >
-                    Preview & Update
-                </button>
-            </form>
-
-            {/* Modal */}
+            {/* Preview Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-                    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto">
-                        <h2 className="text-xl font-bold mb-4">Confirm & Update</h2>
-                        <p className="text-gray-600 mb-4">Make changes if needed before updating.</p>
-
-                        <form onSubmit={handleFinalSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {['societyName', 'societyType', 'managerName', 'managerPhone', 'managerEmail', 'street', 'city', 'state', 'pinCode', 'description'].map((key) => (
-                                <div key={key} className="flex flex-col">
-                                    <label className="font-semibold text-gray-700 capitalize">
-                                        {key.replace(/([A-Z])/g, ' $1')}:
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name={key}
-                                        value={formData[key]}
-                                        onChange={handleChange}
-                                        className="border border-gray-300 rounded-md p-3"
-                                    />
-                                </div>
-                            ))}
-                            <div className="col-span-1 md:col-span-2">
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className={`w-full py-3 px-6 text-white rounded-md ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'
-                                        }`}
-                                >
-                                    {isSubmitting ? 'Updating...' : 'Update Profile'}
-                                </button>
-                            </div>
-                            <div className="col-span-1 md:col-span-2">
-                                <button
-                                    onClick={() => setShowModal(false)}
-                                    className="w-full bg-gray-300 text-gray-800 py-3 px-6 rounded-md hover:bg-gray-400 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">
+                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Preview Changes</h2>
+                        <div className="space-y-4">
+                            <p><strong>Society ID:</strong> {formData.societyId}</p>
+                            <p><strong>Society Name:</strong> {formData.societyName}</p>
+                            <p><strong>Society Type:</strong> {formData.societyType}</p>
+                            <p><strong>Manager Name:</strong> {formData.managerName}</p>
+                            <p><strong>Manager Phone:</strong> {formData.managerPhone}</p>
+                            <p><strong>Manager Email:</strong> {formData.managerEmail}</p>
+                            <p><strong>Street:</strong> {formData.street}</p>
+                            <p><strong>City:</strong> {formData.city}</p>
+                            <p><strong>State:</strong> {formData.state}</p>
+                            <p><strong>Pin Code:</strong> {formData.pinCode}</p>
+                            <p><strong>Description:</strong> {formData.description}</p>
+                        </div>
+                        <div className="mt-6 flex justify-end space-x-4">
+                            <button
+                                type="button"
+                                onClick={() => setShowModal(false)}
+                                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleFinalSubmit}
+                                disabled={isSubmitting}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                            >
+                                {isSubmitting ? 'Submitting...' : 'Confirm Changes'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
-
         </div>
     );
 }

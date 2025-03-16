@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
-import { useRouter } from "next/router";
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { FaArrowLeft } from "react-icons/fa";
-import { FiCopy } from "react-icons/fi";
 
 export default function Profile() {
     const [formData, setFormData] = useState({
@@ -9,7 +8,12 @@ export default function Profile() {
         phone: "+91", // Default phone number with country code
         additionalNumbers: [], // Dynamic list for additional numbers
         email: "",
-        address: "",
+        address: {
+            street: "",
+            city: "",
+            state: "",
+            pinCode: "",
+        },
         unitNumber: "",
         societyCode: "",
         societyId: "",
@@ -44,6 +48,7 @@ export default function Profile() {
                 setFormData({
                     ...data,
                     additionalNumbers: data.additionalNumbers || [],
+                    address: data.address || { street: "", city: "", state: "", pinCode: "" }, // Ensure address object exists
                 });
             } catch (error) {
                 console.error("Error fetching profile:", error);
@@ -54,9 +59,20 @@ export default function Profile() {
         fetchProfile();
     }, [router]);
 
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
+    };
+    const handleAddressChange = (e) => {
+        const { name, value } = e.target;
+        setFormData({
+            ...formData,
+            address: {
+                ...formData.address,
+                [name]: value,
+            },
+        });
     };
 
     const handleAddNumber = () => {
@@ -126,195 +142,280 @@ export default function Profile() {
     };
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
-            <div className="mb-4">
-                <button
-                    onClick={() => router.back()} // Navigate back to the previous page
-                    className="flex items-center space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors"
-                >
+        <div className="min-h-screen bg-gray-100">
+            <div className="classss">
+                <button onClick={() => router.back()} className="flex items-center p-6 space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors">
                     <FaArrowLeft size={18} />
                     <span className="text-base">Back</span>
                 </button>
             </div>
             <h1 className="text-4xl font-bold text-blue-600 mb-8 text-center">Resident Profile</h1>
 
-            <form
-                onSubmit={handlePreviewSubmit}
-                className="space-y-6 bg-white p-8 shadow-md rounded-lg max-w-4xl mx-auto"
-            >
-                {/* Read-only fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="flex flex-col">
-                        <label className="font-semibold text-gray-700">Resident ID:</label>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                name="residentId"
-                                value={formData.residentId}
-                                readOnly
-                                className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none w-full"
-                            />
-                            <button
-                                onClick={(e) => {
-                                    e.preventDefault(); // Prevent form submission
-                                    handleCopy();
-                                }}
-                                className="absolute top-1/2 right-2 transform -translate-y-1/2 text-gray-500 hover:text-gray-800"
-                                title="Copy Resident ID"
-                            >
-                                <FiCopy size={20} />
-                            </button>
-                        </div>
-                        {copySuccess && (
-                            <span className="text-blue-700 text-sm mt-1">Copied!</span>
-                        )}
-                    </div>
-                    <div className="flex flex-col">
-                        <label className="font-semibold text-gray-700">Society ID:</label>
-                        <input
-                            type="text"
-                            name="societyId"
-                            value={formData.societyCode}
-                            readOnly
-                            className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
-                        />
-                    </div>
-                    <div className="flex flex-col">
-                        <label className="font-semibold text-gray-700">Society Name:</label>
-                        <input
-                            type="text"
-                            name="societyName"
-                            value={formData.societyName}
-                            readOnly
-                            className="border-gray-300 rounded-md p-3 bg-gray-100 text-gray-500 focus:outline-none"
-                        />
-                    </div>
-                </div>
-
-                {/* Editable fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {["name", "phone", "email", "address", "unitNumber"].map((field) => (
-                        <div key={field} className="flex flex-col">
-                            <label className="font-semibold text-gray-700 capitalize">{field}:</label>
-                            <input
-                                type="text"
-                                name={field}
-                                value={formData[field]}
-                                onChange={handleChange}
-                                placeholder={`Enter ${field}`}
-                                required
-                                className="border border-gray-300 rounded-md p-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                    ))}
-
-                    {/* Phone number validation and input */}
-                    {/* <div className="flex flex-col">
-                        <label className="font-semibold text-gray-700">Phone Number:</label>
-                        <input
-                            type="text"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            placeholder="+91 1234567890"
-                            required
-                            className="border border-gray-300 rounded-md p-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div> */}
-
-                    {/* Additional phone numbers */}
-                    {formData.additionalNumbers.map((number, index) => (
-                        <div key={index} className="flex items-center space-x-2">
-                            <div className="flex flex-col w-full">
-                                <label className="font-semibold text-gray-700">Additional No {index + 1}</label>
+            {/* Main Content */}
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Profile Form */}
+                <div className="bg-white rounded-lg shadow p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Resident Profile</h2>
+                    <form onSubmit={handlePreviewSubmit}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Name */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Name</label>
                                 <input
                                     type="text"
-                                    value={number}
-                                    onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
-                                    className="border border-gray-300 rounded-md p-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
-                                    placeholder="+913847384738" // Placeholder for additional numbers
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
                                 />
                             </div>
-                            {/* <button
-                                type="button"
-                                onClick={() => handleRemoveNumber(index)}
-                                className="text-red-500 hover:text-red-700"
-                            >
-                                Remove
-                            </button> */}
-                        </div>
-                    ))}
-                    <button
-                        type="button"
-                        onClick={handleAddNumber}
-                        className="w-full bg-green-500 text-white py-3 px-6 rounded-md hover:bg-green-600 transition-colors"
-                    >
-                        Add Another Number
-                    </button>
-                </div>
 
-                <button
-                    type="submit"
-                    className="w-full bg-blue-500 text-white py-3 px-6 rounded-md hover:bg-blue-600 transition-colors"
-                >
-                    Preview & Update
-                </button>
-            </form>
+                            {/* Primary Phone */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Primary Phone</label>
+                                <input
+                                    type="text"
+                                    name="phone"
+                                    value={formData.phone}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
 
-            {/* Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                    <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-                        <h2 className="text-xl font-bold mb-4">Confirm & Update</h2>
-                        <form onSubmit={handleFinalSubmit} className="space-y-4">
-                            {["name", "phone", "email", "address", "unitNumber"].map((key) => (
-                                <div key={key} className="flex flex-col">
-                                    <label className="font-semibold text-gray-700 capitalize">{key}:</label>
-                                    <input
-                                        type="text"
-                                        name={key}
-                                        value={formData[key]}
-                                        onChange={handleChange}
-                                        className="border border-gray-300 rounded-md p-3"
-                                    />
+                            {/* Additional Phone Numbers */}
+                            {formData.additionalNumbers.map((number, index) => (
+                                <div key={index}>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Additional Phone {index + 1}
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={number}
+                                            onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
+                                            className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveNumber(index)}
+                                            className="mt-1 bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
-                            {/* Additional phone numbers in modal */}
-                            {formData.additionalNumbers.map((number, index) => (
-                                <div key={index} className="flex items-center space-x-2">
+
+                            {/* Add Another Number Button */}
+                            <div className="col-span-2">
+                                <button
+                                    type="button"
+                                    onClick={handleAddNumber}
+                                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                                >
+                                    Add Another Number
+                                </button>
+                            </div>
+
+                            {/* Email */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Email</label>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Street</label>
+                                <input
+                                    type="text"
+                                    name="street"
+                                    value={formData.address.street}
+                                    onChange={handleAddressChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                    disabled
+                                />
+                            </div>
+
+                            {/* City */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">City</label>
+                                <input
+                                    type="text"
+                                    name="city"
+                                    value={formData.address.city}
+                                    onChange={handleAddressChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                    disabled
+                                />
+                            </div>
+
+                            {/* State */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">State</label>
+                                <input
+                                    type="text"
+                                    name="state"
+                                    value={formData.address.state}
+                                    onChange={handleAddressChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                    disabled
+                                />
+                            </div>
+
+                            {/* Pin Code */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Pin Code</label>
+                                <input
+                                    type="text"
+                                    name="pinCode"
+                                    value={formData.address.pinCode}
+                                    onChange={handleAddressChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                    disabled
+                                />
+                            </div>
+
+                            {/* Unit Number */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Unit Number</label>
+                                <input
+                                    type="text"
+                                    name="unitNumber"
+                                    value={formData.unitNumber}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* Society Code */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Society Code</label>
+                                <input
+                                    type="text"
+                                    name="societyCode"
+                                    value={formData.societyCode}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    required
+                                />
+                            </div>
+
+                            {/* Society ID */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Society ID</label>
+                                <input
+                                    type="text"
+                                    name="societyId"
+                                    value={formData.societyId}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    disabled
+                                />
+                            </div>
+
+                            {/* Society Name */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Society Name</label>
+                                <input
+                                    type="text"
+                                    name="societyName"
+                                    value={formData.societyName}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    disabled
+                                />
+                            </div>
+
+                            {/* Resident ID */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Resident ID</label>
+                                <div className="flex gap-2">
                                     <input
                                         type="text"
-                                        value={number}
-                                        onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
-                                        className="border p-3 border-gray-300 rounded-md flex-1"
-                                        placeholder="+913847384738"
+                                        name="residentId"
+                                        value={formData.residentId}
+                                        onChange={handleChange}
+                                        className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                        disabled
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => handleRemoveNumber(index)}
-                                        className="text-red-500 hover:text-red-700"
+                                        onClick={handleCopy}
+                                        className="mt-1 bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700"
                                     >
-                                        Remove
+                                        {copySuccess ? "Copied!" : "Copy"}
                                     </button>
                                 </div>
-                            ))}
+                            </div>
+                        </div>
+
+                        {/* Form Actions */}
+                        <div className="mt-6 flex justify-end">
                             <button
                                 type="submit"
-                                disabled={isSubmitting}
-                                className={`w-full py-3 px-6 text-white rounded-md ${isSubmitting
-                                    ? "bg-gray-400 cursor-not-allowed"
-                                    : "bg-green-500 hover:bg-green-600"
-                                    }`}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
                             >
-                                {isSubmitting ? "Updating..." : "Update Profile"}
+                                Preview Changes
                             </button>
-                        </form>
-                        <button
-                            onClick={() => setShowModal(false)}
-                            className="w-full mt-4 bg-gray-300 text-gray-800 py-3 px-6 rounded-md hover:bg-gray-400 transition-colors"
-                        >
-                            Cancel
-                        </button>
+                        </div>
+                    </form>
+                </div>
+            </main>
+
+            {/* Preview Modal */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">
+                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Preview Changes</h2>
+                        <div className="space-y-4">
+                            <p><strong>Name:</strong> {formData.name}</p>
+                            <p><strong>Primary Phone:</strong> {formData.phone}</p>
+                            {formData.additionalNumbers.map((number, index) => (
+                                <p key={index}>
+                                    <strong>Additional Phone {index + 1}:</strong> {number}
+                                </p>
+                            ))}
+                            <p><strong>Email:</strong> {formData.email}</p>
+                            <p><strong>Street:</strong> {formData.street}</p>
+                            <p><strong>City:</strong> {formData.city}</p>
+                            <p><strong>State:</strong> {formData.state}</p>
+                            <p><strong>Pin Code:</strong> {formData.pinCode}</p>
+                            <p><strong>Unit Number:</strong> {formData.unitNumber}</p>
+                            <p><strong>Society Code:</strong> {formData.societyCode}</p>
+                            <p><strong>Society ID:</strong> {formData.societyId}</p>
+                            <p><strong>Society Name:</strong> {formData.societyName}</p>
+                            <p><strong>Resident ID:</strong> {formData.residentId}</p>
+                        </div>
+                        <div className="mt-6 flex justify-end space-x-4">
+                            <button
+                                type="button"
+                                onClick={() => setShowModal(false)}
+                                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleFinalSubmit}
+                                disabled={isSubmitting}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                            >
+                                {isSubmitting ? 'Submitting...' : 'Confirm Changes'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
