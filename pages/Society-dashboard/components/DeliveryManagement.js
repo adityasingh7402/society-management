@@ -1,9 +1,138 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import Webcam from 'react-webcam';
+
+// Camera component with permission handling
+const CameraCapture = ({ onCapture }) => {
+  const [showCamera, setShowCamera] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState("prompt"); // "prompt", "granted", "denied"
+  const [isCameraReady, setCameraReady] = useState(false);
+  const webcamRef = useRef(null);
+
+  // Check for camera permissions
+  useEffect(() => {
+    const checkCameraPermission = async () => {
+      try {
+        // Check if permissions API is available
+        if (navigator.permissions && navigator.permissions.query) {
+          const result = await navigator.permissions.query({ name: 'camera' });
+          setPermissionStatus(result.state);
+          
+          // Listen for permission changes
+          result.onchange = () => {
+            setPermissionStatus(result.state);
+          };
+        }
+      } catch (err) {
+        console.log("Permissions API not supported");
+      }
+    };
+    
+    checkCameraPermission();
+  }, []);
+
+  // Handle when camera is ready
+  const handleUserMedia = () => {
+    setCameraReady(true);
+  };
+
+  // Handle errors (including permission denied)
+  const handleUserMediaError = (error) => {
+    console.error("Camera error:", error);
+    setPermissionStatus("denied");
+    setShowCamera(false);
+  };
+
+  // Capture photo from webcam
+  const capturePhoto = useCallback(() => {
+    if (webcamRef.current) {
+      const imageSrc = webcamRef.current.getScreenshot();
+      
+      // Convert base64 image to file object
+      fetch(imageSrc)
+        .then(res => res.blob())
+        .then(blob => {
+          const file = new File([blob], "delivery-photo.jpg", { type: "image/jpeg" });
+          onCapture(file);
+          setShowCamera(false);
+        })
+        .catch(err => {
+          console.error("Error converting image:", err);
+        });
+    }
+  }, [webcamRef, onCapture]);
+
+  // Request camera access explicitly
+  const requestCameraAccess = () => {
+    setShowCamera(true);
+    // The act of mounting the Webcam component will trigger the permission request
+  };
+
+  return (
+    <div className="mt-2">
+      {!showCamera ? (
+        <div>
+          <button
+            type="button"
+            onClick={requestCameraAccess}
+            className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            {permissionStatus === "denied" ? "Camera Access Denied (Check Settings)" : "Take Photo"}
+          </button>
+          {permissionStatus === "denied" && (
+            <p className="mt-1 text-sm text-red-600">
+              Camera access was denied. Please check your browser settings to enable camera access.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="relative">
+          <Webcam
+            audio={false}
+            ref={webcamRef}
+            screenshotFormat="image/jpeg"
+            videoConstraints={{
+              width: 320,
+              height: 240,
+              facingMode: "environment" // Use back camera
+            }}
+            onUserMedia={handleUserMedia}
+            onUserMediaError={handleUserMediaError}
+            className="rounded-md border border-gray-300"
+          />
+          
+          {isCameraReady ? (
+            <div className="mt-2 flex justify-between">
+              <button
+                type="button"
+                onClick={capturePhoto}
+                className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              >
+                Capture
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCamera(false)}
+                className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-md">
+              <div className="text-white">Accessing camera...</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function DeliveryManagement() {
   // State for new delivery
   const [deliveryPersonName, setDeliveryPersonName] = useState("");
   const [deliveryImage, setDeliveryImage] = useState(null);
+  const [deliveryImagePreview, setDeliveryImagePreview] = useState(null);
   const [deliveryItems, setDeliveryItems] = useState("");
   const [flatNo, setFlatNo] = useState("");
   const [flatOwnerName, setFlatOwnerName] = useState("");
@@ -34,13 +163,28 @@ export default function DeliveryManagement() {
     }
   ]);
 
+  // Handle camera capture
+  const handleCameraCapture = (file) => {
+    setDeliveryImage(file);
+    setDeliveryImagePreview(URL.createObjectURL(file));
+  };
+
+  // Handle file input change
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setDeliveryImage(file);
+      setDeliveryImagePreview(URL.createObjectURL(file));
+    }
+  };
+
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
     const newDelivery = {
       id: deliveryLogs.length + 1,
       deliveryPersonName,
-      deliveryImage: deliveryImage ? URL.createObjectURL(deliveryImage) : null,
+      deliveryImage: deliveryImagePreview,
       deliveryItems,
       flatNo,
       flatOwnerName,
@@ -50,6 +194,7 @@ export default function DeliveryManagement() {
     setDeliveryLogs([newDelivery, ...deliveryLogs]);
     setDeliveryPersonName("");
     setDeliveryImage(null);
+    setDeliveryImagePreview(null);
     setDeliveryItems("");
     setFlatNo("");
     setFlatOwnerName("");
@@ -93,18 +238,39 @@ export default function DeliveryManagement() {
               {/* Delivery Image (Camera Capture) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Delivery Person Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment" // Opens the camera for image capture
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      setDeliveryImage(file);
-                    }
-                  }}
-                  className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
-                />
+                <div className="mt-1 flex flex-col space-y-2">
+                  {/* Camera component */}
+                  <CameraCapture onCapture={handleCameraCapture} />
+                  
+                  {/* Traditional file input as fallback */}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  
+                  {/* Image preview */}
+                  {deliveryImagePreview && (
+                    <div className="mt-2">
+                      <img
+                        src={deliveryImagePreview}
+                        alt="Preview"
+                        className="h-32 w-32 object-cover rounded-md"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeliveryImage(null);
+                          setDeliveryImagePreview(null);
+                        }}
+                        className="mt-1 text-sm text-red-600 hover:text-red-800"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Delivery Items */}
@@ -202,14 +368,14 @@ export default function DeliveryManagement() {
                   <tr key={log.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        {log.deliveryImage && (
+                      {log.deliveryImage && (
                           <img
                             src={log.deliveryImage}
-                            alt={log.deliveryPersonName}
-                            className="h-10 w-10 rounded-full"
+                            alt={`${log.deliveryPersonName}`}
+                            className="h-10 w-10 rounded-full object-cover mr-3"
                           />
                         )}
-                        <div className="ml-4">
+                        <div>
                           <div className="text-sm font-medium text-gray-900">{log.deliveryPersonName}</div>
                         </div>
                       </div>
@@ -219,20 +385,16 @@ export default function DeliveryManagement() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.flatOwnerName}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.deliveryTime}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          log.status === "Delivered"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        log.status === 'Delivered' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
                         {log.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button
                         onClick={() => handleDelete(log.id)}
-                        className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700"
+                        className="text-red-600 hover:text-red-900"
                       >
                         Delete
                       </button>
@@ -241,6 +403,12 @@ export default function DeliveryManagement() {
                 ))}
               </tbody>
             </table>
+            
+            {deliveryLogs.length === 0 && (
+              <div className="text-center py-4 text-gray-500">
+                No delivery logs found.
+              </div>
+            )}
           </div>
         </div>
       </main>
