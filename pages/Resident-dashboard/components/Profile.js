@@ -144,20 +144,20 @@ export default function Profile() {
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="classss">
-                <button onClick={() => router.back()} className="flex items-center p-6 space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors">
+                <button onClick={() => router.back()} className="flex items-center p-4 md:p-6 space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors">
                     <FaArrowLeft size={18} />
                     <span className="text-base">Back</span>
                 </button>
             </div>
-            <h1 className="text-4xl font-bold text-blue-600 mb-8 text-center">Resident Profile</h1>
+            <h1 className="text-2xl md:text-4xl font-bold text-blue-600 mb-4 md:mb-8 text-center">Resident Profile</h1>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 md:py-8">
                 {/* Profile Form */}
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-6">Edit Resident Profile</h2>
+                <div className="bg-white rounded-lg shadow p-4 md:p-6">
+                    <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 md:mb-6">Edit Resident Profile</h2>
                     <form onSubmit={handlePreviewSubmit}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
                             {/* Name */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Name</label>
@@ -166,7 +166,7 @@ export default function Profile() {
                                     name="name"
                                     value={formData.name}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     required
                                 />
                             </div>
@@ -179,7 +179,7 @@ export default function Profile() {
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     required
                                 />
                             </div>
@@ -195,7 +195,7 @@ export default function Profile() {
                                             type="text"
                                             value={number}
                                             onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
-                                            className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                            className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                         />
                                         <button
                                             type="button"
@@ -209,11 +209,11 @@ export default function Profile() {
                             ))}
 
                             {/* Add Another Number Button */}
-                            <div className="col-span-2">
+                            <div className="col-span-1 md:col-span-2">
                                 <button
                                     type="button"
                                     onClick={handleAddNumber}
-                                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 w-full md:w-auto"
                                 >
                                     Add Another Number
                                 </button>
@@ -227,7 +227,7 @@ export default function Profile() {
                                     name="email"
                                     value={formData.email}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     required
                                 />
                             </div>
@@ -239,7 +239,7 @@ export default function Profile() {
                                     name="street"
                                     value={formData.address.street}
                                     onChange={handleAddressChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     required
                                     disabled
                                 />
@@ -253,7 +253,7 @@ export default function Profile() {
                                     name="city"
                                     value={formData.address.city}
                                     onChange={handleAddressChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     required
                                     disabled
                                 />
@@ -267,7 +267,7 @@ export default function Profile() {
                                     name="state"
                                     value={formData.address.state}
                                     onChange={handleAddressChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     required
                                     disabled
                                 />
@@ -281,7 +281,7 @@ export default function Profile() {
                                     name="pinCode"
                                     value={formData.address.pinCode}
                                     onChange={handleAddressChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     required
                                     disabled
                                 />
@@ -295,7 +295,7 @@ export default function Profile() {
                                     name="unitNumber"
                                     value={formData.unitNumber}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     required
                                 />
                             </div>
@@ -308,7 +308,7 @@ export default function Profile() {
                                     name="societyCode"
                                     value={formData.societyCode}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     required
                                 />
                             </div>
@@ -321,7 +321,7 @@ export default function Profile() {
                                     name="societyId"
                                     value={formData.societyId}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     disabled
                                 />
                             </div>
@@ -334,7 +334,7 @@ export default function Profile() {
                                     name="societyName"
                                     value={formData.societyName}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     disabled
                                 />
                             </div>
@@ -348,7 +348,7 @@ export default function Profile() {
                                         name="residentId"
                                         value={formData.residentId}
                                         onChange={handleChange}
-                                        className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                        className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                         disabled
                                     />
                                     <button
@@ -366,7 +366,7 @@ export default function Profile() {
                         <div className="mt-6 flex justify-end">
                             <button
                                 type="submit"
-                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 w-full md:w-auto"
                             >
                                 Preview Changes
                             </button>
@@ -377,9 +377,9 @@ export default function Profile() {
 
             {/* Preview Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Preview Changes</h2>
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg shadow-lg p-4 md:p-6 w-full max-w-2xl">
+                        <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-4">Preview Changes</h2>
                         <div className="space-y-4">
                             <p><strong>Name:</strong> {formData.name}</p>
                             <p><strong>Primary Phone:</strong> {formData.phone}</p>
@@ -403,7 +403,7 @@ export default function Profile() {
                             <button
                                 type="button"
                                 onClick={() => setShowModal(false)}
-                                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+                                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 w-full md:w-auto"
                             >
                                 Cancel
                             </button>
@@ -411,7 +411,7 @@ export default function Profile() {
                                 type="button"
                                 onClick={handleFinalSubmit}
                                 disabled={isSubmitting}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 w-full md:w-auto"
                             >
                                 {isSubmitting ? 'Submitting...' : 'Confirm Changes'}
                             </button>
