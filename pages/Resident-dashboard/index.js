@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CiLogout } from "react-icons/ci";
 import { FaUser, FaFileAlt, FaHome, FaClipboardList, FaBox, FaUserTie, FaFileSignature, FaLightbulb, FaHistory, FaTools, FaSearch, FaBullhorn, FaChartBar, FaIdBadge, FaExclamationTriangle } from "react-icons/fa";
 import { IoCloseOutline, IoCameraReverseOutline } from "react-icons/io5";
+import Preloader from "../components/Preloader";
 
 export default function Home() {
     const router = useRouter();
@@ -197,7 +198,7 @@ export default function Home() {
 
                 {/* Main content */}
                 <main className={`flex-1 bg-gray-50 lg:ml-80 transition-all duration-300 relative ${isSidebarOpen ? "bg-black bg-opacity-50 pointer-events-none" : "bg-opacity-100"}`}>
-                    {loading ? <p>Loading...</p> : renderComponent()}
+                    {loading ? <Preloader /> : renderComponent()}
                 </main>
             </div>
         </div>
