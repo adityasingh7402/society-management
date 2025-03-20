@@ -4,6 +4,7 @@ import { FaPhoneAlt } from "react-icons/fa";
 import Link from 'next/link';
 import axios from 'axios'; // Import axios for making requests
 import { useRouter } from 'next/router'
+import { Building2, User, MapPin, Shield, ChevronLeft, ChevronRight, Phone, Mail, MapPinned, FileText } from 'lucide-react';
 
 export default function Enroll() {
   const router = useRouter()
@@ -50,6 +51,13 @@ export default function Enroll() {
     }
     setLoadingOtp(false);
   };
+
+  const steps = [
+    { number: 1, title: 'Society Details', icon: Building2 },
+    { number: 2, title: 'Manager Info', icon: User },
+    { number: 3, title: 'Location', icon: MapPin },
+    { number: 4, title: 'Verify', icon: Shield },
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -134,69 +142,66 @@ export default function Enroll() {
             <p className="text-lg">Fill out the form step-by-step to enroll your society.</p>
           </div>
 
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="relative pt-1 pb-3">
-              <div className="flex mb-2 items-center justify-between">
-                {['Step 1', 'Step 2', 'Step 3', 'Submit'].map((step, index) => (
-                  <div
-                    key={index}
-                    className={`flex text-xs mr-2 font-semibold uppercase w-1/4 items-center justify-center ${currentStep > index ? 'text-blue-600' : 'text-gray-400'
-                      }`}
-                  >
-                    {step}
+          <div className="mb-12">
+            <div className="flex justify-between relative">
+              {steps.map((step, index) => {
+                const Icon = step.icon;
+                return (
+                  <div key={step.number} className="flex flex-col items-center relative z-10">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${currentStep >= step.number ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+                      } transition-colors duration-200`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <p className={`mt-2 text-sm font-medium ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-500'
+                      }`}>
+                      {step.title}
+                    </p>
                   </div>
-                ))}
-              </div>
-              <div className="flex">
-                {[1, 2, 3, 4].map((step) => (
-                  <div
-                    key={step}
-                    className={`flex w-1/4 items-center justify-center h-2 rounded-lg ${currentStep >= step ? 'bg-blue-600' : 'bg-gray-300'
-                      }`}
-                  />
-                ))}
+                );
+              })}
+              {/* Progress line */}
+              <div className="absolute top-6 left-0 h-0.5 bg-gray-200 w-full -z-10">
+                <div
+                  className="h-full bg-blue-600 transition-all duration-300"
+                  style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+                />
               </div>
             </div>
           </div>
 
-          {/* Form Sections */}
-          <div className="bg-white shadow-lg rounded-lg p-8">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Step 1 - Basic Information */}
+          {/* Form */}
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Step 1 - Society Details */}
               {currentStep === 1 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
-                  <div className="w-full">
-                    <label htmlFor="societyName" className="block text-lg font-medium text-gray-700">
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-2">
                       Society Name
                     </label>
                     <input
                       type="text"
-                      id="societyName"
                       name="societyName"
                       value={formData.societyName}
                       onChange={handleChange}
-                      required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter your society's name"
+                      className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter society name"
                     />
                   </div>
-                  <div className="w-full">
-                    <label htmlFor="societyType" className="block text-lg font-medium text-gray-700">
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-2">
                       Society Type
                     </label>
                     <select
-                      id="societyType"
                       name="societyType"
                       value={formData.societyType}
                       onChange={handleChange}
-                      required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="">Select Society Type</option>
+                      <option value="">Select type</option>
                       <option value="residential">Residential</option>
                       <option value="commercial">Commercial</option>
-                      <option value="mixed">Mixed</option>
+                      <option value="mixed">Mixed Use</option>
                     </select>
                   </div>
                 </div>
@@ -204,223 +209,197 @@ export default function Enroll() {
 
               {/* Step 2 - Manager Details */}
               {currentStep === 2 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
-                  <div className="w-full">
-                    <label htmlFor="managerName" className="block text-lg font-medium text-gray-700">
-                      Manager's Name
-                    </label>
-                    <input
-                      type="text"
-                      id="managerName"
-                      name="managerName"
-                      value={formData.managerName}
-                      onChange={handleChange}
-                      required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter manager's name"
-                    />
-                  </div>
-                  <div className="w-full">
-                    <label htmlFor="managerPhone" className="block text-lg font-medium text-gray-700">
-                      Manager's Phone
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="tel"
-                        id="managerPhone"
-                        name="managerPhone"
-                        value={formData.managerPhone}
-                        onChange={handleChange}
-                        required
-                        className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter manager's phone number"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="w-full">
-                    <label htmlFor="managerEmail" className="block text-lg font-medium text-gray-700">
-                      Manager's Email
-                    </label>
-                    <input
-                      type="email"
-                      id="managerEmail"
-                      name="managerEmail"
-                      value={formData.managerEmail}
-                      onChange={handleChange}
-                      required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter manager's email"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3 - Society Address, Zip, Description */}
-              {currentStep === 3 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
-                  <div className="w-full">
-                    <label htmlFor="street" className="block text-lg font-medium text-gray-700">
-                      Street
-                    </label>
-                    <input
-                      type="text"
-                      id="street"
-                      name="street"
-                      value={formData.street}
-                      onChange={handleChange}
-                      required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:ring-blue-500"
-                      placeholder="Enter street address"
-                    />
-                  </div>
-                  <div className="w-full">
-                    <label htmlFor="city" className="block text-lg font-medium text-gray-700">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      id="city"
-                      name="city"
-                      value={formData.city}
-                      onChange={handleChange}
-                      required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:ring-blue-500"
-                      placeholder="Enter city"
-                    />
-                  </div>
-                  <div className="w-full">
-                    <label htmlFor="state" className="block text-lg font-medium text-gray-700">
-                      State
-                    </label>
-                    <input
-                      type="text"
-                      id="state"
-                      name="state"
-                      value={formData.state}
-                      onChange={handleChange}
-                      required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:ring-blue-500"
-                      placeholder="Enter state"
-                    />
-                  </div>
-                  <div className="w-full">
-                    <label htmlFor="pinCode" className="block text-lg font-medium text-gray-700">
-                      Pin Code
-                    </label>
-                    <input
-                      type="text"
-                      id="pinCode"
-                      name="pinCode"
-                      value={formData.pinCode}
-                      onChange={handleChange}
-                      required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:ring-blue-500"
-                      placeholder="Enter pin code"
-                    />
-                  </div>
-                  <div className="w-full">
-                    <label htmlFor="description" className="block text-lg font-medium text-gray-700">
-                      Description
-                    </label>
-                    <textarea
-                      id="description"
-                      name="description"
-                      value={formData.description}
-                      onChange={handleChange}
-                      required
-                      className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter a description for the society"
-                    />
-                  </div>
-                </div>
-              )}
-
-
-              {/* Step 4 - OTP Verification */}
-              {currentStep === 4 && (
-                <div>
-                  {!otpSent ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <div className="mobile-show text-2xl text-gray-700 bg-gray-100 p-2 rounded-md shadow-md">
-                        OTP sends to this no. <span className="font-bold text-gray-900">+91 {formData.managerPhone}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleOtpSend}
-                        disabled={loadingOtp}
-                        className={`mt-4 w-full py-3 text-white rounded-md ${loadingOtp ? 'bg-gray-400' : 'bg-blue-600'}`}
-                      >
-                        {loadingOtp ? 'Sending OTP...' : 'Send OTP'}
-                      </button>
-
-                      {/* <label htmlFor="managerPhone" className="block text-lg font-medium text-gray-700">
-                        Manager's Phone Number
-                      </label>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="tel"
-                          id="managerPhone"
-                          name="managerPhone"
-                          value={formData.managerPhone}
-                          onChange={handleChange}
-                          required
-                          className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter manager's phone number"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleOtpSend}
-                        disabled={loadingOtp}
-                        className={`mt-4 w-full py-3 text-white rounded-md ${loadingOtp ? 'bg-gray-400' : 'bg-blue-600'}`}
-                      >
-                        {loadingOtp ? 'Sending OTP...' : 'Send OTP'}
-                      </button> */}
-                    </div>
-                  ) : (
-                    <div>
-                      <label htmlFor="otp" className="block text-lg font-medium text-gray-700">
-                        Enter OTP
+                      <label className="block text-gray-700 font-medium mb-2">
+                        <User className="inline-block w-5 h-5 mr-2" />
+                        Manager's Name
                       </label>
                       <input
                         type="text"
-                        id="otp"
+                        name="managerName"
+                        value={formData.managerName}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter manager's name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-medium mb-2">
+                        <Phone className="inline-block w-5 h-5 mr-2" />
+                        Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        name="managerPhone"
+                        value={formData.managerPhone}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter phone number"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-2">
+                      <Mail className="inline-block w-5 h-5 mr-2" />
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      name="managerEmail"
+                      value={formData.managerEmail}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3 - Location */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="col-span-2">
+                      <label className="block text-gray-700 font-medium mb-2">
+                        <MapPinned className="inline-block w-5 h-5 mr-2" />
+                        Street Address
+                      </label>
+                      <input
+                        type="text"
+                        name="street"
+                        value={formData.street}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter street address"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-medium mb-2">City</label>
+                      <input
+                        type="text"
+                        name="city"
+                        value={formData.city}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter city"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-medium mb-2">State</label>
+                      <input
+                        type="text"
+                        name="state"
+                        value={formData.state}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter state"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-medium mb-2">ZIP Code</label>
+                      <input
+                        type="text"
+                        name="zipCode"
+                        value={formData.zipCode}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter ZIP code"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-gray-700 font-medium mb-2">
+                        <FileText className="inline-block w-5 h-5 mr-2" />
+                        Description
+                      </label>
+                      <textarea
+                        name="description"
+                        value={formData.description}
+                        onChange={handleChange}
+                        rows={4}
+                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Describe your society..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4 - Verification */}
+              {currentStep === 4 && (
+                <div className="space-y-6">
+                  {!otpSent ? (
+                    <div className="text-center">
+                      <Shield className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-4">Verify Your Phone Number</h3>
+                      <p className="text-gray-600 mb-6">
+                        We'll send a verification code to: <br />
+                        <span className="font-semibold">+91 {formData.managerPhone}</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleOtpSend}
+                        disabled={loadingOtp}
+                        className={`w-full py-3 rounded-lg text-white font-medium transition-colors ${loadingOtp ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
+                          }`}
+                      >
+                        {loadingOtp ? 'Sending Code...' : 'Send Verification Code'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-center mb-6">
+                        <h3 className="text-xl font-semibold mb-2">Enter Verification Code</h3>
+                        <p className="text-gray-600">
+                          We've sent a code to your phone number
+                        </p>
+                      </div>
+                      <input
+                        type="text"
                         name="otp"
                         value={formData.otp}
                         onChange={handleChange}
-                        required
-                        className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter OTP"
+                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl letter-spacing-2"
+                        placeholder="Enter 6-digit code"
+                        maxLength={6}
                       />
-                      <div className="mt-4">
-                        <FaPhoneAlt className="text-blue-600" /> <span className="text-blue-600">OTP has been sent to the manager's phone</span>
-                      </div>
                     </div>
                   )}
-
-                  <div className="flex justify-between mt-6">
-                    {/* {currentStep > 1 && (
-                      <button type="button" onClick={handleBack} className="bg-gray-300 text-black px-6 py-3 rounded-md">
-                        Back
-                      </button>
-                    )} */}
-                    {otpSent && (
-                      <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-md">
-                        Submit
-                      </button>
-                    )}
-                  </div>
                 </div>
               )}
 
               {/* Navigation Buttons */}
-              <div className="flex justify-between mt-6">
+              <div className="flex justify-between mt-8">
                 {currentStep > 1 && (
-                  <button type="button" onClick={handleBack} className="bg-gray-300 text-black px-6 py-3 rounded-md">Back</button>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="flex items-center px-6 py-3 rounded-lg border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5 mr-2" />
+                    Back
+                  </button>
                 )}
-                {currentStep < 4 && (
-                  <button type="button" onClick={handleNext} className="bg-blue-600 text-white px-6 py-3 rounded-md">Next</button>
+                {currentStep < 4 ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="flex items-center px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors ml-auto"
+                  >
+                    Next
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </button>
+                ) : (
+                  otpSent && (
+                    <button
+                      type="submit"
+                      className="flex items-center px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors ml-auto"
+                    >
+                      Submit
+                      <ChevronRight className="w-5 h-5 ml-2" />
+                    </button>
+                  )
                 )}
               </div>
             </form>

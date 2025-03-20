@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Preloader from '@/pages/components/Preloader';
 
 export default function ApartmentStructureForm() {
   const [blocks, setBlocks] = useState([{ blockName: '', floors: [{ flats: [{ flatNumber: '', residents: [] }] }]}]);
@@ -181,7 +182,7 @@ export default function ApartmentStructureForm() {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <Preloader />;
   }
 
   return (

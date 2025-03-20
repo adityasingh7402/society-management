@@ -10,6 +10,7 @@ import PaymentTracking from "./components/PaymentTracking";
 import Tickets from "./components/Tickets";
 import Announcements from "./components/Announcements";
 import PollsSurveys from "./components/PollsSurveys";
+import Preloader from "../components/Preloader";
 import DiscussionForums from "./components/DiscussionForums";
 import ApartmentStructureForm from "./components/ApartmentStructureForm";
 import VisitorLogs from "./components/VisitorLogs";
@@ -272,7 +273,7 @@ export default function Home() {
 
                 {/* Main Content */}
                 <main className="flex-1 bg-gray-100 lg:ml-80">
-                    {loading ? <p>Loading...</p> : renderComponent()}
+                    {loading ? <Preloader /> : renderComponent()}
                 </main>
             </div>
         </div>

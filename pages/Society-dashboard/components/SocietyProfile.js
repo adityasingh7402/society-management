@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Preloader from '@/pages/components/Preloader';
 
 export default function SocietyProfile() {
     const [formData, setFormData] = useState({
@@ -95,7 +96,7 @@ export default function SocietyProfile() {
         }
     };
 
-    if (loading) return <p className="text-center mt-10 text-gray-500">Loading...</p>;
+    if (loading) return <Preloader />;
 
     return (
         <div className="min-h-screen bg-gray-100">

@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import React, { useState } from 'react';
+import {
+  UserCircle, Building2, Bell, Users, Wrench, PieChart, FileText, Home, ClipboardList, Package, Pencil, Lightbulb, History, Hammer, Search, Megaphone, BarChart, ShieldAlert, Siren
+} from 'lucide-react';
 
 const DashboardDefault = () => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
@@ -7,7 +10,71 @@ const DashboardDefault = () => {
   const togglePopup = () => {
     setIsPopupOpen(!isPopupOpen);
   };
-
+  const menuItems = [
+    { icon: UserCircle, label: 'Profile', href: '/Resident-dashboard/components/Profile' },
+    { icon: Building2, label: 'Property', href: '/Resident-dashboard/components/SellProperty' },
+    { icon: Bell, label: 'Notices', href: '/Resident-dashboard/components/Profile' },
+    { icon: Users, label: 'Tenant', href: '/Resident-dashboard/components/TenantInfo' },
+    { icon: Wrench, label: 'Maintenance', href: '/Resident-dashboard/components/Profile' },
+    { icon: PieChart, label: 'Polls', href: '/Resident-dashboard/components/Profile' },
+  ];
+  const menuSections = [
+    {
+      title: 'Profile Management',
+      items: [
+        { icon: UserCircle, label: 'Profile', href: '/Resident-dashboard/components/Profile' },
+        { icon: FileText, label: 'Ownership', href: '/Resident-dashboard/components/Ownership' },
+        { icon: Home, label: 'House', href: '/Resident-dashboard/components/House' }
+      ]
+    },
+    {
+      title: 'Property Actions',
+      items: [
+        { icon: ClipboardList, label: 'Sell Property', href: '/Resident-dashboard/components/SellProperty' },
+        { icon: Package, label: 'Sell Items', href: '/Resident-dashboard/components/SellItems' }
+      ]
+    },
+    {
+      title: 'Tenant Details',
+      items: [
+        { icon: Users, label: 'Tenant Info', href: '/Resident-dashboard/components/TenantInfo' },
+        { icon: Pencil, label: 'Lease', href: '#' }
+      ]
+    },
+    {
+      title: 'Utility Bills',
+      items: [
+        { icon: Lightbulb, label: 'Bills', href: '#' },
+        { icon: History, label: 'History', href: '#' }
+      ]
+    },
+    {
+      title: 'Maintenance Tickets',
+      items: [
+        { icon: Hammer, label: 'New Request', href: '#' },
+        { icon: Search, label: 'Track Request', href: '#' }
+      ]
+    },
+    {
+      title: 'Notices / Polls & Surveys',
+      items: [
+        { icon: Megaphone, label: 'Announcements', href: '#' },
+        { icon: BarChart, label: 'Polls', href: '#' }
+      ]
+    },
+    {
+      title: 'Visitor Pre-Approvals',
+      items: [
+        { icon: ShieldAlert, label: 'Visitor Entry', href: '#' }
+      ]
+    },
+    {
+      title: 'Emergency Alerts',
+      items: [
+        { icon: Siren, label: 'Emergency', href: '#' }
+      ]
+    }
+  ];
   return (
     <div className='bg-slate-100 relative'>
       {/* Floating Circle Button */}
@@ -36,7 +103,7 @@ const DashboardDefault = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           {/* Animated Container */}
           <div
-            className="bg-gray-100 rounded-2xl p-6 w-11/12 flex justify-center items-center max-w-2xl relative circle-to-container"
+            className="bg-gray-100 rounded-2xl p-2 w-11/12 flex justify-center items-center max-w-2xl relative circle-to-container"
             style={{
               transformOrigin: 'center center',
             }}
@@ -44,7 +111,7 @@ const DashboardDefault = () => {
             {/* Close Button */}
             <button
               onClick={togglePopup}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 fade-in"
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 fade-in"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -63,49 +130,24 @@ const DashboardDefault = () => {
             </button>
 
             {/* 3x3 Grid of Functions */}
-            <div className="grid grid-cols-3 gap-4 fade-in m-3">
-              <Link href="/Resident-dashboard/components/Profile">
-                <div className="flex flex-col items-center transition-colors cursor-pointer">
-                  {/* Icon Container */}
-                  <div className="flex items-center justify-center w-16 h-16 bg-white text-blue-900 text-3xl rounded-full mb-2">
-                    👤
-                  </div>
-                  {/* Text Outside */}
-                  <div className="text-sm font-medium text-center mt-2">Profile</div>
-                </div>
-              </Link>
-              <div className="flex flex-col items-center transition-colors cursor-pointer">
-                <div className="flex items-center justify-center w-16 h-16 bg-white text-blue-900 text-3xl rounded-full mb-2">
-                  📋
-                </div>
-                <div className="text-sm font-medium text-center mt-2">Property</div>
-              </div>
-              <div className="flex flex-col items-center transition-colors cursor-pointer">
-                <div className="flex items-center justify-center w-16 h-16 bg-white text-blue-900 text-3xl rounded-full mb-2">
-                  📢
-                </div>
-                <div className="text-sm font-medium text-center mt-2">Notices</div>
-              </div>
-              <div className="flex flex-col items-center transition-colors cursor-pointer">
-                <div className="flex items-center justify-center w-16 h-16 bg-white text-blue-900 text-3xl rounded-full mb-2">
-                  🧑
-                </div>
-                <div className="text-sm font-medium text-center mt-2">Tenant</div>
-              </div>
-              <div className="flex flex-col items-center transition-colors cursor-pointer">
-                <div className="flex items-center justify-center w-16 h-16 bg-white text-blue-900 text-3xl rounded-full mb-2">
-                  🛠️
-                </div>
-                <div className="text-sm font-medium text-center mt-2">Maintenance</div>
-              </div>
-              <div className="flex flex-col items-center transition-colors cursor-pointer">
-                <div className="flex items-center justify-center w-16 h-16 bg-white text-blue-900 text-3xl rounded-full mb-2">
-                  📊
-                </div>
-                <div className="text-sm font-medium text-center mt-2">Polls</div>
+            <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-3xl">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {menuItems.map((item, index) => (
+                  <a
+                    key={index}
+                    href={item.href || '#'}
+                    className="group flex flex-col items-center p-3 rounded-xl transition-all duration-300 hover:bg-blue-50 hover:shadow-md"
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 bg-blue-50 text-blue-600 rounded-2xl mb-2 transition-all duration-300 group-hover:bg-blue-100 group-hover:scale-110">
+                      <item.icon size={32} strokeWidth={1.5} />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors duration-300">
+                      {item.label}
+                    </span>
+                  </a>
+                ))}
               </div>
             </div>
-
           </div>
         </div>
       )}
@@ -161,122 +203,21 @@ const DashboardDefault = () => {
 
       {/* Rest of the Dashboard Sections */}
       <div className="p-6">
-        {/* Profile Management */}
-        <div className="mb-8 select-none">
-          <h2 className="text-sm text-[#001a3d] font-semibold mb-4">Profile Management</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <Link href={'/Resident-dashboard/components/Profile'}>
-              <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-                <div className="text-4xl mb-2">👤</div>
-                <div className="text-sm font-medium text-center">Profile</div>
-              </div>
-            </Link>
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">📄</div>
-              <div className="text-sm font-medium text-center">Ownership</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">🏠</div>
-              <div className="text-sm font-medium text-center">House</div>
+        {menuSections.map((section, index) => (
+          <div key={index} className="mb-8 select-none">
+            <h2 className="text-sm text-[#001a3d] font-semibold mb-4">{section.title}</h2>
+            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
+              {section.items.map((item, i) => (
+                <Link key={i} href={item.href} className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
+                  <div className='flex items-center justify-center w-14 h-14 bg-blue-50 text-blue-600 rounded-full mb-2 transition-all duration-300 group-hover:bg-blue-100 group-hover:scale-110'>
+                    <item.icon className="w-10 h-10" />
+                  </div>
+                  <div className="text-sm font-medium text-center">{item.label}</div>
+                </Link>
+              ))}
             </div>
           </div>
-        </div>
-        {/* Property Actions */}
-        <div className="mb-8 select-none">
-          <h2 className="text-sm text-[#001a3d] font-semibold mb-4">Property Actions</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">📋</div>
-              <div className="text-sm font-medium text-center">Sell Property</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">📦</div>
-              <div className="text-sm font-medium text-center">Sell Items</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tenant Details */}
-        <div className="mb-8 select-none">
-          <h2 className="text-sm text-[#001a3d] font-semibold mb-4">Tenant Details</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">🧑</div>
-              <div className="text-sm font-medium text-center">Tenant Info</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">✍️</div>
-              <div className="text-sm font-medium text-center">Lease</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Utility Bills */}
-        <div className="mb-8 select-none">
-          <h2 className="text-sm text-[#001a3d] font-semibold mb-4">Utility Bills</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">💡</div>
-              <div className="text-sm font-medium text-center">Bills</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">📑</div>
-              <div className="text-sm font-medium text-center">History</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Maintenance Tickets */}
-        <div className="mb-8 select-none">
-          <h2 className="text-sm text-[#001a3d] font-semibold mb-4">Maintenance Tickets</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">🛠️</div>
-              <div className="text-sm font-medium text-center">New Request</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">🔍</div>
-              <div className="text-sm font-medium text-center">Track Request</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Notices / Polls & Surveys */}
-        <div className="mb-8 select-none">
-          <h2 className="text-sm text-[#001a3d] font-semibold mb-4">Notices / Polls & Surveys</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">📢</div>
-              <div className="text-sm font-medium text-center">Announcements</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">📊</div>
-              <div className="text-sm font-medium text-center">Polls</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Visitor Pre-Approvals */}
-        <div className="mb-8 select-none">
-          <h2 className="text-sm text-[#001a3d] font-semibold mb-4">Visitor Pre-Approvals</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">🛂</div>
-              <div className="text-sm font-medium text-center">Visitor Entry</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Emergency Alerts */}
-        <div className="mb-8 select-none">
-          <h2 className="text-sm text-[#001a3d] font-semibold mb-4">Emergency Alerts</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-2">🚨</div>
-              <div className="text-sm font-medium text-center">Emergency</div>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );

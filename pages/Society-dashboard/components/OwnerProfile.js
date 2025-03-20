@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import Preloader from '@/pages/components/Preloader';
 
 export default function OwnerProfile() {
   const [residentList, setResidentList] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Fetch residents from the API
   useEffect(() => {
     const fetchResidents = async () => {
+      setLoading(true);
       try {
         const response = await fetch('/api/Resident-Api/getAllResidents');
         if (response.ok) {
@@ -16,6 +19,8 @@ export default function OwnerProfile() {
         }
       } catch (error) {
         console.error('Error fetching residents:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -68,6 +73,9 @@ export default function OwnerProfile() {
       }
     }
   };
+  if (loading) {
+    return <Preloader />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -115,9 +123,8 @@ export default function OwnerProfile() {
               ) : (
                 <>
                   <span
-                    className={`text-lg font-semibold ${
-                      resident.societyVerification === 'Approved' ? 'text-green-600' : 'text-red-600'
-                    }`}
+                    className={`text-lg font-semibold ${resident.societyVerification === 'Approved' ? 'text-green-600' : 'text-red-600'
+                      }`}
                   >
                     {resident.societyVerification === 'Approved' ? 'Verified' : 'Rejected'}
                   </span>

@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 
 export default function TenantProfile() {
   const [residentList, setResidentList] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Fetch residents from the API
   useEffect(() => {
     const fetchResidents = async () => {
+      setLoading(true);
       try {
         const response = await fetch('/api/Resident-Api/getAllResidents');
         if (response.ok) {
@@ -16,6 +18,9 @@ export default function TenantProfile() {
         }
       } catch (error) {
         console.error('Error fetching residents:', error);
+      }
+      finally {
+        setLoading(false);
       }
     };
 
@@ -115,9 +120,8 @@ export default function TenantProfile() {
               ) : (
                 <>
                   <span
-                    className={`text-lg font-semibold ${
-                      resident.societyVerification === 'Approved' ? 'text-green-600' : 'text-red-600'
-                    }`}
+                    className={`text-lg font-semibold ${resident.societyVerification === 'Approved' ? 'text-green-600' : 'text-red-600'
+                      }`}
                   >
                     {resident.societyVerification === 'Approved' ? 'Verified' : 'Rejected'}
                   </span>
