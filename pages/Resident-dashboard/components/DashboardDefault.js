@@ -14,7 +14,7 @@ const DashboardDefault = () => {
     { icon: UserCircle, label: 'Profile', href: '/Resident-dashboard/components/Profile' },
     { icon: Building2, label: 'Property', href: '/Resident-dashboard/components/SellProperty' },
     { icon: Bell, label: 'Notices', href: '/Resident-dashboard/components/Profile' },
-    { icon: Users, label: 'Tenant', href: '/Resident-dashboard/components/TenantInfo' },
+    { icon: Siren, label: 'Emergency', href: '/Resident-dashboard/components/Emergency' },
     { icon: Wrench, label: 'Maintenance', href: '/Resident-dashboard/components/Profile' },
     { icon: PieChart, label: 'Polls', href: '/Resident-dashboard/components/Profile' },
   ];
@@ -38,40 +38,40 @@ const DashboardDefault = () => {
       title: 'Tenant Details',
       items: [
         { icon: Users, label: 'Tenant Info', href: '/Resident-dashboard/components/TenantInfo' },
-        { icon: Pencil, label: 'Lease', href: '#' }
+        { icon: Pencil, label: 'Lease', href: '/Resident-dashboard/components/Lease' }
       ]
     },
     {
       title: 'Utility Bills',
       items: [
-        { icon: Lightbulb, label: 'Bills', href: '#' },
-        { icon: History, label: 'History', href: '#' }
+        { icon: Lightbulb, label: 'Bills', href: '/Resident-dashboard/components/Bills' },
+        { icon: History, label: 'History', href: '/Resident-dashboard/components/History' }
       ]
     },
     {
       title: 'Maintenance Tickets',
       items: [
-        { icon: Hammer, label: 'New Request', href: '#' },
-        { icon: Search, label: 'Track Request', href: '#' }
+        { icon: Hammer, label: 'New Request', href: '/Resident-dashboard/components/NewRequest' },
+        { icon: Search, label: 'Track Request', href: '/Resident-dashboard/components/TrackRequest' }
       ]
     },
     {
       title: 'Notices / Polls & Surveys',
       items: [
-        { icon: Megaphone, label: 'Announcements', href: '#' },
-        { icon: BarChart, label: 'Polls', href: '#' }
+        { icon: Megaphone, label: 'Announcements', href: '/Resident-dashboard/components/Announcements' },
+        { icon: BarChart, label: 'Polls', href: '/Resident-dashboard/components/Polls' }
       ]
     },
     {
       title: 'Visitor Pre-Approvals',
       items: [
-        { icon: ShieldAlert, label: 'Visitor Entry', href: '#' }
+        { icon: ShieldAlert, label: 'Visitor Entry', href: '/Resident-dashboard/components/VisitorEntry' }
       ]
     },
     {
       title: 'Emergency Alerts',
       items: [
-        { icon: Siren, label: 'Emergency', href: '#' }
+        { icon: Siren, label: 'Emergency', href: '/Resident-dashboard/components/Emergency' }
       ]
     }
   ];
