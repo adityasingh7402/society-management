@@ -23,6 +23,7 @@ const SecuritySchema = new mongoose.Schema(
     },
     guardImage: {
       type: String,
+      default: 'Pending',
       required: false,
     },
     shiftTimings: {
@@ -33,6 +34,13 @@ const SecuritySchema = new mongoose.Schema(
       type: String,
       enum: ['Approved', 'Reject', 'Pending'],
       default: 'Pending',
+    },
+    address: {
+      societyName: { type: String, required: true },
+      street: { type: String, required: true },
+      city: { type: String, required: true },
+      state: { type: String, required: true },
+      pinCode: { type: String, required: true },
     },
     visitorLogs: [
       {

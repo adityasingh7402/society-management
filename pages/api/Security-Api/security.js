@@ -4,11 +4,10 @@ import SecurityGuard from "../../../models/Security";
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
-    const { societyId, guardName, guardPhone, email, shiftStart, shiftEnd } = req.body;
-    console.log(societyId, guardName, guardPhone, email, shiftStart, shiftEnd);
-
+    const { societyId, guardName, guardPhone, email, shiftStart, shiftEnd, street, city, state, pinCode } = req.body;
+    
     // Step 1: Input Validation
-    if (!societyId || !guardName || !guardPhone || !email || !shiftStart || !shiftEnd) {
+    if (!societyId || !guardName || !guardPhone || !email || !shiftStart || !shiftEnd || !street || !city || !state) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -30,7 +29,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: 'Security guard with this phone number already exists' });
       }
 
-      // Step 5: Create the new security guard document
+      // Step 5: Create the new security guard document with structured address
       const newSecurityGuard = new SecurityGuard({
         securityId: `SEC-${Date.now()}`, // Example of generating a unique security ID
         guardName,
@@ -40,12 +39,19 @@ export default async function handler(req, res) {
         societyId: society._id, // Link to the society by _id
         societyCode: society.societyId,
         societyName: society.societyName, // Store the society name
+        address: {
+          societyName: society.societyName, // Automatically set from the found society
+          street,
+          city,
+          state,
+          pinCode
+        }
       });
 
       await newSecurityGuard.save();
 
       // Step 6: Add the new security guard's ID to the society's security list
-      if (!society.security) {
+      if (!Array.isArray(society.security)) {
         society.security = []; // Ensure security is an array
       }
       society.security.push(newSecurityGuard._id);
