@@ -96,7 +96,10 @@ export default function Enroll() {
         const { address } = response.data;
 
         return {
+          houseNumber: address.house_number || '',
           street: `${address.road || ''} ${address.neighbourhood || ''} ${address.suburb || ''}`.trim(),
+          block: address.block || '',
+          locality: address.locality || address.city_district || '',
           city: address.city || address.town || address.village || address.hamlet || address.district || '',
           state: address.state || '',
           pinCode: address.postcode || ''
