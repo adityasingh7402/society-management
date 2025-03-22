@@ -16,9 +16,9 @@ export default async function handler(req, res) {
     }
 
     // Find the society by ID
-    console.log(societyId)
     const society = await Society.findOne({ societyId });
-
+    
+    console.log(society)
     if (!society) {
       return res.status(404).json({ error: 'Society not found.' });
     }
@@ -29,6 +29,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       data: apartmentStructure,
+      structureType: society.structureType || 'block',
+      customStructureName: society.customStructureName || ''
     });
   } catch (error) {
     console.error('Error fetching apartment structure:', error);

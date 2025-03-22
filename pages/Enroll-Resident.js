@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { Building2, User, MapPin, Shield, ChevronLeft, ChevronRight, Phone, Mail, MapPinned, FileText, Home, MessageSquare } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Building2, User, MapPin, Shield, ChevronLeft, ChevronRight, Phone, Mail, MapPinned, FileText, Home, MessageSquare, Check, AlertCircle, X } from 'lucide-react';
 
 export default function ResidentSignup() {
     const router = useRouter();
@@ -20,7 +20,6 @@ export default function ResidentSignup() {
         phone: '',
         email: '',
         address: '',
-        unitNumber: '',
     });
     const [otp, setOtp] = useState('');
     const [otpSent, setOtpSent] = useState(false);
@@ -28,6 +27,32 @@ export default function ResidentSignup() {
     const [loadingOtp, setLoadingOtp] = useState(false);
     const [societies, setSocieties] = useState([]);
     const [filteredSocieties, setFilteredSocieties] = useState([]);
+    const [notification, setNotification] = useState({
+        show: false,
+        type: 'success',
+        message: ''
+    });
+
+    // Notification variants for animation
+    const notificationVariants = {
+        hidden: { opacity: 0, y: -50 },
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: {
+                type: "spring",
+                stiffness: 120,
+                damping: 12
+            }
+        },
+        exit: {
+            opacity: 0,
+            y: -50,
+            transition: {
+                duration: 0.3
+            }
+        }
+    };
 
     // Animation variants
     const containerVariants = {
@@ -63,6 +88,20 @@ export default function ResidentSignup() {
 
     const handleNext = () => setCurrentStep(currentStep + 1);
     const handleBack = () => setCurrentStep(currentStep - 1);
+
+    // Show notification helper function
+    const showNotification = (type, message, duration = 5000) => {
+        setNotification({
+            show: true,
+            type,
+            message
+        });
+
+        // Auto hide notification after duration
+        setTimeout(() => {
+            setNotification(prev => ({ ...prev, show: false }));
+        }, duration);
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -103,13 +142,13 @@ export default function ResidentSignup() {
             const response = await axios.post('/api/send-otp', { phoneNumber });
             if (response.data.success) {
                 setOtpSent(true);
-                alert('OTP has been sent to your phone.');
+                showNotification('success', 'OTP has been sent to your phone.');
             } else {
-                alert('Failed to send OTP.');
+                showNotification('error', 'Failed to send OTP. Please try again.');
             }
         } catch (error) {
             console.error('Error sending OTP:', error);
-            alert('Error sending OTP.');
+            showNotification('error', 'Error sending OTP. Please check your connection and try again.');
         }
 
         setLoadingOtp(false);
@@ -143,17 +182,20 @@ export default function ResidentSignup() {
                 const submitData = await submitResponse.json();
 
                 if (submitData.message === 'Resident signed up successfully!') {
-                    alert('Resident signed up successfully!');
-                    router.push('/Login');
+                    showNotification('success', 'Resident signed up successfully! Redirecting to login...');
+                    setTimeout(() => {
+                        router.push('/Login');
+                    }, 2000);
                 } else {
-                    alert('Error in resident signup.');
+                    showNotification('error', 'Error in resident signup. Please try again.');
                 }
             } else {
                 setOtpError('Invalid OTP. Please try again.');
+                showNotification('error', 'Invalid OTP. Please try again.');
             }
         } catch (error) {
             console.error('Error verifying OTP:', error);
-            alert('Error verifying OTP.');
+            showNotification('error', 'Error verifying OTP. Please try again.');
         }
     };
 
@@ -166,6 +208,7 @@ export default function ResidentSignup() {
                 setSocieties(data.societies || []);
             } catch (error) {
                 console.error("Failed to fetch societies", error);
+                showNotification('error', 'Failed to fetch societies list. Please refresh the page.');
             }
         };
 
@@ -175,8 +218,7 @@ export default function ResidentSignup() {
     const steps = [
         { number: 1, title: 'Society Details', icon: Building2 },
         { number: 2, title: 'Contact Info', icon: User },
-        { number: 3, title: 'Unit Details', icon: Home },
-        { number: 4, title: 'Verify', icon: Shield },
+        { number: 3, title: 'Verify', icon: Shield },
     ];
 
     return (
@@ -185,6 +227,54 @@ export default function ResidentSignup() {
                 <title>Resident Signup - Society Management System</title>
                 <meta name="description" content="Sign up to your society in our management system." />
             </Head>
+
+            {/* Notification Popup */}
+            <AnimatePresence>
+                {notification.show && (
+                    <motion.div
+                        className="fixed top-[7rem] left-0 right-0 mx-auto z-50 px-6 py-4 rounded-lg shadow-lg flex items-center max-w-md w-11/12 sm:w-full"
+                        style={{
+                            margin: '0 auto',
+                            backgroundColor: notification.type === 'success' ? '#f0fdf4' : '#fef2f2',
+                            borderLeft: notification.type === 'success' ? '4px solid #22c55e' : '4px solid #ef4444'
+                        }}
+                        variants={notificationVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                    >
+                        <div
+                            className="rounded-full p-2 mr-3"
+                            style={{
+                                backgroundColor: notification.type === 'success' ? '#dcfce7' : '#fee2e2',
+                                color: notification.type === 'success' ? '#16a34a' : '#dc2626'
+                            }}
+                        >
+                            {notification.type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
+                        </div>
+                        <div className="flex-1">
+                            <h3
+                                className="font-medium"
+                                style={{ color: notification.type === 'success' ? '#166534' : '#991b1b' }}
+                            >
+                                {notification.type === 'success' ? 'Success' : 'Error'}
+                            </h3>
+                            <p
+                                className="text-sm"
+                                style={{ color: notification.type === 'success' ? '#15803d' : '#b91c1c' }}
+                            >
+                                {notification.message}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setNotification({ ...notification, show: false })}
+                            className="text-gray-500 hover:text-gray-700"
+                        >
+                            <X size={18} />
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Header Section with Animation */}
             <motion.header
@@ -306,8 +396,7 @@ export default function ResidentSignup() {
                             <h3 className="text-xl font-bold text-center text-white">
                                 {currentStep === 1 && "Society Information"}
                                 {currentStep === 2 && "Personal Information"}
-                                {currentStep === 3 && "Unit Details"}
-                                {currentStep === 4 && "Verify Your Identity"}
+                                {currentStep === 3 && "Verify Your Identity"}
                             </h3>
                         </div>
 
@@ -489,31 +578,7 @@ export default function ResidentSignup() {
                                         </motion.div>
                                     </div>
                                 )}
-
-                                {/* Step 3 - Unit Details */}
-                                {currentStep === 3 && (
-                                    <div className="space-y-6">
-                                        <motion.div variants={itemVariants}>
-                                            <label htmlFor="unitNumber" className="block text-gray-700 font-medium mb-2">
-                                                <Home className="inline-block w-5 h-5 mr-2 text-indigo-600" />
-                                                Unit/Apartment Number
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="unitNumber"
-                                                name="unitNumber"
-                                                value={formData.unitNumber}
-                                                onChange={handleChange}
-                                                required
-                                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                                placeholder="Enter your unit/apartment number"
-                                            />
-                                        </motion.div>
-                                    </div>
-                                )}
-
-                                {/* Step 4 - OTP Verification */}
-                                {currentStep === 4 && !otpSent && (
+                                {currentStep === 3 && !otpSent && (
                                     <motion.div
                                         className="text-center"
                                         initial={{ opacity: 0 }}
@@ -559,7 +624,7 @@ export default function ResidentSignup() {
                                     </motion.div>
                                 )}
 
-                                {currentStep === 4 && otpSent && (
+                                {currentStep === 3 && otpSent && (
                                     <motion.div
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
@@ -616,77 +681,187 @@ export default function ResidentSignup() {
                                             onClick={handleBack}
                                             className="flex items-center px-6 py-3 rounded-lg border-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 transition-colors"
                                             variants={buttonVariants}
-                                            whileHover="hover"
-                                            whileTap="tap"
+                                            whileHover="hover" whileTap="tap"
                                         >
-                                            <ChevronLeft className="w-5 h-5 mr-2" />
+                                            <ChevronLeft className="mr-2" />
                                             Back
                                         </motion.button>
                                     )}
-
-                                    {currentStep < 4 && (
+                                    {currentStep < 3 && (
                                         <motion.button
                                             type="button"
                                             onClick={handleNext}
-                                            className="flex items-center px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white ml-auto"
+                                            className="ml-auto flex items-center px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:opacity-90 transition-opacity"
                                             variants={buttonVariants}
                                             whileHover="hover"
                                             whileTap="tap"
                                         >
                                             Next
-                                            <ChevronRight className="w-5 h-5 ml-2" />
+                                            <ChevronRight className="ml-2" />
                                         </motion.button>
                                     )}
-
-                                    {currentStep === 4 && otpSent && (
+                                    {currentStep === 3 && otpSent && (
                                         <motion.button
                                             type="button"
                                             onClick={verifyOtp}
-                                            className="flex items-center px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white ml-auto"
+                                            className="ml-auto flex items-center px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:opacity-90 transition-opacity"
                                             variants={buttonVariants}
                                             whileHover="hover"
                                             whileTap="tap"
                                         >
-                                            Complete Registration
-                                            <ChevronRight className="w-5 h-5 ml-2" />
+                                            Verify & Complete Signup
+                                            <Check className="ml-2" />
                                         </motion.button>
                                     )}
                                 </div>
                             </form>
                         </motion.div>
                     </motion.div>
+
+                    {/* Additional Information */}
+                    <motion.div
+                        className="max-w-3xl mx-auto mt-8 bg-white rounded-xl shadow-lg overflow-hidden"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.7, delay: 0.7 }}
+                    >
+                        <div className="p-6">
+                            <h3 className="text-xl font-bold text-indigo-700 mb-4">Why Join SocietyManage?</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <motion.div
+                                    className="flex items-start"
+                                    whileHover={{ scale: 1.02 }}
+                                >
+                                    <div className="bg-indigo-100 p-3 rounded-full mr-4">
+                                        <FileText className="w-6 h-6 text-indigo-600" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-medium text-gray-800 mb-1">Easy Bill Management</h4>
+                                        <p className="text-gray-600 text-sm">Manage and pay your society bills online with ease and convenience.</p>
+                                    </div>
+                                </motion.div>
+                                <motion.div
+                                    className="flex items-start"
+                                    whileHover={{ scale: 1.02 }}
+                                >
+                                    <div className="bg-indigo-100 p-3 rounded-full mr-4">
+                                        <Home className="w-6 h-6 text-indigo-600" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-medium text-gray-800 mb-1">Stay Connected</h4>
+                                        <p className="text-gray-600 text-sm">Get important updates and notifications from your society management.</p>
+                                    </div>
+                                </motion.div>
+                                <motion.div
+                                    className="flex items-start"
+                                    whileHover={{ scale: 1.02 }}
+                                >
+                                    <div className="bg-indigo-100 p-3 rounded-full mr-4">
+                                        <MessageSquare className="w-6 h-6 text-indigo-600" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-medium text-gray-800 mb-1">Community Discussions</h4>
+                                        <p className="text-gray-600 text-sm">Participate in discussions and stay informed about society events.</p>
+                                    </div>
+                                </motion.div>
+                                <motion.div
+                                    className="flex items-start"
+                                    whileHover={{ scale: 1.02 }}
+                                >
+                                    <div className="bg-indigo-100 p-3 rounded-full mr-4">
+                                        <Shield className="w-6 h-6 text-indigo-600" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-medium text-gray-800 mb-1">Secure Access</h4>
+                                        <p className="text-gray-600 text-sm">Your data is protected with robust security measures and verification.</p>
+                                    </div>
+                                </motion.div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Already have an account */}
+                    <motion.div
+                        className="text-center mt-8"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.9 }}
+                    >
+                        <p className="text-gray-600">
+                            Already have an account?{' '}
+                            <Link href="/Login" className="text-indigo-600 font-medium hover:underline">
+                                Login here
+                            </Link>
+                        </p>
+                    </motion.div>
                 </div>
             </section>
 
+            {/* Footer */}
             <motion.footer
-                className="bg-slate-900 text-white py-6"
+                className="bg-gray-900 text-gray-300 py-10"
                 initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                transition={{ duration: 0.8 }}
-                viewport={{ once: true }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
             >
-                <div className="container mx-auto px-6 text-center">
-                    <p>&copy; {new Date().getFullYear()} SocietyManage. All rights reserved.</p>
-                    <motion.nav className="flex justify-center space-x-6 mt-4">
-                        <Link href="/">
-                            <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
-                                <Home size={16} className="mr-1" />
-                                Home
-                            </motion.span>
-                        </Link>
-                        <Link href="/About">
-                            <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
-                                <FileText size={16} className="mr-1" />
-                                About
-                            </motion.span>
-                        </Link>
-                        <Link href="/Contact">
-                            <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
-                                <MessageSquare size={16} className="mr-1" />
-                                Contact
-                            </motion.span>
-                        </Link>
-                    </motion.nav>
+                <div className="container mx-auto px-6">
+                    <div className="flex flex-col md:flex-row justify-between items-center">
+                        <div className="mb-6 md:mb-0">
+                            <h2 className="text-2xl font-bold text-white mb-2">SocietyManage</h2>
+                            <p className="text-gray-400">Simplifying society management for everyone</p>
+                        </div>
+                        <div className="flex flex-wrap justify-center gap-6">
+                            <Link href="/About" className="hover:text-white transition-colors">
+                                About Us
+                            </Link>
+                            <Link href="/Privacy" className="hover:text-white transition-colors">
+                                Privacy Policy
+                            </Link>
+                            <Link href="/Terms" className="hover:text-white transition-colors">
+                                Terms of Service
+                            </Link>
+                            <Link href="/Contact" className="hover:text-white transition-colors">
+                                Contact Us
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
+                        <p className="text-sm text-gray-500">
+                            &copy; {new Date().getFullYear()} SocietyManage. All rights reserved.
+                        </p>
+                        <div className="flex space-x-4 mt-4 md:mt-0">
+                            <motion.a
+                                href="#"
+                                className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-indigo-600 transition-colors"
+                                whileHover={{ scale: 1.1 }}
+                            >
+                                <span className="sr-only">Facebook</span>
+                                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                                    <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z" />
+                                </svg>
+                            </motion.a>
+                            <motion.a
+                                href="#"
+                                className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-indigo-600 transition-colors"
+                                whileHover={{ scale: 1.1 }}
+                            >
+                                <span className="sr-only">Twitter</span>
+                                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                                    <path d="M22 5.8a8.49 8.49 0 0 1-2.36.64 4.13 4.13 0 0 0 1.81-2.27 8.21 8.21 0 0 1-2.61 1 4.1 4.1 0 0 0-7 3.74 11.64 11.64 0 0 1-8.45-4.29 4.16 4.16 0 0 0-.55 2.07 4.09 4.09 0 0 0 1.82 3.41 4.05 4.05 0 0 1-1.86-.51v.05a4.1 4.1 0 0 0 3.3 4 3.93 3.93 0 0 1-1.1.17 3.9 3.9 0 0 1-.77-.07 4.11 4.11 0 0 0 3.83 2.84 8.22 8.22 0 0 1-5.1 1.76 7.93 7.93 0 0 1-1.17-.08 11.57 11.57 0 0 0 6.29 1.85c7.55 0 11.67-6.25 11.67-11.66 0-.18 0-.35-.02-.52A8.3 8.3 0 0 0 22 5.8z" />
+                                </svg>
+                            </motion.a>
+                            <motion.a
+                                href="#"
+                                className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-indigo-600 transition-colors"
+                                whileHover={{ scale: 1.1 }}
+                            >
+                                <span className="sr-only">Instagram</span>
+                                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12 2c-2.714 0-3.055.013-4.121.06-1.066.05-1.79.217-2.428.465a4.883 4.883 0 0 0-1.77 1.151 4.92 4.92 0 0 0-1.15 1.77c-.25.637-.416 1.363-.465 2.428C2.013 8.945 2 9.286 2 12c0 2.714.013 3.055.06 4.121.05 1.066.217 1.79.465 2.428a4.883 4.883 0 0 0 1.151 1.77c.555.555 1.105.938 1.77 1.15.637.25 1.363.416 2.428.465 1.066.05 1.407.06 4.121.06s3.055-.013 4.121-.06c1.066-.05 1.79-.217 2.428-.465a4.883 4.883 0 0 0 1.77-1.151 4.92 4.92 0 0 0 1.15-1.77c.25-.637.416-1.363.465-2.428.047-1.066.06-1.407.06-4.121s-.013-3.055-.06-4.121c-.05-1.066-.217-1.79-.465-2.428a4.883 4.883 0 0 0-1.151-1.77 4.92 4.92 0 0 0-1.77-1.15c-.637-.25-1.363-.416-2.428-.465C15.055 2.013 14.714 2 12 2zm0 1.8c2.67 0 2.987.01 4.042.059.975.045 1.504.208 1.857.344.466.182.8.399 1.15.748.35.35.566.683.748 1.15.136.353.3.882.344 1.857.048 1.055.059 1.371.059 4.042 0 2.67-.01 2.987-.059 4.042-.045.975-.208 1.504-.344 1.857a3.1 3.1 0 0 1-.748 1.15c-.35.35-.683.566-1.15.748-.353.136-.882.3-1.857.344-1.055.048-1.372.059-4.042.059-2.67 0-2.987-.01-4.042-.059-.975-.045-1.504-.208-1.857-.344a3.098 3.098 0 0 1-1.15-.748 3.098 3.098 0 0 1-.748-1.15c-.136-.353-.3-.882-.344-1.857-.048-1.055-.059-1.372-.059-4.042 0-2.67.01-2.987.059-4.042.045-.975.208-1.504.344-1.857.182-.466.399-.8.748-1.15.35-.35.683-.566 1.15-.748.353-.136.882-.3 1.857-.344 1.055-.048 1.372-.059 4.042-.059zm0 3.06a5.14 5.14 0 1 0 0 10.28 5.14 5.14 0 0 0 0-10.28zm0 8.476a3.337 3.337 0 1 1 0-6.674 3.337 3.337 0 0 1 0 6.674zm6.559-8.687a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0z" />
+                                </svg>
+                            </motion.a>
+                        </div>
+                    </div>
                 </div>
             </motion.footer>
         </div>

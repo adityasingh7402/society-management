@@ -14,7 +14,6 @@ export default function Profile() {
             state: "",
             pinCode: "",
         },
-        unitNumber: "",
         societyCode: "",
         societyId: "",
         societyName: "",
@@ -287,19 +286,6 @@ export default function Profile() {
                                 />
                             </div>
 
-                            {/* Unit Number */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Unit Number</label>
-                                <input
-                                    type="text"
-                                    name="unitNumber"
-                                    value={formData.unitNumber}
-                                    onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                    required
-                                />
-                            </div>
-
                             {/* Society Code */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Society Code</label>
@@ -393,7 +379,6 @@ export default function Profile() {
                             <p><strong>City:</strong> {formData.city}</p>
                             <p><strong>State:</strong> {formData.state}</p>
                             <p><strong>Pin Code:</strong> {formData.pinCode}</p>
-                            <p><strong>Unit Number:</strong> {formData.unitNumber}</p>
                             <p><strong>Society Code:</strong> {formData.societyCode}</p>
                             <p><strong>Society ID:</strong> {formData.societyId}</p>
                             <p><strong>Society Name:</strong> {formData.societyName}</p>

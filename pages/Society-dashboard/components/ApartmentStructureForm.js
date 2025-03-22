@@ -1,12 +1,38 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Preloader from '@/pages/components/Preloader';
-import { ChevronDown, ChevronUp, Home, Layers, Grid, Plus, Trash2, Save, Building } from 'lucide-react';
+import { ChevronDown, ChevronUp, Home, Layers, Grid, Plus, Trash2, Save, Building, Settings } from 'lucide-react';
 
 export default function ApartmentStructureForm() {
   const [blocks, setBlocks] = useState([{ blockName: '', floors: [{ flats: [{ flatNumber: '', residents: [] }] }], isOpen: true }]);
   const [loading, setLoading] = useState(true);
+  const [structureType, setStructureType] = useState('block');
+  const [customStructureName, setCustomStructureName] = useState('');
   const router = useRouter();
+
+  // Get structure type label (singular)
+  const getStructureLabel = () => {
+    if (structureType === 'block') return 'Block';
+    if (structureType === 'wing') return 'Wing';
+    if (structureType === 'tower') return 'Tower';
+    if (structureType === 'custom') return customStructureName || 'Unit';
+    return 'Block';
+  };
+
+  // Get structure type label (plural)
+  const getStructureLabelPlural = () => {
+    if (structureType === 'block') return 'Blocks';
+    if (structureType === 'wing') return 'Wings';
+    if (structureType === 'tower') return 'Towers';
+    if (structureType === 'custom') return `${customStructureName}s` || 'Units';
+    return 'Blocks';
+  };
+
+  // Get the structure icon
+  const getStructureIcon = () => {
+    if (structureType === 'tower') return <Building className="mr-2" size={20} />;
+    return <Home className="mr-2" size={20} />;
+  };
 
   // Fetch society details and apartment structure
   useEffect(() => {
@@ -34,14 +60,25 @@ export default function ApartmentStructureForm() {
         const societyId = societyData.societyId;
 
         // Fetch apartment structure using societyId
-        const structureResponse = await fetch(`/api/Society-Api/get-apartment-structure?societyId=${societyId}`);
+        const structureResponse = await fetch(`/api/Society-Api/update-apartment-structure?societyId=${societyId}`);
         if (!structureResponse.ok) {
           throw new Error('Failed to fetch apartment structure');
         }
 
         const structureData = await structureResponse.json();
+        
+        // Set structure type and custom name if available
+        if (structureData.data.structureType) {
+          setStructureType(structureData.data.structureType);
+        }
+        
+
+        if (structureData.data.customStructureName) {
+          setCustomStructureName(structureData.data.customStructureName);
+        }
+        
         // Add isOpen property to each block and floor for dropdown functionality
-        const blocksWithOpenState = (structureData.data || [{ blockName: '', floors: [{ flats: [{ flatNumber: '', residents: [] }] }] }])
+        const blocksWithOpenState = (structureData.data.apartmentStructure || [{ blockName: '', floors: [{ flats: [{ flatNumber: '', residents: [] }] }] }])
           .map(block => ({
             ...block,
             isOpen: true,
@@ -62,6 +99,7 @@ export default function ApartmentStructureForm() {
     fetchSocietyAndStructure();
   }, [router]);
 
+  console.log(structureType)
   // Toggle block dropdown
   const toggleBlock = (blockIndex) => {
     const updatedBlocks = [...blocks];
@@ -157,7 +195,12 @@ export default function ApartmentStructureForm() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ societyId, apartmentStructure: cleanedBlocks }),
+        body: JSON.stringify({ 
+          societyId, 
+          apartmentStructure: cleanedBlocks,
+          structureType,
+          customStructureName: structureType === 'custom' ? customStructureName : ''
+        }),
       });
 
       const data = await response.json();
@@ -217,6 +260,80 @@ export default function ApartmentStructureForm() {
         <Building className="mr-2" size={28} /> Apartment Structure Management
       </h1>
       
+      {/* Structure Type Selection */}
+      <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center mb-2">
+          <Settings className="mr-2" size={20} />
+          <h2 className="text-lg font-semibold">Structure Configuration</h2>
+        </div>
+        
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id="structure-block"
+              name="structureType"
+              value="block"
+              checked={structureType === 'block'}
+              onChange={() => setStructureType('block')}
+              className="h-4 w-4 text-blue-600"
+            />
+            <label htmlFor="structure-block" className="text-gray-700">Blocks</label>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id="structure-wing"
+              name="structureType"
+              value="wing"
+              checked={structureType === 'wing'}
+              onChange={() => setStructureType('wing')}
+              className="h-4 w-4 text-blue-600"
+            />
+            <label htmlFor="structure-wing" className="text-gray-700">Wings</label>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id="structure-tower"
+              name="structureType"
+              value="tower"
+              checked={structureType === 'tower'}
+              onChange={() => setStructureType('tower')}
+              className="h-4 w-4 text-blue-600"
+            />
+            <label htmlFor="structure-tower" className="text-gray-700">Towers</label>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id="structure-custom"
+              name="structureType"
+              value="custom"
+              checked={structureType === 'custom'}
+              onChange={() => setStructureType('custom')}
+              className="h-4 w-4 text-blue-600"
+            />
+            <label htmlFor="structure-custom" className="text-gray-700">Custom</label>
+          </div>
+        </div>
+        
+        {structureType === 'custom' && (
+          <div className="mt-3">
+            <input
+              type="text"
+              placeholder="Enter custom structure name (e.g., Building, Phase)"
+              value={customStructureName}
+              onChange={(e) => setCustomStructureName(e.target.value)}
+              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all"
+            />
+          </div>
+        )}
+      </div>
+      
       <form onSubmit={handleSubmit} className="space-y-6">
         {blocks.map((block, blockIndex) => (
           <div key={blockIndex} className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden">
@@ -225,10 +342,10 @@ export default function ApartmentStructureForm() {
               onClick={() => toggleBlock(blockIndex)}
             >
               <div className="flex items-center flex-grow">
-                <Home className="text-white mr-2" size={20} />
+                {getStructureIcon()}
                 <input
                   type="text"
-                  placeholder="Block Name (e.g., A, B, C)"
+                  placeholder={`${getStructureLabel()} Name (e.g., A, B, C)`}
                   value={block.blockName}
                   onChange={(e) => {
                     const updatedBlocks = [...blocks];
@@ -361,9 +478,9 @@ export default function ApartmentStructureForm() {
             onClick={addBlock}
             className="flex items-center bg-pink-500 hover:bg-pink-600 text-white py-2 px-4 rounded-md transition-all shadow-md"
           >
-            <Home className="mr-1" size={16} />
+            {getStructureIcon()}
             <Plus size={16} className="mr-1" />
-            Add Block
+            Add {getStructureLabel()}
           </button>
           
           <button 

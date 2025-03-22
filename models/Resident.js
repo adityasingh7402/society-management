@@ -21,7 +21,6 @@ const residentSchema = new mongoose.Schema({
     state: { type: String, required: true },
     pinCode: { type: String, required: true },
   },
-  unitNumber: { type: String, required: true },
   societyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true },
   societyCode: { type: String, required: true },
   societyName: { type: String, required: true },

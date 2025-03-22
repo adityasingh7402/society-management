@@ -1,9 +1,9 @@
 import Head from 'next/head';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { Phone, Building, Home, MessageSquare, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Phone, Building, Home, MessageSquare, ChevronRight, Check, AlertCircle, X } from 'lucide-react';
 
 export default function SocietyLogin() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -11,13 +11,14 @@ export default function SocietyLogin() {
   const [otpSent, setOtpSent] = useState(false);
   const [loadingOtp, setLoadingOtp] = useState(false);
   const [verificationId, setVerificationId] = useState('');
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { 
+    visible: {
       opacity: 1,
-      transition: { 
+      transition: {
         duration: 0.5,
         when: "beforeChildren",
         staggerChildren: 0.1
@@ -27,10 +28,10 @@ export default function SocietyLogin() {
 
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
-    visible: { 
-      y: 0, 
+    visible: {
+      y: 0,
       opacity: 1,
-      transition: { 
+      transition: {
         type: "spring",
         stiffness: 100
       }
@@ -44,9 +45,50 @@ export default function SocietyLogin() {
     disabled: { opacity: 0.7 }
   };
 
+  // Notification popup variants
+  const notificationVariants = {
+    hidden: {
+      y: -100,
+      opacity: 0,
+      scale: 0.8
+    },
+    visible: {
+      y: 0,
+      opacity: 1,
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 200,
+        damping: 20
+      }
+    },
+    exit: {
+      y: -100,
+      opacity: 0,
+      scale: 0.8,
+      transition: {
+        duration: 0.3
+      }
+    }
+  };
+
+  // Auto-hide notification after delay
+  useEffect(() => {
+    if (notification.show) {
+      const timer = setTimeout(() => {
+        setNotification({ ...notification, show: false });
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+  };
+
   const handleOtpSend = async () => {
     if (!phoneNumber || phoneNumber.length !== 10) {
-      alert('Please enter a valid 10-digit mobile number.');
+      showNotification('error', 'Please enter a valid 10-digit mobile number.');
       return;
     }
 
@@ -59,20 +101,20 @@ export default function SocietyLogin() {
       if (response.data.success) {
         setVerificationId(response.data.verificationId);
         setOtpSent(true);
-        alert('OTP sent successfully!');
+        showNotification('success', 'OTP sent successfully! Please check your phone.');
       } else {
-        alert('Failed to send OTP. Please try again.');
+        showNotification('error', 'Failed to send OTP. Please try again.');
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
-      alert('Error sending OTP. Please try again.');
+      showNotification('error', 'Error sending OTP. Please try again.');
     }
     setLoadingOtp(false);
   };
 
   const handleLogin = async () => {
     if (!otp || otp.length < 6) {
-      alert('Please enter a valid OTP.');
+      showNotification('error', 'Please enter a valid OTP.');
       return;
     }
 
@@ -96,17 +138,22 @@ export default function SocietyLogin() {
           // Step 3: Store JWT Token in LocalStorage
           localStorage.setItem('Society', token);
 
-          // Redirect to the dashboard
-          window.location.href = '/Society-dashboard';
+          // Show success notification
+          showNotification('success', 'Login successful! Redirecting to dashboard...');
+
+          // Redirect after a short delay to show the notification
+          setTimeout(() => {
+            window.location.href = '/Society-dashboard';
+          }, 1500);
         } else {
-          alert('Society details not found. Please try again.');
+          showNotification('error', 'Society details not found. Please try again.');
         }
       } else {
-        alert('Invalid OTP. Please try again.');
+        showNotification('error', 'Invalid OTP. Please try again.');
       }
     } catch (error) {
       console.error('Error verifying OTP or fetching society details:', error);
-      alert('An error occurred. Please try again.');
+      showNotification('error', 'An error occurred. Please try again.');
     }
   };
 
@@ -117,16 +164,65 @@ export default function SocietyLogin() {
         <meta name="description" content="Society login using mobile number and OTP." />
       </Head>
 
+      {/* Notification Popup */}
+      {/* Notification Popup */}
+      <AnimatePresence>
+        {notification.show && (
+          <motion.div
+            className="fixed top-5 left-0 right-0 mx-auto z-50 px-6 py-4 rounded-lg shadow-lg flex items-center max-w-md w-11/12 sm:w-full"
+            style={{
+              margin: '0 auto',
+              backgroundColor: notification.type === 'success' ? '#f0fdf4' : '#fef2f2',
+              borderLeft: notification.type === 'success' ? '4px solid #22c55e' : '4px solid #ef4444'
+            }}
+            variants={notificationVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+          >
+            <div
+              className="rounded-full p-2 mr-3"
+              style={{
+                backgroundColor: notification.type === 'success' ? '#dcfce7' : '#fee2e2',
+                color: notification.type === 'success' ? '#16a34a' : '#dc2626'
+              }}
+            >
+              {notification.type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <h3
+                className="font-medium"
+                style={{ color: notification.type === 'success' ? '#166534' : '#991b1b' }}
+              >
+                {notification.type === 'success' ? 'Success' : 'Error'}
+              </h3>
+              <p
+                className="text-sm"
+                style={{ color: notification.type === 'success' ? '#15803d' : '#b91c1c' }}
+              >
+                {notification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => setNotification({ ...notification, show: false })}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X size={18} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header Section with Animation */}
-      <motion.header 
-        className="bg-gradient-to-r from-blue-600 to-blue-700 py-3 text-white shadow-lg sticky top-0 z-50"
+      <motion.header
+        className="bg-gradient-to-r from-blue-600 to-blue-700 py-3 text-white shadow-lg sticky top-0 z-40"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ type: 'spring', stiffness: 120 }}
       >
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <Link href={"/"}>
-            <motion.h1 
+            <motion.h1
               className="sm:text-xl md:text-3xl font-bold"
               whileHover={{ scale: 1.05 }}
             >
@@ -154,18 +250,18 @@ export default function SocietyLogin() {
 
       <section className="py-20 min-h-screen relative overflow-hidden">
         {/* Background decoration elements */}
-        <motion.div 
+        <motion.div
           className="absolute top-20 left-20 w-64 h-64 bg-blue-200 rounded-full opacity-20"
-          animate={{ 
+          animate={{
             y: [0, -30, 0],
             x: [0, 20, 0],
             scale: [1, 1.1, 1],
           }}
           transition={{ duration: 15, repeat: Infinity, repeatType: "reverse" }}
         />
-        <motion.div 
+        <motion.div
           className="absolute bottom-20 right-20 w-96 h-96 bg-blue-200 rounded-full opacity-20"
-          animate={{ 
+          animate={{
             y: [0, 30, 0],
             x: [0, -20, 0],
             scale: [1, 1.1, 1],
@@ -174,7 +270,7 @@ export default function SocietyLogin() {
         />
 
         <div className="container mx-auto px-6 relative z-10">
-          <motion.div 
+          <motion.div
             className="max-w-lg mx-auto bg-white shadow-xl rounded-xl overflow-hidden"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -183,15 +279,15 @@ export default function SocietyLogin() {
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-4 px-6">
               <h2 className="text-2xl font-bold text-center text-white">Society Login</h2>
             </div>
-            
-            <motion.div 
+
+            <motion.div
               className="p-8"
               variants={containerVariants}
               initial="hidden"
               animate="visible"
             >
               {/* Society Icon */}
-              <motion.div 
+              <motion.div
                 className="flex justify-center mb-6"
                 variants={itemVariants}
               >
@@ -220,7 +316,7 @@ export default function SocietyLogin() {
                       />
                     </div>
                   </motion.div>
-                  
+
                   <motion.button
                     type="button"
                     onClick={handleOtpSend}
@@ -235,7 +331,7 @@ export default function SocietyLogin() {
                   >
                     {loadingOtp ? (
                       <>
-                        <motion.div 
+                        <motion.div
                           className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
                           animate={{ rotate: 360 }}
                           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -282,7 +378,7 @@ export default function SocietyLogin() {
                   >
                     Login
                   </motion.button>
-                  
+
                   <motion.button
                     type="button"
                     onClick={() => setOtpSent(false)}
@@ -297,7 +393,7 @@ export default function SocietyLogin() {
               )}
 
               {/* Enrollment Link */}
-              <motion.div 
+              <motion.div
                 className="text-center flex justify-end items-center mt-6"
                 variants={itemVariants}
               >
@@ -317,7 +413,7 @@ export default function SocietyLogin() {
         </div>
       </section>
 
-      <motion.footer 
+      <motion.footer
         className="bg-gray-800 text-white py-6"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-// Define the schema for a flat
+// Define the schema for a flat/unit
 const FlatSchema = new mongoose.Schema({
   flatNumber: { type: String, required: true }, // Flat number (e.g., A-101)
   residents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Resident' }], // Array of residents in the flat
@@ -11,13 +11,13 @@ const FloorSchema = new mongoose.Schema({
   flats: [FlatSchema], // Array of flats on the floor
 });
 
-// Define the schema for a block
+// Define the schema for a block/wing/tower
 const BlockSchema = new mongoose.Schema({
   blockName: { type: String, required: true }, // Block name (e.g., A, B, C)
   floors: [FloorSchema], // Array of floors in the block
 });
 
-// Update the SocietySchema to include the apartment structure
+// Update Society Schema to include structure type preferences
 const SocietySchema = new mongoose.Schema({
   societyId: {
     type: String,
@@ -29,6 +29,17 @@ const SocietySchema = new mongoose.Schema({
   managerName: { type: String, required: true },
   managerPhone: { type: String, required: true, unique: true },
   managerEmail: { type: String, required: true },
+  
+  // Structure naming preference
+  structureType: { 
+    type: String, 
+    enum: ['block', 'wing', 'tower', 'custom'],
+    default: 'block'
+  },
+  customStructureName: { 
+    type: String,
+    default: ''
+  },
   
   // Address Fields
   street: { type: String, required: true },

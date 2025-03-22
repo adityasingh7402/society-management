@@ -4,10 +4,10 @@ import Resident from '../../../models/Resident';
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
-    const { societyId, name, phone, email, street, city, state, unitNumber, pinCode } = req.body;
+    const { societyId, name, phone, email, street, city, state, pinCode } = req.body;
 
     // Step 1: Input Validation
-    if (!societyId || !name || !phone || !email || !street || !city || !state || !unitNumber) {
+    if (!societyId || !name || !phone || !email || !street || !city || !state) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -34,7 +34,6 @@ export default async function handler(req, res) {
         name,
         phone,
         email,
-        unitNumber,
         societyCode: society.societyId,
         societyId: society._id, // Link to the society by _id
         societyName: society.societyName, // Store the society name

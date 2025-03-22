@@ -169,13 +169,13 @@ export default function Home() {
                                 <FaUserTie className="mr-3" />
                                 Owner Profiles
                             </li>
-                            <li
+                            {/* <li
                                 className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "TenantProfiles" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
                                 onClick={() => handleComponent("TenantProfiles", "TenantProfiles")}
                             >
                                 <FaUsers className="mr-3" />
                                 Tenant Profiles
-                            </li>
+                            </li> */}
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Finance & Maintenance</li>
                             <li

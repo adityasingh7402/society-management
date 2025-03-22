@@ -2,8 +2,8 @@ import Head from 'next/head';
 import { useState } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { Phone, User, Home, MessageSquare, ChevronRight, UserCheck, Building } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Phone, User, Home, MessageSquare, ChevronRight, UserCheck, Building, Check, AlertCircle, X } from 'lucide-react';
 
 export default function Login() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -12,6 +12,11 @@ export default function Login() {
   const [loadingOtp, setLoadingOtp] = useState(false);
   const [verificationId, setVerificationId] = useState('');
   const [userType, setUserType] = useState('resident'); // "resident" or "tenant"
+  const [notification, setNotification] = useState({
+    show: false,
+    type: 'success', // or 'error'
+    message: ''
+  });
 
   // Animation variants
   const containerVariants = {
@@ -45,9 +50,33 @@ export default function Login() {
     disabled: { opacity: 0.7 }
   };
 
+  // Notification animation variants
+  const notificationVariants = {
+    hidden: { opacity: 0, y: -50 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { 
+        type: "spring", 
+        stiffness: 120 
+      }
+    },
+    exit: { 
+      opacity: 0, 
+      y: -50,
+      transition: { 
+        duration: 0.3 
+      }
+    }
+  };
+
   const handleOtpSend = async () => {
     if (!phoneNumber || phoneNumber.length !== 10) {
-      alert('Please enter a valid 10-digit mobile number.');
+      setNotification({
+        show: true,
+        type: 'error',
+        message: 'Please enter a valid 10-digit mobile number.'
+      });
       return;
     }
 
@@ -60,20 +89,36 @@ export default function Login() {
       if (response.data.success) {
         setVerificationId(response.data.verificationId);
         setOtpSent(true);
-        alert('OTP sent successfully!');
+        setNotification({
+          show: true,
+          type: 'success',
+          message: 'OTP sent successfully!'
+        });
       } else {
-        alert('Failed to send OTP. Please try again.');
+        setNotification({
+          show: true,
+          type: 'error',
+          message: 'Failed to send OTP. Please try again.'
+        });
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
-      alert('Error sending OTP. Please try again.');
+      setNotification({
+        show: true,
+        type: 'error',
+        message: 'Error sending OTP. Please try again.'
+      });
     }
     setLoadingOtp(false);
   };
 
   const handleLogin = async () => {
     if (!otp || otp.length < 6) {
-      alert('Please enter a valid OTP.');
+      setNotification({
+        show: true,
+        type: 'error',
+        message: 'Please enter a valid OTP.'
+      });
       return;
     }
 
@@ -97,16 +142,35 @@ export default function Login() {
         if (detailsResponse.data.success) {
           const { details, token } = detailsResponse.data;
           localStorage.setItem(userType === 'resident' ? 'Resident' : 'Tenant', token);
-          window.location.href = userType === 'resident' ? '/Resident-dashboard' : '/Tenant-dashboard';
+          setNotification({
+            show: true,
+            type: 'success',
+            message: 'Login successful! Redirecting to dashboard...'
+          });
+          setTimeout(() => {
+            window.location.href = userType === 'resident' ? '/Resident-dashboard' : '/Tenant-dashboard';
+          }, 1500);
         } else {
-          alert(`${userType === 'resident' ? 'Resident' : 'Tenant'} details not found. Please try again.`);
+          setNotification({
+            show: true,
+            type: 'error',
+            message: `${userType === 'resident' ? 'Resident' : 'Tenant'} details not found. Please try again.`
+          });
         }
       } else {
-        alert('Invalid OTP. Please try again.');
+        setNotification({
+          show: true,
+          type: 'error',
+          message: 'Invalid OTP. Please try again.'
+        });
       }
     } catch (error) {
       console.error('Error verifying OTP or fetching user details:', error);
-      alert('An error occurred. Please try again.');
+      setNotification({
+        show: true,
+        type: 'error',
+        message: 'An error occurred. Please try again.'
+      });
     }
   };
 
@@ -116,6 +180,54 @@ export default function Login() {
         <title>Login - SocietyManage</title>
         <meta name="description" content="Login to your account using mobile number and OTP." />
       </Head>
+
+      {/* Notification Popup */}
+      <AnimatePresence>
+        {notification.show && (
+          <motion.div 
+            className="fixed top-[7rem] left-0 right-0 mx-auto z-50 px-6 py-4 rounded-lg shadow-lg flex items-center max-w-md w-11/12 sm:w-full"
+            style={{
+              margin: '0 auto',
+              backgroundColor: notification.type === 'success' ? '#f0fdf4' : '#fef2f2',
+              borderLeft: notification.type === 'success' ? '4px solid #22c55e' : '4px solid #ef4444'
+            }}
+            variants={notificationVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+          >
+            <div 
+              className="rounded-full p-2 mr-3"
+              style={{
+                backgroundColor: notification.type === 'success' ? '#dcfce7' : '#fee2e2',
+                color: notification.type === 'success' ? '#16a34a' : '#dc2626'
+              }}
+            >
+              {notification.type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <h3 
+                className="font-medium"
+                style={{ color: notification.type === 'success' ? '#166534' : '#991b1b' }}
+              >
+                {notification.type === 'success' ? 'Success' : 'Error'}
+              </h3>
+              <p 
+                className="text-sm"
+                style={{ color: notification.type === 'success' ? '#15803d' : '#b91c1c' }}
+              >
+                {notification.message}
+              </p>
+            </div>
+            <button 
+              onClick={() => setNotification({ ...notification, show: false })}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X size={18} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Header Section with Animation */}
       <motion.header 
