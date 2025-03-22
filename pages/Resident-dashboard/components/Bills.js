@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FaWater, FaBolt, FaTools, FaWifi, FaArrowLeft, FaHistory, FaCreditCard, FaCalendarAlt, FaFileInvoiceDollar, FaCheckCircle } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaTools, FaArrowLeft, FaHistory, FaCreditCard, FaFileInvoiceDollar, FaCheckCircle, FaBuilding, FaHammer, FaLeaf, FaBroom } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 
 export default function Bills() {
@@ -8,110 +8,62 @@ export default function Bills() {
     const [selectedBill, setSelectedBill] = useState(null);
     const [showHistory, setShowHistory] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
+    const [utilityBills, setUtilityBills] = useState([]);
+    const [paymentHistory, setPaymentHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    // Sample data for utility bills
-    const [utilityBills, setUtilityBills] = useState([
-        {
-            id: 1,
-            type: "Electricity",
-            icon: <FaBolt className="text-yellow-500" />,
-            provider: "State Electricity Board",
-            amount: 1850.75,
-            dueDate: "2025-04-05",
-            status: "Unpaid",
-            meterReading: "3456 kWh",
-            billPeriod: "Feb 15 - Mar 15, 2025"
-        },
-        {
-            id: 2,
-            type: "Water",
-            icon: <FaWater className="text-blue-500" />,
-            provider: "Municipal Water Supply",
-            amount: 750.50,
-            dueDate: "2025-04-10",
-            status: "Unpaid",
-            meterReading: "245 kL",
-            billPeriod: "Feb 10 - Mar 10, 2025"
-        },
-        {
-            id: 3,
-            type: "Maintenance",
-            icon: <FaTools className="text-gray-600" />,
-            provider: "Apartment Association",
-            amount: 2500.00,
-            dueDate: "2025-03-31",
-            status: "Unpaid",
-            meterReading: null,
-            billPeriod: "March 2025"
-        },
-        {
-            id: 4,
-            type: "Internet",
-            icon: <FaWifi className="text-indigo-500" />,
-            provider: "Broadband Services Ltd.",
-            amount: 999.00,
-            dueDate: "2025-03-25",
-            status: "Paid",
-            meterReading: null,
-            billPeriod: "March 2025",
-            paidOn: "2025-03-18"
-        }
-    ]);
+    // Fetch resident details and utility bills
+    useEffect(() => {
+        const fetchResidentDetailsAndBills = async () => {
+            try {
+                const token = localStorage.getItem("Resident");
+                if (!token) {
+                    router.push("/Login");
+                    return;
+                }
 
-    // Sample data for payment history
-    const [paymentHistory, setPaymentHistory] = useState([
-        {
-            id: 101,
-            type: "Electricity",
-            icon: <FaBolt className="text-yellow-500" />,
-            provider: "State Electricity Board",
-            amount: 1640.25,
-            dueDate: "2025-03-05",
-            paidOn: "2025-03-02",
-            transactionId: "EL2503021855",
-            paymentMethod: "Credit Card ending with 4582"
-        },
-        {
-            id: 102,
-            type: "Water",
-            icon: <FaWater className="text-blue-500" />,
-            provider: "Municipal Water Supply",
-            amount: 680.75,
-            dueDate: "2025-03-10",
-            paidOn: "2025-03-08",
-            transactionId: "WT2503081042",
-            paymentMethod: "UPI Payment"
-        },
-        {
-            id: 103,
-            type: "Maintenance",
-            icon: <FaTools className="text-gray-600" />,
-            provider: "Apartment Association",
-            amount: 2500.00,
-            dueDate: "2025-02-28",
-            paidOn: "2025-02-25",
-            transactionId: "MT2502251630",
-            paymentMethod: "Net Banking"
-        },
-        {
-            id: 104,
-            type: "Internet",
-            icon: <FaWifi className="text-indigo-500" />,
-            provider: "Broadband Services Ltd.",
-            amount: 999.00,
-            dueDate: "2025-03-25",
-            paidOn: "2025-03-18",
-            transactionId: "IN2503181225",
-            paymentMethod: "Credit Card ending with 4582"
-        }
-    ]);
+                // Fetch resident details
+                const residentResponse = await fetch("/api/Resident-Api/get-resident-details", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
 
-    // Calculate utility stats
+                if (!residentResponse.ok) {
+                    throw new Error("Failed to fetch resident details");
+                }
+
+                const residentData = await residentResponse.json();
+                const residentId = residentData._id; // Assuming the resident ID is available in the response
+
+                // Fetch utility bills for the resident
+                const billsResponse = await fetch(`/api/UtilityBill-Api/getBills?residentId=${residentId}`);
+                if (!billsResponse.ok) {
+                    throw new Error("Failed to fetch utility bills");
+                }
+
+                const billsData = await billsResponse.json();
+                setUtilityBills(billsData.bills); // Set the utility bills for the resident
+                setPaymentHistory(billsData.bills || []); // Set payment history if available
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                router.push("/Login");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchResidentDetailsAndBills();
+    }, [router]);
+
+    // Calculate utility bill stats
     const billStats = {
-        total: utilityBills.reduce((sum, bill) => sum + bill.amount, 0),
-        unpaid: utilityBills.filter(bill => bill.status === "Unpaid").reduce((sum, bill) => sum + bill.amount, 0),
-        paid: utilityBills.filter(bill => bill.status === "Paid").reduce((sum, bill) => sum + bill.amount, 0),
-        due: utilityBills.filter(bill => new Date(bill.dueDate) <= new Date(new Date().setDate(new Date().getDate() + 5))).length
+        total: utilityBills.reduce((sum, bill) => sum + (bill.baseAmount + bill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)), 0),
+        unpaid: utilityBills.filter(bill => bill.status === "Pending").reduce((sum, bill) => sum + (bill.baseAmount + bill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)), 0),
+        paid: utilityBills.filter(bill => bill.status === "Paid").reduce((sum, bill) => sum + (bill.baseAmount + bill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)), 0),
+        due: utilityBills.filter(bill =>
+            new Date(bill.dueDate) <= new Date(new Date().setDate(new Date().getDate() + 5))
+        ).length
     };
 
     // Handler for opening payment modal
@@ -121,49 +73,71 @@ export default function Bills() {
     };
 
     // Handler for processing payment
-    const handlePayment = (e) => {
+    const handlePayment = async (e) => {
         e.preventDefault();
-        
-        // Update the bill status to paid
-        const updatedBills = utilityBills.map(bill => {
-            if (bill.id === selectedBill.id) {
-                return {
-                    ...bill,
-                    status: "Paid",
-                    paidOn: new Date().toISOString().split('T')[0]
-                };
-            }
-            return bill;
-        });
-        
-        // Create a new payment history entry
-        const newPaymentRecord = {
-            id: Date.now(),
-            type: selectedBill.type,
-            icon: selectedBill.icon,
-            provider: selectedBill.provider,
-            amount: selectedBill.amount,
-            dueDate: selectedBill.dueDate,
-            paidOn: new Date().toISOString().split('T')[0],
-            transactionId: `${selectedBill.type.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10000000000)}`,
-            paymentMethod: `${e.target.paymentMethod.value} ${e.target.paymentMethod.value === "Credit Card" ? "ending with " + e.target.cardNumber.value.slice(-4) : ""}`
-        };
-        
-        // Update state
-        setUtilityBills(updatedBills);
-        setPaymentHistory([newPaymentRecord, ...paymentHistory]);
-        setPaymentSuccess(true);
-        
-        // Reset after showing success message
-        setTimeout(() => {
-            setPaymentSuccess(false);
-            setPaymentModalOpen(false);
-            setSelectedBill(null);
-        }, 2000);
-    };
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0];
+        try {
+            const token = localStorage.getItem("Resident");
+            if (!token) {
+                router.push("/Login");
+                return;
+            }
+
+            // Update the bill status to paid
+            const updatedBills = utilityBills.map(bill => {
+                if (bill._id === selectedBill._id) {
+                    return {
+                        ...bill,
+                        status: "Paid",
+                        paidOn: new Date().toISOString().split('T')[0]
+                    };
+                }
+                return bill;
+            });
+
+            // Create a new payment history entry
+            const newPaymentRecord = {
+                type: selectedBill.utilityType,
+                amount: selectedBill.baseAmount + selectedBill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0),
+                dueDate: selectedBill.dueDate,
+                paidOn: new Date().toISOString().split('T')[0],
+                transactionId: `${selectedBill.utilityType.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10000000000)}`,
+                paymentMethod: `${e.target.paymentMethod.value} ${e.target.paymentMethod.value === "Credit Card" || e.target.paymentMethod.value === "Debit Card" ? "ending with " + e.target.cardNumber.value.slice(-4) : ""}`
+            };
+
+            // Send payment data to the backend
+            const paymentResponse = await fetch("/api/UtilityBill-Api/payBill", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    billId: selectedBill._id,
+                    paymentDetails: newPaymentRecord
+                }),
+            });
+
+            if (!paymentResponse.ok) {
+                throw new Error("Failed to process payment");
+            }
+
+            // Update state
+            setUtilityBills(updatedBills);
+            setPaymentHistory([newPaymentRecord, ...paymentHistory]);
+            setPaymentSuccess(true);
+
+            // Reset after showing success message
+            setTimeout(() => {
+                setPaymentSuccess(false);
+                setPaymentModalOpen(false);
+                setSelectedBill(null);
+            }, 2000);
+        } catch (error) {
+            console.error("Error processing payment:", error);
+            alert("Failed to process payment. Please try again.");
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-100">
@@ -232,57 +206,47 @@ export default function Bills() {
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="p-6">
                             <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                                <FaFileInvoiceDollar className="mr-2 text-blue-600" />
-                                Current Bills
+                                <FaTools className="mr-2 text-blue-600" />
+                                Current Utility Bills
                             </h2>
-                            
-                            {utilityBills.length > 0 ? (
+
+                            {loading ? (
+                                <p className="text-gray-500 text-center py-4">Loading bills...</p>
+                            ) : utilityBills.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {utilityBills.map((bill) => (
-                                        <div key={bill.id} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                                        <div key={bill._id} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                                             <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                                                 <div className="flex items-center">
                                                     <div className="p-2 rounded-full bg-white shadow-sm mr-3">
-                                                        {bill.icon}
+                                                        <FaBuilding className="text-blue-600" />
                                                     </div>
                                                     <div>
-                                                        <h3 className="font-medium text-gray-900">{bill.type}</h3>
-                                                        <p className="text-sm text-gray-500">{bill.provider}</p>
+                                                        <h3 className="font-medium text-gray-900">{bill.utilityType}</h3>
+                                                        <p className="text-sm text-gray-500">{bill.description}</p>
                                                     </div>
                                                 </div>
-                                                <span className={`text-sm px-2 py-1 rounded-full ${
-                                                    bill.status === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                }`}>
+                                                <span className={`text-sm px-2 py-1 rounded-full ${bill.status === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                    }`}>
                                                     {bill.status}
                                                 </span>
                                             </div>
                                             <div className="p-4">
                                                 <div className="flex justify-between mb-3">
-                                                    <span className="text-sm text-gray-500">Bill Period:</span>
-                                                    <span className="text-sm font-medium">{bill.billPeriod}</span>
-                                                </div>
-                                                {bill.meterReading && (
-                                                    <div className="flex justify-between mb-3">
-                                                        <span className="text-sm text-gray-500">Meter Reading:</span>
-                                                        <span className="text-sm font-medium">{bill.meterReading}</span>
-                                                    </div>
-                                                )}
-                                                <div className="flex justify-between mb-3">
                                                     <span className="text-sm text-gray-500">Due Date:</span>
-                                                    <span className={`text-sm font-medium ${
-                                                        new Date(bill.dueDate) <= new Date() && bill.status !== 'Paid' ? 'text-red-600' : ''
-                                                    }`}>
-                                                        {bill.dueDate}
+                                                    <span className={`text-sm font-medium ${new Date(bill.dueDate) <= new Date() && bill.status !== 'Paid' ? 'text-red-600' : ''
+                                                        }`}>
+                                                        {new Date(bill.dueDate).toLocaleDateString()}
                                                     </span>
                                                 </div>
                                                 <div className="flex justify-between mb-4">
                                                     <span className="text-sm text-gray-500">Amount:</span>
-                                                    <span className="text-lg font-bold">₹{bill.amount.toFixed(2)}</span>
+                                                    <span className="text-lg font-bold">₹{(bill.baseAmount + bill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)).toFixed(2)}</span>
                                                 </div>
                                                 {bill.status === 'Paid' ? (
                                                     <div className="text-center text-green-600 text-sm font-medium">
                                                         <FaCheckCircle className="inline mr-1" />
-                                                        Paid on {bill.paidOn}
+                                                        Paid on {new Date(bill.updatedAt).toLocaleDateString()}
                                                     </div>
                                                 ) : (
                                                     <button
@@ -312,39 +276,40 @@ export default function Bills() {
                                 <FaHistory className="mr-2 text-blue-600" />
                                 Payment History
                             </h2>
-                            
-                            {paymentHistory.length > 0 ? (
+
+                            {loading ? (
+                                <p className="text-gray-500 text-center py-4">Loading payment history...</p>
+                            ) : paymentHistory.length > 0 ? (
                                 <div className="overflow-x-auto">
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Type</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid On</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction ID</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue Date</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penalty Amount</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {paymentHistory.map((payment) => (
-                                                <tr key={payment.id}>
+                                                <tr key={payment.transactionId}>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center">
                                                             <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center">
-                                                                {payment.icon}
+                                                                <FaBuilding className="text-blue-600" />
                                                             </div>
                                                             <div className="ml-4">
-                                                                <div className="text-sm font-medium text-gray-900">{payment.type}</div>
-                                                                <div className="text-sm text-gray-500">{payment.provider}</div>
+                                                                <div className="text-sm font-medium text-gray-900">{payment.utilityType}</div>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">₹{payment.amount.toFixed(2)}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.dueDate}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.paidOn}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.paymentMethod}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.transactionId}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">₹{payment.baseAmount}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(payment.dueDate).toLocaleDateString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(payment.issueDate).toLocaleDateString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.penaltyAmount}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.status}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -370,19 +335,15 @@ export default function Bills() {
                             </div>
                         ) : (
                             <>
-                                <h2 className="text-xl font-semibold text-gray-900 mb-4">Pay {selectedBill.type} Bill</h2>
+                                <h2 className="text-xl font-semibold text-gray-900 mb-4">Pay {selectedBill.utilityType} Bill</h2>
                                 <div className="bg-blue-50 p-4 rounded-lg mb-4">
                                     <div className="flex justify-between mb-2">
-                                        <span className="text-sm text-gray-600">Provider:</span>
-                                        <span className="text-sm font-medium">{selectedBill.provider}</span>
+                                        <span className="text-sm text-gray-600">Amount:</span>
+                                        <span className="text-lg font-bold">₹{(selectedBill.baseAmount + selectedBill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)).toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between mb-2">
-                                        <span className="text-sm text-gray-600">Bill Period:</span>
-                                        <span className="text-sm font-medium">{selectedBill.billPeriod}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Amount:</span>
-                                        <span className="text-lg font-bold">₹{selectedBill.amount.toFixed(2)}</span>
+                                        <span className="text-sm text-gray-600">Due Date:</span>
+                                        <span className="text-sm font-medium">{new Date(selectedBill.dueDate).toLocaleDateString()}</span>
                                     </div>
                                 </div>
                                 <form onSubmit={handlePayment}>
@@ -449,7 +410,7 @@ export default function Bills() {
                                             type="submit"
                                             className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                         >
-                                            Pay ₹{selectedBill.amount.toFixed(2)}
+                                            Pay ₹{(selectedBill.baseAmount + selectedBill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)).toFixed(2)}
                                         </button>
                                     </div>
                                 </form>

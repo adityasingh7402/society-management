@@ -1,49 +1,397 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function UtilityBills() {
-  // Sample data for utility bills
-  const utilityData = {
-    collections: {
-      monthly: 95000,
-      yearly: 1140000,
-      total: 3420000
-    },
-    expenses: {
-      monthly: 80000,
-      yearly: 960000,
-      total: 2880000
-    },
-    reserveFund: 540000,
-    paymentStatus: {
-      paid: 90,
-      unpaid: 10,
-      totalResidents: 100
-    },
-    penalty: {
-      totalAmount: 30000,
-      dailyIncrease: 150
-    },
-    utilities: [
-      { id: 1, type: "Water Bill", totalAmount: 120000, collected: 110000, pending: 10000 },
-      { id: 2, type: "Electricity Bill", totalAmount: 250000, collected: 230000, pending: 20000 },
-      { id: 3, type: "Gas Bill", totalAmount: 80000, collected: 75000, pending: 5000 },
-      { id: 4, type: "Maintenance Bill", totalAmount: 50000, collected: 35000, pending: 15000 },
-    ]
+  // States for UI
+  const [activeTab, setActiveTab] = useState('generate');
+  const [loading, setLoading] = useState(false);
+  const [viewBillData, setViewBillData] = useState(null);
+  const [summaryData, setSummaryData] = useState({
+    totalBills: 0,
+    totalAmount: 0,
+    totalPaidAmount: 0,
+    totalDueAmount: 0,
+    totalPenalty: 0
+  });
+
+  // States for structure selection
+  const [structuredResidents, setStructuredResidents] = useState({});
+  const [openBlocks, setOpenBlocks] = useState({});
+  const [openFloors, setOpenFloors] = useState({});
+  const [openFlats, setOpenFlats] = useState({});
+  const [residentList, setResidentList] = useState([]);
+
+  // States for bill generation
+  const [selectedBlock, setSelectedBlock] = useState('');
+  const [selectedFloor, setSelectedFloor] = useState('');
+  const [selectedFlat, setSelectedFlat] = useState('');
+  const [selectedResident, setSelectedResident] = useState(null);
+  const [utilityType, setUtilityType] = useState('');
+  const [description, setDescription] = useState('');
+  const [unitUsage, setUnitUsage] = useState('');
+  const [perUnitRate, setPerUnitRate] = useState('');
+  const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState('');
+  const [finePerDay, setFinePerDay] = useState('50');
+  const [additionalCharges, setAdditionalCharges] = useState([]);
+  const [newCharge, setNewCharge] = useState({ description: '', amount: '' });
+
+  // States for bill history
+  const [historyBlock, setHistoryBlock] = useState('');
+  const [historyFloor, setHistoryFloor] = useState('');
+  const [historyFlat, setHistoryFlat] = useState('');
+  const [utilityTypeFilter, setUtilityTypeFilter] = useState('');
+  const [billHistory, setBillHistory] = useState([]);
+  const [filteredHistory, setFilteredHistory] = useState([]);
+
+  // Fetch residents on component mount
+  useEffect(() => {
+    const fetchResidents = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/Resident-Api/getAllResidents');
+        if (response.ok) {
+          const data = await response.json();
+          setResidentList(data);
+          organizeResidentsByStructure(data);
+        } else {
+          console.error('Failed to fetch residents');
+        }
+      } catch (error) {
+        console.error('Error fetching residents:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResidents();
+  }, []);
+
+  // Fetch bill summary
+  useEffect(() => {
+    const fetchBillSummary = async () => {
+      try {
+        const response = await fetch('/api/UtilityBill-Api/getBills');
+        if (response.ok) {
+          const data = await response.json();
+          setSummaryData(data.summary);
+          setBillHistory(data.bills);
+          setFilteredHistory(data.bills);
+        }
+      } catch (error) {
+        console.error('Error fetching bill summary:', error);
+      }
+    };
+
+    fetchBillSummary();
+  }, []);
+
+  // Filter history when history block/floor/flat or utilityType changes
+  useEffect(() => {
+    if (billHistory.length > 0) {
+      let filtered = [...billHistory];
+
+      if (historyBlock) {
+        filtered = filtered.filter(bill => bill.blockName === historyBlock);
+      }
+
+      if (historyFloor) {
+        filtered = filtered.filter(bill => bill.floorNumber === parseInt(historyFloor));
+      }
+
+      if (historyFlat) {
+        filtered = filtered.filter(bill => bill.flatNumber === `${historyBlock}-${historyFlat}`);
+      }
+
+      if (utilityTypeFilter) {
+        filtered = filtered.filter(bill => bill.utilityType === utilityTypeFilter);
+      }
+
+      setFilteredHistory(filtered);
+    }
+  }, [historyBlock, historyFloor, historyFlat, utilityTypeFilter, billHistory]);
+
+  // Organize residents by block, floor and flat
+  const organizeResidentsByStructure = (residents) => {
+    const structure = {};
+    const blockOpenState = {};
+    const floorOpenState = {};
+    const flatOpenState = {};
+
+    residents.forEach(resident => {
+      if (!resident.flatDetails || !resident.flatDetails.flatNumber) return;
+
+      // Parse flat number format (e.g., "A-101" where A is block and 101 is flat number) 
+      const flatNumberParts = resident.flatDetails.flatNumber.split('-');
+      if (flatNumberParts.length !== 2) return;
+
+      const blockName = flatNumberParts[0];
+      const flatNumber = flatNumberParts[1];
+      const floorNumber = flatNumber.substring(0, 1); // Assuming first digit of flat number is floor
+
+      // Initialize block if it doesn't exist 
+      if (!structure[blockName]) {
+        structure[blockName] = {};
+        blockOpenState[blockName] = false; // Default closed 
+      }
+
+      // Initialize floor if it doesn't exist 
+      if (!structure[blockName][floorNumber]) {
+        structure[blockName][floorNumber] = {};
+        floorOpenState[`${blockName}-${floorNumber}`] = false; // Default closed 
+      }
+
+      // Initialize flat if it doesn't exist 
+      if (!structure[blockName][floorNumber][flatNumber]) {
+        structure[blockName][floorNumber][flatNumber] = [];
+        flatOpenState[`${blockName}-${flatNumber}`] = false; // Default closed 
+      }
+
+      // Add resident to the flat 
+      structure[blockName][floorNumber][flatNumber].push(resident);
+    });
+
+    // Set first block open 
+    const blocks = Object.keys(structure).sort();
+    if (blocks.length > 0) {
+      const firstBlock = blocks[0];
+      blockOpenState[firstBlock] = true;
+
+      // Set first floor of first block open 
+      const floors = Object.keys(structure[firstBlock]).sort();
+      if (floors.length > 0) {
+        const firstFloor = floors[0];
+        floorOpenState[`${firstBlock}-${firstFloor}`] = true;
+
+        // Set all flats in the first floor closed 
+        Object.keys(structure[firstBlock][firstFloor]).forEach(flatNumber => {
+          flatOpenState[`${firstBlock}-${flatNumber}`] = false;
+        });
+      }
+    }
+
+    setStructuredResidents(structure);
+    setOpenBlocks(blockOpenState);
+    setOpenFloors(floorOpenState);
+    setOpenFlats(flatOpenState);
   };
 
-  // Sample resident data
-  const residents = [
-    { id: 1, name: "Rahul Sharma", flatNo: "A-201", status: "paid", amount: 2000, paidDate: "2025-03-05" },
-    { id: 2, name: "Anita Patel", flatNo: "B-404", status: "paid", amount: 2000, paidDate: "2025-03-10" },
-    { id: 3, name: "Vikram Kumar", flatNo: "C-102", status: "unpaid", amount: 2000, dueDate: "2025-02-15", penalty: 2300 },
-    { id: 4, name: "Priya Singh", flatNo: "A-305", status: "paid", amount: 2000, paidDate: "2025-03-07" },
-    { id: 5, name: "Suresh Gupta", flatNo: "B-202", status: "unpaid", amount: 2000, dueDate: "2025-02-15", penalty: 2300 },
-    { id: 6, name: "Meera Joshi", flatNo: "D-101", status: "paid", amount: 2000, paidDate: "2025-03-01" },
-    { id: 7, name: "Amit Verma", flatNo: "C-306", status: "unpaid", amount: 2000, dueDate: "2025-02-15", penalty: 2300 },
-    { id: 8, name: "Sanjay Kapoor", flatNo: "A-108", status: "paid", amount: 2000, paidDate: "2025-03-09" }
-  ];
+  // Toggle functions for dropdowns 
+  const toggleBlock = (blockName) => {
+    setOpenBlocks(prev => ({ ...prev, [blockName]: !prev[blockName] }));
+  };
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const toggleFloor = (blockFloorKey) => {
+    setOpenFloors(prev => ({ ...prev, [blockFloorKey]: !prev[blockFloorKey] }));
+  };
+
+  const toggleFlat = (flatKey) => {
+    setOpenFlats(prev => ({ ...prev, [flatKey]: !prev[flatKey] }));
+  };
+
+  // Handle resident selection
+  const selectResident = (resident, block, floor, flat) => {
+    setSelectedBlock(block);
+    setSelectedFloor(floor);
+    setSelectedFlat(flat);
+    setSelectedResident(resident);
+  };
+
+  // Handle history selection
+  const selectHistoryStructure = (block, floor, flat) => {
+    setHistoryBlock(block);
+    setHistoryFloor(floor);
+    setHistoryFlat(flat);
+  };
+
+  // Calculate base amount
+  const calculateBaseAmount = () => {
+    const usage = parseFloat(unitUsage) || 0;
+    const rate = parseFloat(perUnitRate) || 0;
+    return usage * rate;
+  };
+
+  // Add an additional charge
+  const addAdditionalCharge = () => {
+    if (newCharge.description && newCharge.amount) {
+      setAdditionalCharges([
+        ...additionalCharges,
+        {
+          description: newCharge.description,
+          amount: parseFloat(newCharge.amount)
+        }
+      ]);
+      setNewCharge({ description: '', amount: '' });
+    }
+  };
+
+  // Remove an additional charge
+  const removeAdditionalCharge = (index) => {
+    setAdditionalCharges(additionalCharges.filter((_, i) => i !== index));
+  };
+
+  // Calculate total amount
+  const calculateTotal = () => {
+    const baseAmount = calculateBaseAmount();
+    const additionalTotal = additionalCharges.reduce((sum, charge) => sum + parseFloat(charge.amount), 0);
+    return baseAmount + additionalTotal;
+  };
+
+  // Handle bill generation form submission
+  const handleBillGeneration = async (e) => {
+    e.preventDefault();
+
+    if (!selectedResident) {
+      alert('Please select a resident first');
+      return;
+    }
+
+    if (!utilityType || !unitUsage || !perUnitRate || !dueDate) {
+      alert('Please fill all required fields');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const baseAmount = calculateBaseAmount();
+
+      const newBill = {
+        societyId: selectedResident.societyId,
+        flatNumber: `${selectedBlock}-${selectedFlat}`,
+        blockName: selectedBlock,
+        floorNumber: parseInt(selectedFloor),
+        residentId: selectedResident._id,
+        ownerName: selectedResident.name,
+        ownerMobile: selectedResident.phone,
+        ownerEmail: selectedResident.email,
+        utilityType,
+        description,
+        unitUsage: parseFloat(unitUsage),
+        perUnitRate: parseFloat(perUnitRate),
+        baseAmount,
+        additionalCharges,
+        issueDate,
+        dueDate,
+        finePerDay: parseFloat(finePerDay),
+        penaltyAmount: 0,
+        status: 'Pending'
+      };
+
+      const response = await fetch('/api/UtilityBill-Api/generateBill', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newBill),
+      });
+
+      if (response.ok) {
+        alert('Utility bill generated successfully');
+        resetForm();
+
+        // Refresh bill history
+        const historyResponse = await fetch('/api/UtilityBill-Api/getBills');
+        if (historyResponse.ok) {
+          const data = await historyResponse.json();
+          setBillHistory(data.bills);
+          setFilteredHistory(data.bills);
+          setSummaryData(data.summary);
+        }
+      } else {
+        alert('Failed to generate bill');
+      }
+    } catch (error) {
+      console.error('Error generating bill:', error);
+      alert('Error generating bill');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleMarkAsPaid = async (billId) => {
+    if (!confirm('Are you sure you want to mark this bill as paid?')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/UtilityBill-Api/updateBillStatus/${billId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'Paid' }),
+      });
+ 
+      if (response.ok) {
+        alert('Bill marked as paid');
+
+        // Refresh bill history
+        const historyResponse = await fetch('/api/UtilityBill-Api/getBills');
+        if (historyResponse.ok) {
+          const data = await historyResponse.json();
+          setBillHistory(data.bills);
+          setFilteredHistory(data.bills);
+          setSummaryData(data.summary);
+        }
+      } else {
+        alert('Failed to update bill status');
+      }
+    } catch (error) {
+      console.error('Error updating bill status:', error);
+      alert('Error updating bill status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewBill = async (billId) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/UtilityBill-Api/getBill/${billId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setViewBillData(data);
+      } else {
+        alert('Failed to fetch bill details');
+      }
+    } catch (error) {
+      console.error('Error fetching bill details:', error);
+      alert('Error fetching bill details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setSelectedBlock('');
+    setSelectedFloor('');
+    setSelectedFlat('');
+    setSelectedResident(null);
+    setUtilityType('');
+    setDescription('');
+    setUnitUsage('');
+    setPerUnitRate('');
+    setIssueDate(new Date().toISOString().split('T')[0]);
+    setDueDate('');
+    setFinePerDay('50');
+    setAdditionalCharges([]);
+    setNewCharge({ description: '', amount: '' });
+  };
+
+  // Get unit label based on utility type
+  const getUnitLabel = () => {
+    switch (utilityType) {
+      case 'Electricity':
+        return 'kWh';
+      case 'Water':
+        return 'Liters';
+      case 'Gas':
+        return 'm³';
+      default:
+        return 'Units';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -54,276 +402,705 @@ export default function UtilityBills() {
         </div>
       </header>
 
+      {/* Summary Cards */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500">Total Bills</p>
+            <p className="text-2xl font-bold text-gray-900">{summaryData.totalBills}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500">Total Amount</p>
+            <p className="text-2xl font-bold text-blue-600">₹{summaryData.totalAmount?.toLocaleString() || 0}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500">Paid Amount</p>
+            <p className="text-2xl font-bold text-green-600">₹{summaryData.totalPaidAmount?.toLocaleString() || 0}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500">Due Amount</p>
+            <p className="text-2xl font-bold text-amber-600">₹{summaryData.totalDueAmount?.toLocaleString() || 0}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-sm text-gray-500">Penalty Amount</p>
+            <p className="text-2xl font-bold text-red-600">₹{summaryData.totalPenalty?.toLocaleString() || 0}</p>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6">
           <button
-            className={`px-4 py-2 text-sm font-medium ${activeTab === 'overview' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2 text-sm font-medium ${activeTab === 'generate' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('generate')}
           >
-            Overview
+            Generate Bill
           </button>
           <button
-            className={`px-4 py-2 text-sm font-medium ${activeTab === 'paid' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('paid')}
+            className={`px-4 py-2 text-sm font-medium ${activeTab === 'history' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('history')}
           >
-            Paid Residents
-          </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium ${activeTab === 'unpaid' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('unpaid')}
-          >
-            Unpaid Residents
+            Bill History
           </button>
         </div>
 
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Collection Summary */}
-            <div className="bg-white rounded-lg shadow p-6" style={{ minHeight: '400px' }}>
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Collection Summary</h2>
-              <div className="space-y-6">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-gray-600 font-medium">Monthly Collection</p>
-                    <p className="text-xl font-bold text-gray-900">₹{utilityData.collections.monthly.toLocaleString()}</p>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '80%' }}></div>
-                  </div>
-                </div>
+        {/* Generate Bill Tab */}
+        {activeTab === 'generate' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Resident Selector */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Resident</h2>
 
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-gray-600 font-medium">Yearly Collection</p>
-                    <p className="text-xl font-bold text-gray-900">₹{utilityData.collections.yearly.toLocaleString()}</p>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '85%' }}></div>
-                  </div>
+              {loading ? (
+                <div className="flex justify-center p-4">
+                  <p>Loading residents...</p>
                 </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.keys(structuredResidents).sort().map((blockName) => (
+                    <div key={blockName} className="border rounded-md overflow-hidden">
+                      <div
+                        className="flex justify-between items-center p-3 bg-gray-50 cursor-pointer"
+                        onClick={() => toggleBlock(blockName)}
+                      >
+                        <div className="font-medium">Block {blockName}</div>
+                        <div>{openBlocks[blockName] ? '−' : '+'}</div>
+                      </div>
 
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-gray-600 font-medium">Total Collection</p>
-                    <p className="text-xl font-bold text-gray-900">₹{utilityData.collections.total.toLocaleString()}</p>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '90%' }}></div>
-                  </div>
-                </div>
+                      {openBlocks[blockName] && (
+                        <div className="p-3 space-y-3">
+                          {Object.keys(structuredResidents[blockName]).sort().map((floorNumber) => (
+                            <div key={`${blockName}-${floorNumber}`} className="border rounded-md overflow-hidden ml-3">
+                              <div
+                                className="flex justify-between items-center p-2 bg-gray-50 cursor-pointer"
+                                onClick={() => toggleFloor(`${blockName}-${floorNumber}`)}
+                              >
+                                <div className="font-medium">Floor {floorNumber}</div>
+                                <div>{openFloors[`${blockName}-${floorNumber}`] ? '−' : '+'}</div>
+                              </div>
 
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-gray-600 font-medium">Reserve Fund</p>
-                    <p className="text-xl font-bold text-blue-600">₹{utilityData.reserveFund.toLocaleString()}</p>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '65%' }}></div>
-                  </div>
+                              {openFloors[`${blockName}-${floorNumber}`] && (
+                                <div className="p-2 space-y-2">
+                                  {Object.keys(structuredResidents[blockName][floorNumber]).sort().map((flatNumber) => (
+                                    <div key={`${blockName}-${flatNumber}`} className="border rounded-md overflow-hidden ml-3">
+                                      <div
+                                        className="flex justify-between items-center p-2 bg-gray-50 cursor-pointer"
+                                        onClick={() => toggleFlat(`${blockName}-${flatNumber}`)}
+                                      >
+                                        <div className="font-medium">Flat {flatNumber}</div>
+                                        <div>{openFlats[`${blockName}-${flatNumber}`] ? '−' : '+'}</div>
+                                      </div>
+
+                                      {openFlats[`${blockName}-${flatNumber}`] && (
+                                        <div className="p-2">
+                                          {structuredResidents[blockName][floorNumber][flatNumber].map((resident) => (
+                                            <div
+                                              key={resident._id}
+                                              className={`p-2 rounded-md cursor-pointer ${selectedResident?._id === resident._id
+                                                ? 'bg-blue-50 border border-blue-200'
+                                                : 'hover:bg-gray-50'
+                                                }`}
+                                              onClick={() => selectResident(resident, blockName, floorNumber, flatNumber)}
+                                            >
+                                              <div className="font-medium">{resident.name}</div>
+                                              <div className="text-sm text-gray-500">
+                                                {resident.phone} | {resident.email}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* Expenses Summary */}
-            <div className="bg-white rounded-lg shadow p-6" style={{ minHeight: '400px' }}>
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Expenses Summary</h2>
-              <div className="space-y-6">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-gray-600 font-medium">Monthly Expenses</p>
-                    <p className="text-xl font-bold text-gray-900">₹{utilityData.expenses.monthly.toLocaleString()}</p>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-red-500 h-2.5 rounded-full" style={{ width: '78%' }}></div>
-                  </div>
-                </div>
+            {/* Bill Generation Form */}
+            <div className="bg-white rounded-lg shadow p-6 md:col-span-2">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Generate New Utility Bill</h2>
 
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-gray-600 font-medium">Yearly Expenses</p>
-                    <p className="text-xl font-bold text-gray-900">₹{utilityData.expenses.yearly.toLocaleString()}</p>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-red-500 h-2.5 rounded-full" style={{ width: '78%' }}></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-gray-600 font-medium">Total Expenses</p>
-                    <p className="text-xl font-bold text-gray-900">₹{utilityData.expenses.total.toLocaleString()}</p>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-red-500 h-2.5 rounded-full" style={{ width: '78%' }}></div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <p className="text-gray-600 font-medium">Monthly Balance</p>
-                    <p className="text-xl font-bold text-green-600">
-                      ₹{(utilityData.collections.monthly - utilityData.expenses.monthly).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Payment Status */}
-            <div className="bg-white rounded-lg shadow p-6" style={{ minHeight: '400px' }}>
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Payment Status</h2>
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div className="bg-green-50 p-4 rounded-lg text-center">
-                    <p className="text-sm text-gray-500">Paid</p>
-                    <p className="text-xl font-bold text-green-600">{utilityData.paymentStatus.paid} Residents</p>
-                  </div>
-                  <div className="bg-red-50 p-4 rounded-lg text-center">
-                    <p className="text-sm text-gray-500">Unpaid</p>
-                    <p className="text-xl font-bold text-red-600">{utilityData.paymentStatus.unpaid} Residents</p>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <p className="text-gray-600 font-medium">Total Penalty</p>
-                      <p className="text-xl font-bold text-red-600">₹{utilityData.penalty.totalAmount.toLocaleString()}</p>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <p className="text-gray-600 font-medium">Daily Increase</p>
-                      <p className="text-lg font-semibold text-amber-600">₹{utilityData.penalty.dailyIncrease}/day</p>
+              {selectedResident ? (
+                <form onSubmit={handleBillGeneration}>
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+                    <h3 className="font-medium text-blue-800 mb-2">Selected Resident</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-sm text-gray-600">Name</p>
+                        <p className="font-medium">{selectedResident.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Flat</p>
+                        <p className="font-medium">{`${selectedBlock}-${selectedFlat}`}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Phone</p>
+                        <p className="font-medium">{selectedResident.phone}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Email</p>
+                        <p className="font-medium">{selectedResident.email}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Utilities Breakdown */}
-            <div className="bg-white rounded-lg shadow p-6 col-span-1 md:col-span-2 lg:col-span-3">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Utilities Breakdown</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {utilityData.utilities.map((utility) => (
-                  <div key={utility.id} className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-900">{utility.type}</h3>
-                    <div className="mt-2 space-y-2">
-                      <p className="text-sm text-gray-600">Total Amount: ₹{utility.totalAmount.toLocaleString()}</p>
-                      <p className="text-sm text-gray-600">Collected: ₹{utility.collected.toLocaleString()}</p>
-                      <p className="text-sm text-gray-600">Pending: ₹{utility.pending.toLocaleString()}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Utility Type *</label>
+                      <select
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={utilityType}
+                        onChange={(e) => setUtilityType(e.target.value)}
+                        required
+                      >
+                        <option value="">Select Type</option>
+                        <option value="Electricity">Electricity</option>
+                        <option value="Water">Water</option>
+                        <option value="Gas">Gas</option>
+                        <option value="Internet">Internet</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Issue Date</label>
+                      <input
+                        type="date"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={issueDate}
+                        onChange={(e) => setIssueDate(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Units Used ({utilityType ? getUnitLabel() : 'Units'}) *
+                      </label>
+                      <input
+                        type="number"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={unitUsage}
+                        onChange={(e) => setUnitUsage(e.target.value)}
+                        min="0"
+                        step="0.01"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Rate per Unit (₹) *</label>
+                      <input
+                        type="number"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={perUnitRate}
+                        onChange={(e) => setPerUnitRate(e.target.value)}
+                        min="0"
+                        step="0.01"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Due Date *</label>
+                      <input
+                        type="date"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Fine Per Day (₹)</label>
+                      <input
+                        type="number"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={finePerDay}
+                        onChange={(e) => setFinePerDay(e.target.value)}
+                        min="0"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows="3"
+                      ></textarea>
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-md font-medium text-gray-900">Bill Details</h3>
+                      <div className="text-md font-medium text-gray-900">
+                        Base Amount: ₹{calculateBaseAmount().toFixed(2)}
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-md mb-4">
+                      <h3 className="text-md font-medium text-gray-900 mb-2">Additional Charges</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                        <div className="md:col-span-2">
+                          <input
+                            type="text"
+                            placeholder="Description"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2"
+                            value={newCharge.description}
+                            onChange={(e) => setNewCharge({ ...newCharge, description: e.target.value })}
+                          />
+                        </div>
+                        <div className="flex space-x-2">
+                          <input
+                            type="number"
+                            placeholder="Amount"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2"
+                            value={newCharge.amount}
+                            onChange={(e) => setNewCharge({ ...newCharge, amount: e.target.value })}
+                            min="0"
+                            step="0.01"
+                          />
+                          <button
+                            type="button"
+                            className="bg-blue-500 text-white px-3 py-2 rounded-md"
+                            onClick={addAdditionalCharge}
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
+                      {additionalCharges.length > 0 && (
+                        <div className="border rounded-md overflow-hidden">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {additionalCharges.map((charge, index) => (
+                                <tr key={index}>
+                                  <td className="px-3 py-2 text-sm text-gray-900">{charge.description}</td>
+                                  <td className="px-3 py-2 text-sm text-gray-900 text-right">₹{charge.amount}</td>
+                                  <td className="px-3 py-2 text-right">
+                                    <button
+                                      type="button"
+                                      className="text-red-500 hover:text-red-700"
+                                      onClick={() => removeAdditionalCharge(index)}
+                                    >
+                                      Remove
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-blue-50 p-4 rounded-md">
+                      <div className="flex justify-between text-lg font-medium">
+                        <span>Total Amount:</span>
+                        <span>₹{calculateTotal().toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700"
+                      onClick={resetForm}
+                    >
+                      Reset
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
+                      disabled={loading}
+                    >
+                      {loading ? 'Generating...' : 'Generate Bill'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                  <p className="text-yellow-800">Please select a resident from the left panel to generate a bill.</p>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Paid Residents Tab */}
-        {activeTab === 'paid' && (
-          <div className="bg-white rounded-lg shadow overflow-hidden" style={{ minHeight: '400px' }}>
-            <h2 className="text-xl font-semibold text-gray-900 p-6 border-b border-gray-200">Paid Residents</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resident</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flat No.</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Date</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {residents.filter(res => res.status === 'paid').map((resident) => (
-                    <tr key={resident.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
-                            {resident.name.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{resident.name}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{resident.flatNo}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">₹{resident.amount.toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{resident.paidDate}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Paid
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {/* Bill History Tab */}
+        {activeTab === 'history' && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Utility Bill History</h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Block</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-md px-3 py-2"
+                    value={historyBlock}
+                    onChange={(e) => selectHistoryStructure(e.target.value, historyFloor, historyFlat)}
+                  >
+                    <option value="">All Blocks</option>
+                    {Object.keys(structuredResidents).sort().map((block) => (
+                      <option key={block} value={block}>Block {block}</option>
+                    ))}
+                  </select>
+                </div>
 
-        {/* Unpaid Residents Tab */}
-        {activeTab === 'unpaid' && (
-          <div className="bg-white rounded-lg shadow overflow-hidden" style={{ minHeight: '400px' }}>
-            <h2 className="text-xl font-semibold text-gray-900 p-6 border-b border-gray-200">Unpaid Residents</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resident</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flat No.</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Due</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penalty</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {residents.filter(res => res.status === 'unpaid').map((resident) => (
-                    <tr key={resident.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-red-500 flex items-center justify-center text-white font-medium">
-                            {resident.name.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{resident.name}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{resident.flatNo}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">₹{resident.amount.toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{resident.dueDate}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">₹{resident.penalty.toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                          Unpaid
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="bg-gray-50 p-4 border-t border-gray-200">
-              <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-sm text-gray-500">Total Unpaid Amount</p>
-                  <p className="text-lg font-bold text-gray-900">₹{residents.filter(res => res.status === 'unpaid').reduce((sum, res) => sum + res.amount, 0).toLocaleString()}</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-md px-3 py-2"
+                    value={historyFloor}
+                    onChange={(e) => selectHistoryStructure(historyBlock, e.target.value, historyFlat)}
+                    disabled={!historyBlock}
+                  >
+                    <option value="">All Floors</option>
+                    {historyBlock && Object.keys(structuredResidents[historyBlock] || {}).sort().map((floor) => (
+                      <option key={floor} value={floor}>Floor {floor}</option>
+                    ))}
+                  </select>
                 </div>
+
                 <div>
-                  <p className="text-sm text-gray-500">Total Penalty Amount</p>
-                  <p className="text-lg font-bold text-red-600">₹{residents.filter(res => res.status === 'unpaid').reduce((sum, res) => sum + res.penalty, 0).toLocaleString()}</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Flat</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-md px-3 py-2"
+                    value={historyFlat}
+                    onChange={(e) => selectHistoryStructure(historyBlock, historyFloor, e.target.value)}
+                    disabled={!historyFloor}
+                  >
+                    <option value="">All Flats</option>
+                    {historyBlock && historyFloor &&
+                      Object.keys(structuredResidents[historyBlock][historyFloor] || {}).sort().map((flat) => (
+                        <option key={flat} value={flat}>Flat {flat}</option>
+                      ))
+                    }
+                  </select>
                 </div>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium">Send Reminders</button>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Utility Type</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-md px-3 py-2"
+                    value={utilityTypeFilter}
+                    onChange={(e) => setUtilityTypeFilter(e.target.value)}
+                  >
+                    <option value="">All Types</option>
+                    <option value="Electricity">Electricity</option>
+                    <option value="Water">Water</option>
+                    <option value="Gas">Gas</option>
+                    <option value="Internet">Internet</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
               </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              {filteredHistory.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Bill ID
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Resident
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Flat
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Utility Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Issue Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Due Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredHistory.map((bill) => (
+                      <tr key={bill._id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {bill._id.substring(bill._id.length - 6).toUpperCase()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{bill.ownerName}</div>
+                          <div className="text-sm text-gray-500">{bill.ownerMobile}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {bill.flatNumber}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${bill.utilityType === 'Electricity' ? 'bg-yellow-100 text-yellow-800' :
+                              bill.utilityType === 'Water' ? 'bg-blue-100 text-blue-800' :
+                                bill.utilityType === 'Gas' ? 'bg-red-100 text-red-800' :
+                                  bill.utilityType === 'Internet' ? 'bg-purple-100 text-purple-800' :
+                                    'bg-gray-100 text-gray-800'}`}
+                          >
+                            {bill.utilityType}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(bill.issueDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(bill.dueDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">₹{(bill.baseAmount + bill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)).toFixed(2)}</div>
+                          {bill.penaltyAmount > 0 && (
+                            <div className="text-xs text-red-500">+₹{bill.penaltyAmount.toFixed(2)} penalty</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${bill.status === 'Paid' ? 'bg-green-100 text-green-800' :
+                              bill.status === 'Overdue' ? 'bg-red-100 text-red-800' :
+                                'bg-amber-100 text-amber-800'}`}
+                          >
+                            {bill.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <button
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                            onClick={() => handleViewBill(bill._id)}
+                          >
+                            View
+                          </button>
+                          {bill.status !== 'Paid' && (
+                            <button
+                              className="text-green-600 hover:text-green-900"
+                              onClick={() => handleMarkAsPaid(bill._id)}
+                            >
+                              Mark Paid
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-gray-500">No bills found</p>
+                </div>
+              )}
             </div>
           </div>
         )}
       </main>
+
+      {/* View Bill Modal */}
+      {viewBillData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-90vh overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-gray-900">Bill Details</h2>
+                <button
+                  className="text-gray-400 hover:text-gray-500"
+                  onClick={() => setViewBillData(null)}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Resident Information</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-sm text-gray-500">Name</p>
+                      <p className="font-medium">{viewBillData.ownerName}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Mobile</p>
+                      <p className="font-medium">{viewBillData.ownerMobile}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="font-medium">{viewBillData.ownerEmail}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Flat</p>
+                      <p className="font-medium">{viewBillData.flatNumber}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Bill Information</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-sm text-gray-500">Bill ID</p>
+                      <p className="font-medium">{viewBillData._id.substring(viewBillData._id.length - 6).toUpperCase()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Utility Type</p>
+                      <p className="font-medium">{viewBillData.utilityType}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Issue Date</p>
+                      <p className="font-medium">{new Date(viewBillData.issueDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Due Date</p>
+                      <p className="font-medium">{new Date(viewBillData.dueDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Status</p>
+                      <p className={`font-medium ${viewBillData.status === 'Paid' ? 'text-green-600' :
+                        viewBillData.status === 'Overdue' ? 'text-red-600' :
+                          'text-amber-600'
+                        }`}>{viewBillData.status}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Usage Details</h3>
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Units Used</p>
+                      <p className="font-medium">{viewBillData.unitUsage} {
+                        viewBillData.utilityType === 'Electricity' ? 'kWh' :
+                          viewBillData.utilityType === 'Water' ? 'Liters' :
+                            viewBillData.utilityType === 'Gas' ? 'm³' : 'Units'
+                      }</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Rate per Unit</p>
+                      <p className="font-medium">₹{viewBillData.perUnitRate.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Base Amount</p>
+                      <p className="font-medium">₹{viewBillData.baseAmount.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {viewBillData.additionalCharges.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Charges</h3>
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead>
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {viewBillData.additionalCharges.map((charge, index) => (
+                          <tr key={index}>
+                            <td className="px-3 py-2 text-sm text-gray-900">{charge.description}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 text-right">₹{charge.amount.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Summary</h3>
+                <div className="bg-blue-50 p-4 rounded-md">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-sm text-gray-600">Base Amount</p>
+                      <p className="font-medium">₹{viewBillData.baseAmount.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Additional Charges</p>
+                      <p className="font-medium">₹{viewBillData.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0).toFixed(2)}</p>
+                    </div>
+                    {viewBillData.penaltyAmount > 0 && (
+                      <div>
+                        <p className="text-sm text-gray-600">Penalty Amount</p>
+                        <p className="font-medium text-red-600">₹{viewBillData.penaltyAmount.toFixed(2)}</p>
+                      </div>
+                    )}
+                    <div className="md:col-span-2 pt-2 mt-2 border-t border-blue-200">
+                      <div className="flex justify-between text-lg font-medium">
+                        <span>Total Amount:</span>
+                        <span>₹{(viewBillData.baseAmount + viewBillData.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0) + viewBillData.penaltyAmount).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {viewBillData.description && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Description</h3>
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <p className="text-sm text-gray-700">{viewBillData.description}</p>
+                  </div>
+                </div>
+              )}
+
+              {viewBillData.status !== 'Paid' && (
+                <div className="flex justify-end">
+                  <button
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                    onClick={() => {
+                      handleMarkAsPaid(viewBillData._id);
+                      setViewBillData(null);
+                    }}
+                  >
+                    Mark as Paid
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

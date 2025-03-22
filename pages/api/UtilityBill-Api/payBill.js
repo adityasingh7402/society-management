@@ -1,4 +1,4 @@
-import MaintenanceBill from '../../../models/MaintenanceBill';
+import UtilityBill from '../../../models/UtilityBill';
 import connectDB from '../../../lib/mongodb';
 
 export default async function handler(req, res) {
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     }
 
     // Find the bill by ID
-    const bill = await MaintenanceBill.findById(billId);
+    const bill = await UtilityBill.findById(billId);
     if (!bill) {
       return res.status(404).json({ message: 'Bill not found' });
     }

@@ -44,7 +44,7 @@ export default function MaintenanceBills() {
 
                 const billsData = await billsResponse.json();
                 setMaintenanceBills(billsData.bills); // Set the bills for the resident
-                setPaymentHistory(billsData.paymentHistory || []); // Set payment history if available
+                setPaymentHistory(billsData.bills || []); // Set payment history if available
             } catch (error) {
                 console.error("Error fetching data:", error);
                 router.push("/Login");
@@ -288,9 +288,9 @@ export default function MaintenanceBills() {
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid On</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction ID</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue Date</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penalty Amount</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
@@ -306,11 +306,11 @@ export default function MaintenanceBills() {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">₹{payment.amount.toFixed(2)}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">₹{payment.amount}</td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(payment.dueDate).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(payment.paidOn).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.paymentMethod}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.transactionId}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(payment.issueDate).toLocaleDateString()}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.penaltyAmount}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.status}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

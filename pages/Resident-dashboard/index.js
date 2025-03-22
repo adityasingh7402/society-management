@@ -171,9 +171,10 @@ export default function Home() {
                             <Link href={"./Resident-dashboard/components/TenantInfo"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaUserTie className="mr-2" /> Tenant Info</li></Link>
                             <Link href={"./Resident-dashboard/components/Lease"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaFileSignature className="mr-2" /> Lease</li></Link>
 
-                            <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Utility Bills</li>
-                            <Link href={"./Resident-dashboard/components/Bills"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaLightbulb className="mr-2" /> Bills</li></Link>
-                            <Link href={"./Resident-dashboard/components/History"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaHistory className="mr-2" /> History</li></Link>
+                            <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2"> Bill</li>
+                            <Link href={"./Resident-dashboard/components/MaintenanceBills"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaTools className="mr-2" /> Maintenance Bills</li></Link>
+                            <Link href={"./Resident-dashboard/components/Bills"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaLightbulb className="mr-2" /> Utility Bill</li></Link>
+                            {/* <Link href={"./Resident-dashboard/components/History"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaHistory className="mr-2" /> History</li></Link> */}
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Maintenance Tickets</li>
                             <Link href={"./Resident-dashboard/components/NewRequest"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaTools className="mr-2" /> New Request</li></Link>

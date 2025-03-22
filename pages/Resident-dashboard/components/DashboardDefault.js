@@ -15,7 +15,7 @@ const DashboardDefault = () => {
     { icon: Building2, label: 'Property', href: '/Resident-dashboard/components/SellProperty' },
     { icon: Bell, label: 'Notices', href: '/Resident-dashboard/components/Profile' },
     { icon: Siren, label: 'Emergency', href: '/Resident-dashboard/components/Emergency' },
-    { icon: Wrench, label: 'Maintenance', href: '/Resident-dashboard/components/Profile' },
+    { icon: Wrench, label: 'Maintenance', href: '/Resident-dashboard/components/MaintenanceBills' },
     { icon: PieChart, label: 'Polls', href: '/Resident-dashboard/components/Profile' },
   ];
   const menuSections = [
@@ -42,10 +42,10 @@ const DashboardDefault = () => {
       ]
     },
     {
-      title: 'Utility Bills',
+      title: 'Bills',
       items: [
-        { icon: Lightbulb, label: 'Bills', href: '/Resident-dashboard/components/Bills' },
-        { icon: History, label: 'History', href: '/Resident-dashboard/components/History' }
+        { icon: Lightbulb, label: 'Utility', href: '/Resident-dashboard/components/Bills' },
+        { icon: History, label: 'Maintenance', href: '/Resident-dashboard/components/MaintenanceBills' }
       ]
     },
     {
