@@ -1,22 +1,23 @@
 import Head from 'next/head';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import axios from 'axios';
 import { useRouter } from 'next/router';
-import { 
-  Building2, 
-  User, 
-  MapPin, 
-  Shield, 
-  ChevronLeft, 
-  ChevronRight, 
-  Phone, 
-  Mail, 
-  MapPinned, 
+import {
+  Building2,
+  User,
+  MapPin,
+  Shield,
+  ChevronLeft,
+  ChevronRight,
+  Phone,
+  Mail,
+  MapPinned,
   FileText,
   Home,
-  MessageSquare
+  MessageSquare,
+  Navigation
 } from 'lucide-react';
 
 export default function Enroll() {
@@ -31,13 +32,14 @@ export default function Enroll() {
     street: '',
     city: '',
     state: '',
-    zipCode: '',
+    pinCode: '',
     description: '',
     otp: '',
     verificationId: '',
   });
   const [otpSent, setOtpSent] = useState(false);
   const [loadingOtp, setLoadingOtp] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
 
   const handleNext = () => setCurrentStep(currentStep + 1);
   const handleBack = () => setCurrentStep(currentStep - 1);
@@ -47,9 +49,9 @@ export default function Enroll() {
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { 
+    visible: {
       opacity: 1,
-      transition: { 
+      transition: {
         duration: 0.5,
         when: "beforeChildren",
         staggerChildren: 0.1
@@ -59,10 +61,10 @@ export default function Enroll() {
 
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
-    visible: { 
-      y: 0, 
+    visible: {
+      y: 0,
       opacity: 1,
-      transition: { 
+      transition: {
         type: "spring",
         stiffness: 100
       }
@@ -82,6 +84,85 @@ export default function Enroll() {
     { number: 3, title: 'Location', icon: MapPin },
     { number: 4, title: 'Verify', icon: Shield },
   ];
+
+  // Function to fetch address from coordinates using reverse geocoding
+  const fetchAddressFromCoords = async (latitude, longitude) => {
+    try {
+      const response = await axios.get(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+      );
+
+      if (response.data && response.data.address) {
+        const { address } = response.data;
+
+        return {
+          street: `${address.road || ''} ${address.neighbourhood || ''} ${address.suburb || ''}`.trim(),
+          city: address.city || address.town || address.village || address.hamlet || address.district || '',
+          state: address.state || '',
+          pinCode: address.postcode || ''
+        };
+      }
+
+      throw new Error('No address found for the given coordinates');
+    } catch (error) {
+      console.error('Error fetching address:', error.message);
+      throw error;
+    }
+  };
+
+  // Function to get current location
+  const getCurrentLocation = async () => {
+    setLoadingLocation(true);
+
+    try {
+      if (!navigator.geolocation) {
+        alert('Geolocation is not supported by your browser');
+        setLoadingLocation(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const address = await fetchAddressFromCoords(latitude, longitude);
+
+            setFormData({
+              ...formData,
+              street: address.street || '',
+              city: address.city || '',
+              state: address.state || '',
+              pinCode: address.pinCode || ''
+            });
+
+            setLoadingLocation(false);
+          } catch (error) {
+            alert('Failed to get address from your location. Please enter manually.');
+            setLoadingLocation(false);
+          }
+        },
+        (error) => {
+          let errorMessage = 'Failed to get your location.';
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = 'You denied the request for Geolocation.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = 'Location information is unavailable.';
+              break;
+            case error.TIMEOUT:
+              errorMessage = 'The request to get your location timed out.';
+              break;
+          }
+          alert(errorMessage);
+          setLoadingLocation(false);
+        }
+      );
+    } catch (error) {
+      alert('An error occurred while trying to get your location.');
+      setLoadingLocation(false);
+    }
+  };
 
   // Function to handle sending OTP using Twilio
   const handleOtpSend = async () => {
@@ -170,7 +251,7 @@ export default function Enroll() {
       </Head>
 
       {/* Header Section with Animation */}
-      <motion.header 
+      <motion.header
         className="bg-gradient-to-r from-blue-600 to-blue-700 py-3 text-white shadow-lg sticky top-0 z-50"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
@@ -178,7 +259,7 @@ export default function Enroll() {
       >
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <Link href={"/"}>
-            <motion.h1 
+            <motion.h1
               className="sm:text-xl md:text-3xl font-bold"
               whileHover={{ scale: 1.05 }}
             >
@@ -207,18 +288,18 @@ export default function Enroll() {
       {/* Enrollment Section */}
       <section className="py-20 min-h-screen relative overflow-hidden">
         {/* Background decoration elements */}
-        <motion.div 
+        <motion.div
           className="absolute top-20 left-20 w-64 h-64 bg-blue-200 rounded-full opacity-20"
-          animate={{ 
+          animate={{
             y: [0, -30, 0],
             x: [0, 20, 0],
             scale: [1, 1.1, 1],
           }}
           transition={{ duration: 15, repeat: Infinity, repeatType: "reverse" }}
         />
-        <motion.div 
+        <motion.div
           className="absolute bottom-20 right-20 w-96 h-96 bg-blue-200 rounded-full opacity-20"
-          animate={{ 
+          animate={{
             y: [0, 30, 0],
             x: [0, -20, 0],
             scale: [1, 1.1, 1],
@@ -227,7 +308,7 @@ export default function Enroll() {
         />
 
         <div className="container mx-auto px-6 relative z-10">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -238,7 +319,7 @@ export default function Enroll() {
           </motion.div>
 
           {/* Steps Progress */}
-          <motion.div 
+          <motion.div
             className="max-w-4xl mx-auto mb-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -248,14 +329,14 @@ export default function Enroll() {
               {steps.map((step, index) => {
                 const Icon = step.icon;
                 return (
-                  <motion.div 
-                    key={step.number} 
+                  <motion.div
+                    key={step.number}
                     className="flex flex-col items-center relative z-10"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 * index, duration: 0.5 }}
                   >
-                    <motion.div 
+                    <motion.div
                       className={`w-12 h-12 rounded-full flex items-center justify-center ${currentStep >= step.number ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.95 }}
@@ -281,7 +362,7 @@ export default function Enroll() {
           </motion.div>
 
           {/* Form */}
-          <motion.div 
+          <motion.div
             className="max-w-4xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -295,9 +376,9 @@ export default function Enroll() {
                 {currentStep === 4 && "Verification"}
               </h3>
             </div>
-            
+
             <form onSubmit={handleSubmit}>
-              <motion.div 
+              <motion.div
                 className="p-8"
                 variants={containerVariants}
                 initial="hidden"
@@ -358,7 +439,7 @@ export default function Enroll() {
                     <motion.div className="mb-6" variants={itemVariants}>
                       <label className="block text-gray-700 font-medium mb-2 flex items-center">
                         <User className="inline-block w-5 h-5 mr-2 text-blue-600" />
-                        Manager's Name
+                        Society Manager's Name
                       </label>
                       <input
                         type="text"
@@ -414,6 +495,41 @@ export default function Enroll() {
                       </div>
                     </motion.div>
 
+                    {/* Auto-locate button */}
+                    <motion.div className="mb-6 text-center" variants={itemVariants}>
+                      <motion.button
+                        type="button"
+                        onClick={getCurrentLocation}
+                        disabled={loadingLocation}
+                        className={`flex items-center justify-center mx-auto px-6 py-3 rounded-lg ${loadingLocation
+                          ? 'bg-gray-400 text-white'
+                          : 'bg-blue-50 text-blue-700 border-2 border-blue-200 hover:bg-blue-100'
+                          } transition-colors`}
+                        variants={buttonVariants}
+                        whileHover={!loadingLocation ? "hover" : "disabled"}
+                        whileTap={!loadingLocation ? "tap" : "disabled"}
+                      >
+                        {loadingLocation ? (
+                          <>
+                            <motion.div
+                              className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            />
+                            Finding Your Location...
+                          </>
+                        ) : (
+                          <>
+                            <Navigation size={18} className="mr-2" />
+                            Use My Current Location
+                          </>
+                        )}
+                      </motion.button>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Click to automatically fill your address details
+                      </p>
+                    </motion.div>
+
                     <motion.div className="mb-6" variants={itemVariants}>
                       <label className="block text-gray-700 font-medium mb-2 flex items-center">
                         <MapPinned className="inline-block w-5 h-5 mr-2 text-blue-600" />
@@ -459,8 +575,8 @@ export default function Enroll() {
                       <label className="block text-gray-700 font-medium mb-2">ZIP Code</label>
                       <input
                         type="text"
-                        name="zipCode"
-                        value={formData.zipCode}
+                        name="pinCode"
+                        value={formData.pinCode}
                         onChange={handleChange}
                         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Enter ZIP code"
@@ -511,7 +627,7 @@ export default function Enroll() {
                         >
                           {loadingOtp ? (
                             <>
-                              <motion.div 
+                              <motion.div
                                 className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2 inline-block"
                                 animate={{ rotate: 360 }}
                                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -565,7 +681,7 @@ export default function Enroll() {
                   ) : (
                     <div></div> // Empty div to maintain flexbox spacing
                   )}
-                  
+
                   {currentStep < 4 ? (
                     <motion.button
                       type="button"
@@ -599,35 +715,77 @@ export default function Enroll() {
         </div>
       </section>
 
-      <motion.footer 
-        className="bg-gray-800 text-white py-6"
+      {/* Footer Section */}
+      <motion.footer
+        className="bg-gradient-to-r from-blue-700 to-blue-800 text-white py-8"
         initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
-        viewport={{ once: true }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8, duration: 0.5 }}
       >
-        <div className="container mx-auto px-6 text-center">
-          <p>&copy; {new Date().getFullYear()} Society Management System. All rights reserved.</p>
-          <motion.nav className="flex justify-center space-x-6 mt-4">
-            <Link href="/">
-              <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
-                <Home size={16} className="mr-1" />
-                Home
-              </motion.span>
-            </Link>
-            <Link href="/societyLogin">
-              <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
-                <User size={16} className="mr-1" />
-                Login
-              </motion.span>
-            </Link>
-            <Link href="/contact">
-              <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
-                <MessageSquare size={16} className="mr-1" />
-                Contact
-              </motion.span>
-            </Link>
-          </motion.nav>
+        <div className="container mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+              <h3 className="text-xl font-bold mb-4">SocietyManage</h3>
+              <p className="text-blue-100">
+                The complete solution for managing your residential and commercial societies with ease.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/" className="text-blue-100 hover:text-white flex items-center">
+                    <Home size={16} className="mr-2" />
+                    Home
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/about" className="text-blue-100 hover:text-white flex items-center">
+                    <FileText size={16} className="mr-2" />
+                    About Us
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/societyLogin" className="text-blue-100 hover:text-white flex items-center">
+                    <User size={16} className="mr-2" />
+                    Society Login
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/contact" className="text-blue-100 hover:text-white flex items-center">
+                    <MessageSquare size={16} className="mr-2" />
+                    Contact Us
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Contact Info</h4>
+              <ul className="space-y-2">
+                <li className="flex items-center">
+                  <Mail size={16} className="mr-2 text-blue-200" />
+                  <a href="mailto:info@societymanage.com" className="text-blue-100 hover:text-white">
+                    info@societymanage.com
+                  </a>
+                </li>
+                <li className="flex items-center">
+                  <Phone size={16} className="mr-2 text-blue-200" />
+                  <a href="tel:+919876543210" className="text-blue-100 hover:text-white">
+                    +91 98765 43210
+                  </a>
+                </li>
+                <li className="flex items-center">
+                  <MapPin size={16} className="mr-2 text-blue-200" />
+                  <span className="text-blue-100">
+                    123 Tech Park, Bangalore, India
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div className="mt-8 pt-8 border-t border-blue-600 text-center text-blue-200">
+            <p>&copy; {new Date().getFullYear()} SocietyManage. All rights reserved.</p>
+          </div>
         </div>
       </motion.footer>
     </div>
