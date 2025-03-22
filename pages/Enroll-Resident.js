@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { Building2, User, MapPin, Shield, ChevronLeft, ChevronRight, Phone, Mail, MapPinned, FileText, Home } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Building2, User, MapPin, Shield, ChevronLeft, ChevronRight, Phone, Mail, MapPinned, FileText, Home, MessageSquare } from 'lucide-react';
 
 export default function ResidentSignup() {
     const router = useRouter();
@@ -27,6 +28,38 @@ export default function ResidentSignup() {
     const [loadingOtp, setLoadingOtp] = useState(false);
     const [societies, setSocieties] = useState([]);
     const [filteredSocieties, setFilteredSocieties] = useState([]);
+
+    // Animation variants
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                duration: 0.5,
+                when: "beforeChildren",
+                staggerChildren: 0.1
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: {
+            y: 0,
+            opacity: 1,
+            transition: {
+                type: "spring",
+                stiffness: 100
+            }
+        }
+    };
+
+    // Button animation variants
+    const buttonVariants = {
+        hover: { scale: 1.05, boxShadow: "0px 5px 15px rgba(0, 0, 0, 0.1)" },
+        tap: { scale: 0.98 },
+        disabled: { opacity: 0.7 }
+    };
 
     const handleNext = () => setCurrentStep(currentStep + 1);
     const handleBack = () => setCurrentStep(currentStep - 1);
@@ -65,7 +98,7 @@ export default function ResidentSignup() {
     const sendOtp = async () => {
         const phoneNumber = getFormattedPhoneNumber();
         setLoadingOtp(true);
-        
+
         try {
             const response = await axios.post('/api/send-otp', { phoneNumber });
             if (response.data.success) {
@@ -78,7 +111,7 @@ export default function ResidentSignup() {
             console.error('Error sending OTP:', error);
             alert('Error sending OTP.');
         }
-        
+
         setLoadingOtp(false);
     };
 
@@ -147,333 +180,515 @@ export default function ResidentSignup() {
     ];
 
     return (
-        <div className="bg-gray-50 min-h-screen">
+        <div className="bg-slate-50 min-h-screen">
             <Head>
                 <title>Resident Signup - Society Management System</title>
                 <meta name="description" content="Sign up to your society in our management system." />
             </Head>
 
-            <header className="bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-white shadow-lg sticky top-0 z-50">
+            {/* Header Section with Animation */}
+            <motion.header
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 py-3 text-white shadow-lg sticky top-0 z-50"
+                initial={{ y: -100 }}
+                animate={{ y: 0 }}
+                transition={{ type: 'spring', stiffness: 120 }}
+            >
                 <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-                    <Link href={"/"}><h1 className="sm:text-xl md:text-3xl font-bold">SocietyManage</h1></Link>
+                    <Link href={"/"}>
+                        <motion.h1
+                            className="sm:text-xl md:text-3xl font-bold"
+                            whileHover={{ scale: 1.05 }}
+                        >
+                            SocietyManage
+                        </motion.h1>
+                    </Link>
                     <nav>
                         <ul className="flex space-x-6">
-                            <a href="/Login" className="hover:underline text-lg font-medium">Login</a>
-                            <a href="/Contact" className="hover:underline text-lg font-medium">Contact</a>
+                            <motion.li whileHover={{ scale: 1.1 }}>
+                                <Link href="/Login" className="hover:underline text-lg font-medium flex items-center">
+                                    <User size={18} className="mr-1" />
+                                    <span>Login</span>
+                                </Link>
+                            </motion.li>
+                            <motion.li whileHover={{ scale: 1.1 }}>
+                                <Link href="/Contact" className="hover:underline text-lg font-medium flex items-center">
+                                    <MessageSquare size={18} className="mr-1" />
+                                    <span>Contact</span>
+                                </Link>
+                            </motion.li>
                         </ul>
                     </nav>
                 </div>
-            </header>
+            </motion.header>
 
-            {/* Signup Form */}
-            <section className="py-10 bg-gray-100 min-h-screen">
-                <div className="container mx-auto px-6">
-                    <div className="text-center mb-3 lg:mb-10">
-                        <h2 className="text-4xl font-bold text-blue-600 mb-5">Resident Signup</h2>
-                        <p className="text-lg">Complete the form below to register your society with us</p>
-                    </div>
+            {/* Background decoration elements */}
+            <section className="py-10 bg-slate-50 min-h-screen relative overflow-hidden">
+                <motion.div
+                    className="absolute top-20 left-20 w-64 h-64 bg-indigo-200 rounded-full opacity-20"
+                    animate={{
+                        y: [0, -30, 0],
+                        x: [0, 20, 0],
+                        scale: [1, 1.1, 1],
+                    }}
+                    transition={{ duration: 15, repeat: Infinity, repeatType: "reverse" }}
+                />
+                <motion.div
+                    className="absolute bottom-20 right-20 w-96 h-96 bg-purple-200 rounded-full opacity-20"
+                    animate={{
+                        y: [0, 30, 0],
+                        x: [0, -20, 0],
+                        scale: [1, 1.1, 1],
+                    }}
+                    transition={{ duration: 20, repeat: Infinity, repeatType: "reverse" }}
+                />
+
+                <div className="container mx-auto px-6 relative z-10">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6 }}
+                        className="text-center mb-8"
+                    >
+                        <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent inline-block mb-4">Resident Signup</h2>
+                        <p className="text-lg text-gray-600">Complete the form below to register with SocietyManage</p>
+                    </motion.div>
 
                     {/* Progress Steps */}
-                    <div className="mb-12">
+                    <motion.div
+                        className="mb-10 max-w-3xl mx-auto"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                    >
                         <div className="flex justify-between relative">
                             {steps.map((step, index) => {
                                 const Icon = step.icon;
                                 return (
-                                    <div key={step.number} className="flex flex-col items-center relative z-10">
-                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${currentStep >= step.number ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'} transition-colors duration-200`}>
+                                    <motion.div
+                                        key={step.number}
+                                        className="flex flex-col items-center relative z-10"
+                                        initial={{ scale: 0.8, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        transition={{ delay: index * 0.1 + 0.3 }}
+                                    >
+                                        <motion.div
+                                            className={`w-14 h-14 rounded-full flex items-center justify-center shadow-md transition-colors duration-200 ${currentStep >= step.number ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' : 'bg-white text-gray-400'}`}
+                                            whileHover={{ scale: 1.1 }}
+                                        >
                                             <Icon className="w-6 h-6" />
-                                        </div>
-                                        <p className={`mt-2 text-sm font-medium ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-500'}`}>
+                                        </motion.div>
+                                        <p className={`mt-2 text-sm font-medium ${currentStep >= step.number ? 'text-indigo-600' : 'text-gray-500'}`}>
                                             {step.title}
                                         </p>
-                                    </div>
+                                    </motion.div>
                                 );
                             })}
                             {/* Progress line */}
-                            <div className="absolute top-6 left-0 h-0.5 bg-gray-200 w-full -z-10">
-                                <div
-                                    className="h-full bg-blue-600 transition-all duration-300"
-                                    style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+                            <div className="absolute top-7 left-0 h-0.5 bg-gray-200 w-full -z-10">
+                                <motion.div
+                                    className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 transition-all duration-300"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+                                    transition={{ duration: 0.5 }}
                                 />
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Form */}
-                    <div className="bg-white rounded-2xl shadow-xl p-8">
-                        <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-                            {/* Step 1 - Society Details */}
-                            {currentStep === 1 && (
-                                <div className="space-y-6">
-                                    {/* Society Name Input with Autocomplete */}
-                                    <div className="relative">
-                                        <label htmlFor="societyName" className="block text-gray-700 font-medium mb-2">
-                                            <Building2 className="inline-block w-5 h-5 mr-2" />
-                                            Society Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            id="societyName"
-                                            name="societyName"
-                                            value={formData.societyName || ""}
-                                            onChange={handleChange}
-                                            required
-                                            className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            placeholder="Enter your society's name"
-                                        />
+                    <motion.div
+                        className="max-w-3xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.7, delay: 0.5 }}
+                    >
+                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 py-4 px-6">
+                            <h3 className="text-xl font-bold text-center text-white">
+                                {currentStep === 1 && "Society Information"}
+                                {currentStep === 2 && "Personal Information"}
+                                {currentStep === 3 && "Unit Details"}
+                                {currentStep === 4 && "Verify Your Identity"}
+                            </h3>
+                        </div>
 
-                                        {/* Autocomplete Suggestions */}
-                                        {filteredSocieties.length > 0 && (
-                                            <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto">
-                                                {filteredSocieties.map((society) => (
-                                                    <div
-                                                        key={society._id}
-                                                        onClick={() => handleSocietySelect(society)}
-                                                        className="p-2 hover:bg-gray-100 cursor-pointer"
-                                                    >
-                                                        {society.societyName}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {/* Street Input */}
-                                        <div>
-                                            <label htmlFor="street" className="block text-gray-700 font-medium mb-2">
-                                                <MapPinned className="inline-block w-5 h-5 mr-2" />
-                                                Street
+                        <motion.div
+                            className="p-8"
+                            variants={containerVariants}
+                            initial="hidden"
+                            animate="visible"
+                        >
+                            <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+                                {/* Step 1 - Society Details */}
+                                {currentStep === 1 && (
+                                    <div className="space-y-6">
+                                        {/* Society Name Input with Autocomplete */}
+                                        <motion.div className="relative" variants={itemVariants}>
+                                            <label htmlFor="societyName" className="block text-gray-700 font-medium mb-2">
+                                                <Building2 className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                                                Society Name
                                             </label>
                                             <input
                                                 type="text"
-                                                id="street"
-                                                name="street"
-                                                value={formData.street}
+                                                id="societyName"
+                                                name="societyName"
+                                                value={formData.societyName || ""}
                                                 onChange={handleChange}
                                                 required
-                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                placeholder="Enter street"
+                                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                placeholder="Enter your society's name"
                                             />
-                                        </div>
 
-                                        {/* City Input */}
-                                        <div>
-                                            <label htmlFor="city" className="block text-gray-700 font-medium mb-2">
-                                                <MapPin className="inline-block w-5 h-5 mr-2" />
-                                                City
+                                            {/* Autocomplete Suggestions */}
+                                            {filteredSocieties.length > 0 && (
+                                                <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto shadow-lg">
+                                                    {filteredSocieties.map((society) => (
+                                                        <motion.div
+                                                            key={society._id}
+                                                            onClick={() => handleSocietySelect(society)}
+                                                            className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100"
+                                                            whileHover={{ backgroundColor: "#EEF2FF" }}
+                                                        >
+                                                            {society.societyName}
+                                                        </motion.div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </motion.div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Street Input */}
+                                            <motion.div variants={itemVariants}>
+                                                <label htmlFor="street" className="block text-gray-700 font-medium mb-2">
+                                                    <MapPinned className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                                                    Street
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="street"
+                                                    name="street"
+                                                    value={formData.street}
+                                                    onChange={handleChange}
+                                                    required
+                                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                    placeholder="Enter street"
+                                                />
+                                            </motion.div>
+
+                                            {/* City Input */}
+                                            <motion.div variants={itemVariants}>
+                                                <label htmlFor="city" className="block text-gray-700 font-medium mb-2">
+                                                    <MapPin className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                                                    City
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="city"
+                                                    name="city"
+                                                    value={formData.city}
+                                                    onChange={handleChange}
+                                                    required
+                                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                    placeholder="Enter city"
+                                                />
+                                            </motion.div>
+
+                                            {/* State Input */}
+                                            <motion.div variants={itemVariants}>
+                                                <label htmlFor="state" className="block text-gray-700 font-medium mb-2">
+                                                    <MapPin className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                                                    State
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="state"
+                                                    name="state"
+                                                    value={formData.state}
+                                                    onChange={handleChange}
+                                                    required
+                                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                    placeholder="Enter state"
+                                                />
+                                            </motion.div>
+
+                                            {/* Pin Code Input */}
+                                            <motion.div variants={itemVariants}>
+                                                <label htmlFor="pinCode" className="block text-gray-700 font-medium mb-2">
+                                                    <MapPin className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                                                    PIN Code
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="pinCode"
+                                                    name="pinCode"
+                                                    value={formData.pinCode}
+                                                    onChange={handleChange}
+                                                    required
+                                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                    placeholder="Enter PIN code"
+                                                />
+                                            </motion.div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Step 2 - Contact Details */}
+                                {currentStep === 2 && (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <motion.div variants={itemVariants}>
+                                                <label htmlFor="name" className="block text-gray-700 font-medium mb-2">
+                                                    <User className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                                                    Full Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="name"
+                                                    name="name"
+                                                    value={formData.name}
+                                                    onChange={handleChange}
+                                                    required
+                                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                    placeholder="Enter your full name"
+                                                />
+                                            </motion.div>
+                                            <motion.div variants={itemVariants}>
+                                                <label htmlFor="phone" className="block text-gray-700 font-medium mb-2">
+                                                    <Phone className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                                                    Phone Number
+                                                </label>
+                                                <div className="flex items-center border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
+                                                    <div className="bg-indigo-100 py-2 px-3 rounded-l-lg text-indigo-800 font-medium">+91</div>
+                                                    <input
+                                                        type="tel"
+                                                        id="phone"
+                                                        name="phone"
+                                                        value={formData.phone}
+                                                        onChange={handleChange}
+                                                        required
+                                                        className="w-full px-4 py-3 rounded-r-lg focus:outline-none"
+                                                        placeholder="Enter your phone number"
+                                                    />
+                                                </div>
+                                            </motion.div>
+                                        </div>
+                                        <motion.div variants={itemVariants}>
+                                            <label htmlFor="email" className="block text-gray-700 font-medium mb-2">
+                                                <Mail className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                                                Email Address
+                                            </label>
+                                            <input
+                                                type="email"
+                                                id="email"
+                                                name="email"
+                                                value={formData.email}
+                                                onChange={handleChange}
+                                                required
+                                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                placeholder="Enter your email address"
+                                            />
+                                        </motion.div>
+                                    </div>
+                                )}
+
+                                {/* Step 3 - Unit Details */}
+                                {currentStep === 3 && (
+                                    <div className="space-y-6">
+                                        <motion.div variants={itemVariants}>
+                                            <label htmlFor="unitNumber" className="block text-gray-700 font-medium mb-2">
+                                                <Home className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                                                Unit/Apartment Number
                                             </label>
                                             <input
                                                 type="text"
-                                                id="city"
-                                                name="city"
-                                                value={formData.city}
+                                                id="unitNumber"
+                                                name="unitNumber"
+                                                value={formData.unitNumber}
                                                 onChange={handleChange}
                                                 required
-                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                placeholder="Enter city"
+                                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                placeholder="Enter your unit/apartment number"
                                             />
-                                        </div>
-
-                                        {/* State Input */}
-                                        <div>
-                                            <label htmlFor="state" className="block text-gray-700 font-medium mb-2">
-                                                <MapPin className="inline-block w-5 h-5 mr-2" />
-                                                State
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="state"
-                                                name="state"
-                                                value={formData.state}
-                                                onChange={handleChange}
-                                                required
-                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                placeholder="Enter state"
-                                            />
-                                        </div>
-
-                                        {/* Pin Code Input */}
-                                        <div>
-                                            <label htmlFor="pinCode" className="block text-gray-700 font-medium mb-2">
-                                                <MapPin className="inline-block w-5 h-5 mr-2" />
-                                                PIN Code
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="pinCode"
-                                                name="pinCode"
-                                                value={formData.pinCode}
-                                                onChange={handleChange}
-                                                required
-                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                placeholder="Enter PIN code"
-                                            />
-                                        </div>
+                                        </motion.div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Step 2 - Contact Details */}
-                            {currentStep === 2 && (
-                                <div className="space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
-                                            <label htmlFor="name" className="block text-gray-700 font-medium mb-2">
-                                                <User className="inline-block w-5 h-5 mr-2" />
-                                                Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="name"
-                                                name="name"
-                                                value={formData.name}
-                                                onChange={handleChange}
-                                                required
-                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                placeholder="Enter your name"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label htmlFor="phone" className="block text-gray-700 font-medium mb-2">
-                                                <Phone className="inline-block w-5 h-5 mr-2" />
-                                                Phone
-                                            </label>
-                                            <input
-                                                type="tel"
-                                                id="phone"
-                                                name="phone"
-                                                value={formData.phone}
-                                                onChange={handleChange}
-                                                required
-                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                placeholder="Enter your phone number"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="email" className="block text-gray-700 font-medium mb-2">
-                                            <Mail className="inline-block w-5 h-5 mr-2" />
-                                            Email
-                                        </label>
-                                        <input
-                                            type="email"
-                                            id="email"
-                                            name="email"
-                                            value={formData.email}
-                                            onChange={handleChange}
-                                            required
-                                            className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            placeholder="Enter your email address"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Step 3 - Unit Details */}
-                            {currentStep === 3 && (
-                                <div className="space-y-6">
-                                    <div>
-                                        <label htmlFor="unitNumber" className="block text-gray-700 font-medium mb-2">
-                                            <Home className="inline-block w-5 h-5 mr-2" />
-                                            Unit Number
-                                        </label>
-                                        <input
-                                            type="text"
-                                            id="unitNumber"
-                                            name="unitNumber"
-                                            value={formData.unitNumber}
-                                            onChange={handleChange}
-                                            required
-                                            className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            placeholder="Enter your unit number"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Step 4 - OTP Verification */}
-                            {currentStep === 4 && !otpSent && (
-                                <div className="text-center">
-                                    <Shield className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-                                    <h3 className="text-xl font-semibold mb-4">Verify Your Phone Number</h3>
-                                    <p className="text-gray-600 mb-6">
-                                        We'll send a verification code to: <br />
-                                        <span className="font-semibold">+91 {formData.phone}</span>
-                                    </p>
-                                    <button
-                                        type="button"
-                                        onClick={sendOtp}
-                                        disabled={loadingOtp}
-                                        className={`w-full py-3 rounded-lg text-white font-medium transition-colors ${loadingOtp ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                {/* Step 4 - OTP Verification */}
+                                {currentStep === 4 && !otpSent && (
+                                    <motion.div
+                                        className="text-center"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ duration: 0.5 }}
                                     >
-                                        {loadingOtp ? 'Sending Code...' : 'Send Verification Code'}
-                                    </button>
-                                </div>
-                            )}
-
-                            {currentStep === 4 && otpSent && (
-                                <div>
-                                    <div className="text-center mb-6">
-                                        <h3 className="text-xl font-semibold mb-2">Enter Verification Code</h3>
-                                        <p className="text-gray-600">
-                                            We've sent a code to your phone number
+                                        <motion.div
+                                            className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6"
+                                            animate={{ scale: [1, 1.1, 1] }}
+                                            transition={{ repeat: Infinity, duration: 2, repeatType: "reverse" }}
+                                        >
+                                            <Shield className="w-10 h-10 text-indigo-600" />
+                                        </motion.div>
+                                        <h3 className="text-xl font-semibold mb-4">Verify Your Phone Number</h3>
+                                        <p className="text-gray-600 mb-6">
+                                            We'll send a verification code to: <br />
+                                            <span className="font-semibold">+91 {formData.phone}</span>
                                         </p>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        id="otp"
-                                        name="otp"
-                                        value={otp}
-                                        onChange={handleOtpChange}
-                                        required
-                                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl letter-spacing-2"
-                                        placeholder="Enter 6-digit code"
-                                        maxLength={6}
-                                    />
-                                    {otpError && <p className="text-red-500 text-sm mt-2">{otpError}</p>}
-                                </div>
-                            )}
+                                        <motion.button
+                                            type="button"
+                                            onClick={sendOtp}
+                                            disabled={loadingOtp}
+                                            className={`w-full py-3 rounded-lg text-white font-medium transition-colors ${loadingOtp ? 'bg-gray-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600'}`}
+                                            variants={buttonVariants}
+                                            whileHover={!loadingOtp ? "hover" : "disabled"}
+                                            whileTap={!loadingOtp ? "tap" : "disabled"}
+                                        >
+                                            {loadingOtp ? (
+                                                <>
+                                                    <motion.div
+                                                        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2 inline-block"
+                                                        animate={{ rotate: 360 }}
+                                                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                                    />
+                                                    Sending Code...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Send Verification Code
+                                                </>
+                                            )}
+                                        </motion.button>
+                                    </motion.div>
+                                )}
 
-                            {/* Navigation Buttons */}
-                            <div className="flex justify-between mt-8">
-                                {currentStep > 1 && (
-                                    <button 
-                                        type="button" 
-                                        onClick={handleBack} 
-                                        className="flex items-center px-6 py-3 rounded-lg border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-                                    >
-                                        <ChevronLeft className="w-5 h-5 mr-2" />
-                                        Back
-                                    </button>
-                                )}
-                                
-                                {currentStep < 4 && (
-                                    <button 
-                                        type="button" 
-                                        onClick={handleNext} 
-                                        className="flex items-center px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors ml-auto"
-                                    >
-                                        Next
-                                        <ChevronRight className="w-5 h-5 ml-2" />
-                                    </button>
-                                )}
-                                
                                 {currentStep === 4 && otpSent && (
-                                    <button 
-                                        type="button"
-                                        onClick={verifyOtp}
-                                        className="flex items-center px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors ml-auto"
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ duration: 0.5 }}
                                     >
-                                        Submit
-                                        <ChevronRight className="w-5 h-5 ml-2" />
-                                    </button>
+                                        <div className="text-center mb-6">
+                                            <motion.div
+                                                className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"
+                                                animate={{ scale: [1, 1.1, 1] }}
+                                                transition={{ repeat: 3, duration: 0.5 }}
+                                            >
+                                                <Shield className="w-8 h-8 text-green-600" />
+                                            </motion.div>
+                                            <h3 className="text-xl font-semibold mb-2">Enter Verification Code</h3>
+                                            <p className="text-gray-600">
+                                                We've sent a code to your phone number
+                                            </p>
+                                        </div>
+                                        <motion.div
+                                            className="mb-6"
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: 0.2 }}
+                                        >
+                                            <input
+                                                type="text"
+                                                id="otp"
+                                                name="otp"
+                                                value={otp}
+                                                onChange={handleOtpChange}
+                                                required
+                                                className="w-full px-4 py-4 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-center text-2xl tracking-widest"
+                                                placeholder="Enter 6-digit code"
+                                                maxLength={6}
+                                            />
+                                            {otpError && (
+                                                <motion.p
+                                                    className="text-red-500 text-sm mt-2"
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                >
+                                                    {otpError}
+                                                </motion.p>
+                                            )}
+                                        </motion.div>
+                                    </motion.div>
                                 )}
-                            </div>
-                        </form>
-                    </div>
+
+                                {/* Navigation Buttons */}
+                                <div className="flex justify-between mt-8">
+                                    {currentStep > 1 && (
+                                        <motion.button
+                                            type="button"
+                                            onClick={handleBack}
+                                            className="flex items-center px-6 py-3 rounded-lg border-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                            variants={buttonVariants}
+                                            whileHover="hover"
+                                            whileTap="tap"
+                                        >
+                                            <ChevronLeft className="w-5 h-5 mr-2" />
+                                            Back
+                                        </motion.button>
+                                    )}
+
+                                    {currentStep < 4 && (
+                                        <motion.button
+                                            type="button"
+                                            onClick={handleNext}
+                                            className="flex items-center px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white ml-auto"
+                                            variants={buttonVariants}
+                                            whileHover="hover"
+                                            whileTap="tap"
+                                        >
+                                            Next
+                                            <ChevronRight className="w-5 h-5 ml-2" />
+                                        </motion.button>
+                                    )}
+
+                                    {currentStep === 4 && otpSent && (
+                                        <motion.button
+                                            type="button"
+                                            onClick={verifyOtp}
+                                            className="flex items-center px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white ml-auto"
+                                            variants={buttonVariants}
+                                            whileHover="hover"
+                                            whileTap="tap"
+                                        >
+                                            Complete Registration
+                                            <ChevronRight className="w-5 h-5 ml-2" />
+                                        </motion.button>
+                                    )}
+                                </div>
+                            </form>
+                        </motion.div>
+                    </motion.div>
                 </div>
             </section>
+
+            <motion.footer
+                className="bg-slate-900 text-white py-6"
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                transition={{ duration: 0.8 }}
+                viewport={{ once: true }}
+            >
+                <div className="container mx-auto px-6 text-center">
+                    <p>&copy; {new Date().getFullYear()} SocietyManage. All rights reserved.</p>
+                    <motion.nav className="flex justify-center space-x-6 mt-4">
+                        <Link href="/">
+                            <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
+                                <Home size={16} className="mr-1" />
+                                Home
+                            </motion.span>
+                        </Link>
+                        <Link href="/About">
+                            <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
+                                <FileText size={16} className="mr-1" />
+                                About
+                            </motion.span>
+                        </Link>
+                        <Link href="/Contact">
+                            <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
+                                <MessageSquare size={16} className="mr-1" />
+                                Contact
+                            </motion.span>
+                        </Link>
+                    </motion.nav>
+                </div>
+            </motion.footer>
         </div>
     );
 }

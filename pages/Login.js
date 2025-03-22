@@ -2,7 +2,8 @@ import Head from 'next/head';
 import { useState } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
-import { FaPhoneAlt } from "react-icons/fa";
+import { motion } from 'framer-motion';
+import { Phone, User, Home, MessageSquare, ChevronRight, UserCheck, Building } from 'lucide-react';
 
 export default function Login() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -11,6 +12,38 @@ export default function Login() {
   const [loadingOtp, setLoadingOtp] = useState(false);
   const [verificationId, setVerificationId] = useState('');
   const [userType, setUserType] = useState('resident'); // "resident" or "tenant"
+
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { 
+        duration: 0.5,
+        when: "beforeChildren",
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { 
+      y: 0, 
+      opacity: 1,
+      transition: { 
+        type: "spring",
+        stiffness: 100
+      }
+    }
+  };
+
+  // Button animation variants
+  const buttonVariants = {
+    hover: { scale: 1.05, boxShadow: "0px 5px 15px rgba(0, 0, 0, 0.1)" },
+    tap: { scale: 0.98 },
+    disabled: { opacity: 0.7 }
+  };
 
   const handleOtpSend = async () => {
     if (!phoneNumber || phoneNumber.length !== 10) {
@@ -78,120 +111,253 @@ export default function Login() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-slate-50 min-h-screen">
       <Head>
-        <title>Login - Society Management System</title>
+        <title>Login - SocietyManage</title>
         <meta name="description" content="Login to your account using mobile number and OTP." />
       </Head>
 
-      <header className="bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-white shadow-lg sticky top-0 z-50">
+      {/* Header Section with Animation */}
+      <motion.header 
+        className="bg-gradient-to-r from-indigo-600 to-purple-600 py-3 text-white shadow-lg sticky top-0 z-50"
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ type: 'spring', stiffness: 120 }}
+      >
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-        <Link href={"/"}><h1 className="sm:text-xl md:text-3xl font-bold">SocietyManage</h1></Link>
+          <Link href={"/"}>
+            <motion.h1 
+              className="sm:text-xl md:text-3xl font-bold"
+              whileHover={{ scale: 1.05 }}
+            >
+              SocietyManage
+            </motion.h1>
+          </Link>
           <nav>
             <ul className="flex space-x-6">
-              <li>
-                <a href="/Resident-dashboard" className="hover:underline text-lg font-medium">Dashboard</a>
-              </li>
-              <li>
-                <a href="/Contact" className="hover:underline text-lg font-medium">Contact</a>
-              </li>
+              <motion.li whileHover={{ scale: 1.1 }}>
+                <Link href="/Resident-dashboard" className="hover:underline text-lg font-medium flex items-center">
+                  <Home size={18} className="mr-1" />
+                  <span>Dashboard</span>
+                </Link>
+              </motion.li>
+              <motion.li whileHover={{ scale: 1.1 }}>
+                <Link href="/Contact" className="hover:underline text-lg font-medium flex items-center">
+                  <MessageSquare size={18} className="mr-1" />
+                  <span>Contact</span>
+                </Link>
+              </motion.li>
             </ul>
           </nav>
         </div>
-      </header>
+      </motion.header>
 
-      <section className="py-20 min-h-screen">
-        <div className="container mx-auto px-6">
-          <div className="max-w-lg mx-auto bg-white shadow-md rounded-lg p-8">
-            <h2 className="text-2xl font-bold text-center text-blue-600 mb-6">Login</h2>
+      <section className="py-20 min-h-screen relative overflow-hidden">
+        {/* Background decoration elements */}
+        <motion.div 
+          className="absolute top-20 left-20 w-64 h-64 bg-indigo-200 rounded-full opacity-20"
+          animate={{ 
+            y: [0, -30, 0],
+            x: [0, 20, 0],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{ duration: 15, repeat: Infinity, repeatType: "reverse" }}
+        />
+        <motion.div 
+          className="absolute bottom-20 right-20 w-96 h-96 bg-purple-200 rounded-full opacity-20"
+          animate={{ 
+            y: [0, 30, 0],
+            x: [0, -20, 0],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{ duration: 20, repeat: Infinity, repeatType: "reverse" }}
+        />
 
-            {/* User Type Selection */}
-            <div className="mb-6">
-              <label className="block text-lg font-medium text-gray-700 mb-2">User Type</label>
-              <select
-                value={userType}
-                onChange={(e) => setUserType(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="resident">Resident</option>
-                <option value="tenant">Tenant</option>
-              </select>
+        <div className="container mx-auto px-6 relative z-10">
+          <motion.div 
+            className="max-w-lg mx-auto bg-white shadow-xl rounded-xl overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 py-4 px-6">
+              <h2 className="text-2xl font-bold text-center text-white">Welcome Back</h2>
             </div>
-
-            {/* Phone Number Input */}
-            {!otpSent ? (
-              <div>
-                <label htmlFor="phoneNumber" className="block text-lg font-medium text-gray-700 mb-2">
-                  Mobile Number
+            
+            <motion.div 
+              className="p-8"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              {/* User Type Selection */}
+              <motion.div className="mb-6" variants={itemVariants}>
+                <label className="block text-lg font-medium text-gray-700 mb-2 flex items-center">
+                  <User size={20} className="mr-2 text-indigo-600" />
+                  User Type
                 </label>
-                <div className="flex items-center border border-gray-300 rounded-md p-3">
-                  <FaPhoneAlt className="text-blue-600 mr-3" />
-                  <input
-                    type="tel"
-                    id="phoneNumber"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="flex-1 focus:outline-none"
-                    placeholder="Enter your mobile number"
-                  />
+                <div className="relative">
+                  <select
+                    value={userType}
+                    onChange={(e) => setUserType(e.target.value)}
+                    className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+                  >
+                    <option value="resident">Resident</option>
+                    <option value="tenant">Tenant</option>
+                  </select>
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    {userType === 'resident' ? 
+                      <Building size={20} className="text-indigo-500" /> : 
+                      <UserCheck size={20} className="text-indigo-500" />
+                    }
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleOtpSend}
-                  disabled={loadingOtp}
-                  className={`mt-6 w-full py-3 text-white rounded-md ${loadingOtp ? 'bg-gray-400' : 'bg-blue-600'}`}
-                >
-                  {loadingOtp ? 'Sending OTP...' : 'Send OTP'}
-                </button>
-              </div>
-            ) : (
-              <div>
-                {/* OTP Input */}
-                <label htmlFor="otp" className="block text-lg font-medium text-gray-700 mb-2">
-                  Enter OTP
-                </label>
-                <input
-                  type="text"
-                  id="otp"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="w-full p-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter the OTP"
-                />
+              </motion.div>
 
-                <button
-                  type="button"
-                  onClick={handleLogin}
-                  className="mt-6 w-full py-3 bg-blue-600 text-white rounded-md"
-                >
-                  Login
-                </button>
-              </div>
-            )}
+              {/* Phone Number Input */}
+              {!otpSent ? (
+                <>
+                  <motion.div variants={itemVariants}>
+                    <label htmlFor="phoneNumber" className="block text-lg font-medium text-gray-700 mb-2 flex items-center">
+                      <Phone size={20} className="mr-2 text-indigo-600" />
+                      Mobile Number
+                    </label>
+                    <div className="flex items-center border border-gray-300 rounded-lg p-3 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
+                      <div className="bg-indigo-100 py-2 px-3 rounded-md mr-3 text-indigo-800 font-medium">+91</div>
+                      <input
+                        type="tel"
+                        id="phoneNumber"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="flex-1 focus:outline-none"
+                        placeholder="Enter your 10-digit number"
+                      />
+                    </div>
+                  </motion.div>
+                  
+                  <motion.button
+                    type="button"
+                    onClick={handleOtpSend}
+                    disabled={loadingOtp}
+                    className={`mt-6 w-full py-3 text-white rounded-lg flex items-center justify-center ${loadingOtp ? 'bg-gray-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600'}`}
+                    variants={buttonVariants}
+                    whileHover={!loadingOtp ? "hover" : "disabled"}
+                    whileTap={!loadingOtp ? "tap" : "disabled"}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    {loadingOtp ? (
+                      <>
+                        <motion.div 
+                          className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        />
+                        Sending OTP...
+                      </>
+                    ) : (
+                      <>
+                        Send OTP
+                        <ChevronRight size={18} className="ml-1" />
+                      </>
+                    )}
+                  </motion.button>
+                </>
+              ) : (
+                <>
+                  {/* OTP Input */}
+                  <motion.div variants={itemVariants}>
+                    <label htmlFor="otp" className="block text-lg font-medium text-gray-700 mb-2">
+                      Enter OTP
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        id="otp"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter the 6-digit OTP"
+                      />
+                      <p className="text-sm text-gray-500 mt-2">
+                        OTP sent to +91 {phoneNumber}
+                      </p>
+                    </div>
+                  </motion.div>
 
-            {/* Enrollment Link */}
-            <div className="text-center flex justify-end mt-6">
-              <p className="text-gray-700">Not registered yet? </p>
-              <Link
-                href={userType === 'resident' ? '/Enroll-Resident' : '/Enroll-Tenants'}
-                className="text-blue-600 hover:underline font-medium"
+                  <motion.button
+                    type="button"
+                    onClick={handleLogin}
+                    className="mt-6 w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg"
+                    variants={buttonVariants}
+                    whileHover="hover"
+                    whileTap="tap"
+                  >
+                    Login
+                  </motion.button>
+                  
+                  <motion.button
+                    type="button"
+                    onClick={() => setOtpSent(false)}
+                    className="mt-3 w-full py-2 text-indigo-600 bg-transparent border border-indigo-600 rounded-lg"
+                    variants={buttonVariants}
+                    whileHover="hover"
+                    whileTap="tap"
+                  >
+                    Change Phone Number
+                  </motion.button>
+                </>
+              )}
+
+              {/* Enrollment Link */}
+              <motion.div 
+                className="text-center flex justify-end items-center mt-6"
+                variants={itemVariants}
               >
-                 Enroll as {userType === 'resident' ? 'Resident' : 'Tenant'}
-              </Link>
-            </div>
-          </div>
+                <p className="text-gray-700">Not registered yet? </p>
+                <Link
+                  href={userType === 'resident' ? '/Enroll-Resident' : '/Enroll-Tenants'}
+                >
+                  <motion.span
+                    className="text-indigo-600 hover:underline font-medium ml-1 inline-flex items-center"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    Enroll as {userType === 'resident' ? 'Resident' : 'Tenant'}
+                    <ChevronRight size={16} className="ml-1" />
+                  </motion.span>
+                </Link>
+              </motion.div>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
-      <footer className="bg-gray-800 text-white py-6 mt-10">
+      <motion.footer 
+        className="bg-slate-900 text-white py-6"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        viewport={{ once: true }}
+      >
         <div className="container mx-auto px-6 text-center">
-          <p>&copy; 2024 Society Management System. All rights reserved.</p>
-          <nav className="flex justify-center space-x-6 mt-4">
-            <a href="/" className="hover:underline">Home</a>
-            <a href="/contact" className="hover:underline">Contact</a>
-          </nav>
+          <p>&copy; {new Date().getFullYear()} SocietyManage. All rights reserved.</p>
+          <motion.nav className="flex justify-center space-x-6 mt-4">
+            <Link href="/">
+              <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
+                <Home size={16} className="mr-1" />
+                Home
+              </motion.span>
+            </Link>
+            <Link href="/contact">
+              <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
+                <MessageSquare size={16} className="mr-1" />
+                Contact
+              </motion.span>
+            </Link>
+          </motion.nav>
         </div>
-      </footer>
+      </motion.footer>
     </div>
   );
 }
