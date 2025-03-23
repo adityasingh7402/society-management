@@ -13,10 +13,10 @@ const DashboardDefault = () => {
   const menuItems = [
     { icon: UserCircle, label: 'Profile', href: '/Resident-dashboard/components/Profile' },
     { icon: Building2, label: 'Property', href: '/Resident-dashboard/components/SellProperty' },
-    { icon: Bell, label: 'Notices', href: '/Resident-dashboard/components/Profile' },
+    { icon: Bell, label: 'Announcements', href: '/Resident-dashboard/components/Announcements' },
     { icon: Siren, label: 'Emergency', href: '/Resident-dashboard/components/Emergency' },
     { icon: Wrench, label: 'Maintenance', href: '/Resident-dashboard/components/MaintenanceBills' },
-    { icon: PieChart, label: 'Polls', href: '/Resident-dashboard/components/Profile' },
+    { icon: PieChart, label: 'Polls', href: '/Resident-dashboard/components/Polls' },
   ];
   const menuSections = [
     {
@@ -202,18 +202,22 @@ const DashboardDefault = () => {
       </div>
 
       {/* Rest of the Dashboard Sections */}
-      <div className="p-6">
-        {menuSections.map((section, index) => (
-          <div key={index} className="mb-8 select-none">
-            <h2 className="text-sm text-[#001a3d] font-semibold mb-4">{section.title}</h2>
-            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 gap-4">
+      <div className="p-4 sm:p-6">
+        {menuSections.map((section, sIndex) => (
+          <div key={sIndex} className="mb-6 select-none">
+            <h2 className="text-sm text-[#001a3d] font-semibold mb-3">
+              {section.title}
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {section.items.map((item, i) => (
-                <Link key={i} href={item.href} className="flex flex-col items-center justify-center p-5 bg-white border rounded-2xl shadow hover:shadow-md transition-shadow">
-                  <div className='flex items-center justify-center w-14 h-14 bg-blue-50 text-blue-600 rounded-full mb-2 transition-all duration-300 group-hover:bg-blue-100 group-hover:scale-110'>
-                    <item.icon className="w-10 h-10" />
-                  </div>
-                  <div className="text-sm font-medium text-center">{item.label}</div>
-                </Link>
+                <div key={i} className="hover:shadow-md transition-shadow duration-200">
+                  <Link href={item.href} className="flex flex-col items-center justify-center p-4 bg-white border rounded-2xl shadow h-full hover:bg-blue-50">
+                    <div className="flex items-center justify-center w-12 h-12 bg-blue-50 text-blue-600 rounded-full mb-2">
+                      <item.icon className="w-7 h-7" />
+                    </div>
+                    <div className="text-xs sm:text-sm font-medium text-center mt-1">{item.label}</div>
+                  </Link>
+                </div>
               ))}
             </div>
           </div>

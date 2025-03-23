@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from 'next/router';
 import { Calendar, Clock, Search, Filter, Bell, ChevronRight, ChevronDown } from 'lucide-react';
@@ -9,6 +9,12 @@ export default function Announcements() {
     const [filterCategory, setFilterCategory] = useState('All');
     const [expandedAnnouncementId, setExpandedAnnouncementId] = useState(null);
     const [showFilters, setShowFilters] = useState(false);
+    const [isClient, setIsClient] = useState(false);
+
+    // Use useEffect to mark when component is client-side
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     // Sample announcements data
     const [announcements, setAnnouncements] = useState([
@@ -97,8 +103,13 @@ export default function Announcements() {
         );
     };
 
-    // Format date function
+    // Format date function - Fixed to be consistent between server and client
     const formatDate = (dateString) => {
+        // Only format dates on the client side
+        if (!isClient) {
+            return dateString; // Return raw date on server side
+        }
+        
         const options = { year: 'numeric', month: 'long', day: 'numeric' };
         return new Date(dateString).toLocaleDateString(undefined, options);
     };
