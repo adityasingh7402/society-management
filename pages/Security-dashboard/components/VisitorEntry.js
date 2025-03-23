@@ -6,7 +6,6 @@ const VisitorEntry = () => {
   const router = useRouter();
   const [visitorName, setVisitorName] = useState('');
   const [visitorImage, setVisitorImage] = useState(null);
-  const [uploadedImageId, setUploadedImageId] = useState(null); // New state to store uploaded image ID
   const [visitorReason, setVisitorReason] = useState('');
   const [entryTime, setEntryTime] = useState(new Date().toISOString().split('.')[0]);
   const [exitTime, setExitTime] = useState('');
@@ -14,7 +13,7 @@ const VisitorEntry = () => {
   const [permissionStatus, setPermissionStatus] = useState('pending');
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false); // New state for image upload status
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [securityDetails, setSecurityDetails] = useState({});
   const [securityId, setSecurityId] = useState('');
   const [showPopup, setShowPopup] = useState(false);
@@ -182,16 +181,13 @@ const VisitorEntry = () => {
     showNotification("Camera access denied. Please check browser settings.", "error");
   };
 
-  // Upload image immediately after capture
-  const uploadImage = async (file) => {
+  // Upload image after visitor entry is created
+  const uploadImage = async (file, visitorId) => {
     try {
       setUploadingImage(true);
       
-      // Create a temporary ID for the image
-      const tempId = "temp_" + Date.now();
-      
       const formData = new FormData();
-      formData.append('visitorId', tempId); // Using a temporary ID until visitor entry is created
+      formData.append('visitorId', visitorId); // Use the actual visitor ID now
       formData.append('image', file);
 
       const imageUploadResponse = await fetch('/api/VisitorApi/Visitor-imageUpload', {
@@ -204,9 +200,6 @@ const VisitorEntry = () => {
       }
 
       const imageData = await imageUploadResponse.json();
-      
-      // Store the uploaded image URL/ID for later use in form submission
-      setUploadedImageId(imageData.imageId || imageData._id || tempId);
       showNotification("Image uploaded successfully", "success");
       
       return imageData;
@@ -229,16 +222,7 @@ const VisitorEntry = () => {
         .then((blob) => {
           const file = new File([blob], 'visitor-photo.jpg', { type: 'image/jpeg' });
           setVisitorImage(file);
-          
-          // Immediately upload the image
-          uploadImage(file)
-            .then(() => {
-              setShowCamera(false);
-            })
-            .catch((err) => {
-              console.error('Error uploading image:', err);
-              // Keep the camera open if upload fails
-            });
+          setShowCamera(false);
         })
         .catch((err) => {
           console.error('Error converting image:', err);
@@ -247,7 +231,7 @@ const VisitorEntry = () => {
     }
   }, [webcamRef]);
 
-  // Handle form submission using the previously uploaded image ID
+  // Handle form submission - First create visitor entry, then upload image
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -256,14 +240,15 @@ const VisitorEntry = () => {
       return;
     }
 
-    if (!uploadedImageId) {
-      showNotification("Please take and upload a photo of the visitor", "error");
+    if (!visitorImage) {
+      showNotification("Please take a photo of the visitor", "error");
       return;
     }
 
     try {
       setLoading(true);
       
+      // Step 1: Create visitor entry first without image
       const visitorData = {
         societyId: securityDetails.societyId,
         blockName: selectedBlock,
@@ -277,11 +262,9 @@ const VisitorEntry = () => {
         visitorReason,
         entryTime,
         exitTime,
-        CreatedBy: securityId,
-        visitorImageId: uploadedImageId // Use the ID of the previously uploaded image
+        CreatedBy: securityId
       };
 
-      // Create visitor entry with the image ID reference
       const entryResponse = await fetch('/api/VisitorApi/VisitorEntry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -292,13 +275,32 @@ const VisitorEntry = () => {
         throw new Error('Failed to create visitor entry');
       }
 
+      const entryData = await entryResponse.json();
+      const visitorId = entryData._id || entryData.visitorId;
+
+      if (!visitorId) {
+        throw new Error('No visitor ID returned from server');
+      }
+
+      // Step 2: Now upload the image with the actual visitor ID
+      const imageData = await uploadImage(visitorImage, visitorId);
+      
+      // Step 3: Update visitor entry with image information if needed
+      // Only if the API doesn't handle this internally
+      if (imageData && imageData.imageId) {
+        await fetch(`/api/VisitorApi/update-visitor/${visitorId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ visitorImageId: imageData.imageId }),
+        });
+      }
+
       // Success!
       showNotification("Visitor entry created successfully!", "success");
       
       // Reset form
       setVisitorName('');
       setVisitorImage(null);
-      setUploadedImageId(null);
       setVisitorReason('');
       setSelectedBlock('');
       setSelectedFloor('');
@@ -313,19 +315,6 @@ const VisitorEntry = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Handle removing the uploaded image
-  const handleRemoveImage = () => {
-    // If we want to also delete the uploaded image from server
-    if (uploadedImageId) {
-      fetch(`/api/VisitorApi/delete-image/${uploadedImageId}`, {
-        method: 'DELETE',
-      }).catch(err => console.error('Error deleting uploaded image:', err));
-    }
-    
-    setVisitorImage(null);
-    setUploadedImageId(null);
   };
 
   return (
@@ -534,18 +523,13 @@ const VisitorEntry = () => {
                       />
                       <button
                         type="button"
-                        onClick={handleRemoveImage}
+                        onClick={() => setVisitorImage(null)}
                         className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full"
                         title="Remove photo"
                       >
                         ✕
                       </button>
                     </div>
-                    {uploadedImageId && (
-                      <div className="mt-1 text-xs text-green-600">
-                        Image uploaded successfully ✓
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <button
@@ -585,15 +569,13 @@ const VisitorEntry = () => {
                       type="button"
                       onClick={capturePhoto}
                       className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                      disabled={uploadingImage}
                     >
-                      {uploadingImage ? 'Processing...' : 'Capture'}
+                      Capture
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowCamera(false)}
                       className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-                      disabled={uploadingImage}
                     >
                       Cancel
                     </button>
@@ -611,9 +593,9 @@ const VisitorEntry = () => {
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={loading || !selectedResident || !uploadedImageId || uploadingImage}
+          disabled={loading || !selectedResident || !visitorImage || uploadingImage}
           className={`w-full py-3 rounded-md text-white font-medium ${
-            loading || !selectedResident || !uploadedImageId || uploadingImage
+            loading || !selectedResident || !visitorImage || uploadingImage
               ? 'bg-gray-400 cursor-not-allowed' 
               : 'bg-blue-600 hover:bg-blue-700'
           }`}
