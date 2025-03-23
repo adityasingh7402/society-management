@@ -6,7 +6,6 @@ const VisitorEntry = () => {
   const router = useRouter();
   const [visitorName, setVisitorName] = useState('');
   const [visitorImage, setVisitorImage] = useState(null);
-  const [uploadedImageId, setUploadedImageId] = useState(null); // New state to store uploaded image ID
   const [visitorReason, setVisitorReason] = useState('');
   const [entryTime, setEntryTime] = useState(new Date().toISOString().split('.')[0]);
   const [exitTime, setExitTime] = useState('');
@@ -14,14 +13,13 @@ const VisitorEntry = () => {
   const [permissionStatus, setPermissionStatus] = useState('pending');
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false); // New state for image upload status
   const [securityDetails, setSecurityDetails] = useState({});
   const [securityId, setSecurityId] = useState('');
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState('');
   
-  // Structure and resident 
+  // Structure and resident state
   const [structuredResidents, setStructuredResidents] = useState({});
   const [selectedBlock, setSelectedBlock] = useState('');
   const [selectedFloor, setSelectedFloor] = useState('');
@@ -184,43 +182,6 @@ const VisitorEntry = () => {
     showNotification("Camera access denied. Please check browser settings.", "error");
   };
 
-  // Upload image immediately after capture
-  const uploadImage = async (file) => {
-    try {
-      setUploadingImage(true);
-      
-      // Create a temporary ID for the image
-      const tempId = "temp_" + Date.now();
-      
-      const formData = new FormData();
-      formData.append('visitorId', tempId); // Using a temporary ID until visitor entry is created
-      formData.append('image', file);
-
-      const imageUploadResponse = await fetch('/api/VisitorApi/Visitor-imageUpload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!imageUploadResponse.ok) {
-        throw new Error('Image upload failed');
-      }
-
-      const imageData = await imageUploadResponse.json();
-      
-      // Store the uploaded image URL/ID for later use in form submission
-      setUploadedImageId(imageData.imageId || imageData._id || tempId);
-      showNotification("Image uploaded successfully", "success");
-      
-      return imageData;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      showNotification(error.message || 'Error uploading image', "error");
-      throw error;
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
   const capturePhoto = useCallback(() => {
     if (webcamRef.current) {
       const imageSrc = webcamRef.current.getScreenshot();
@@ -231,16 +192,7 @@ const VisitorEntry = () => {
         .then((blob) => {
           const file = new File([blob], 'visitor-photo.jpg', { type: 'image/jpeg' });
           setVisitorImage(file);
-          
-          // Immediately upload the image
-          uploadImage(file)
-            .then(() => {
-              setShowCamera(false);
-            })
-            .catch((err) => {
-              console.error('Error uploading image:', err);
-              // Keep the camera open if upload fails
-            });
+          setShowCamera(false);
         })
         .catch((err) => {
           console.error('Error converting image:', err);
@@ -249,7 +201,7 @@ const VisitorEntry = () => {
     }
   }, [webcamRef]);
 
-  // Handle form submission using the previously uploaded image ID
+  // Handle form submission with image upload
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -258,14 +210,15 @@ const VisitorEntry = () => {
       return;
     }
 
-    if (!uploadedImageId) {
-      showNotification("Please take and upload a photo of the visitor", "error");
+    if (!visitorImage) {
+      showNotification("Please take a photo of the visitor", "error");
       return;
     }
 
     try {
       setLoading(true);
       
+      // First create the visitor entry without image
       const visitorData = {
         societyId: securityDetails.societyId,
         blockName: selectedBlock,
@@ -279,11 +232,11 @@ const VisitorEntry = () => {
         visitorReason,
         entryTime,
         exitTime,
-        CreatedBy: securityId,
-        visitorImageId: uploadedImageId // Use the ID of the previously uploaded image
+        CreatedBy: securityId
+        // visitorImage will be added after upload
       };
 
-      // Create visitor entry with the image ID reference
+      // 1. Create visitor entry first
       const entryResponse = await fetch('/api/VisitorApi/VisitorEntry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -294,13 +247,33 @@ const VisitorEntry = () => {
         throw new Error('Failed to create visitor entry');
       }
 
+      const entryData = await entryResponse.json();
+      const visitorId = entryData._id || entryData.id; // Get the ID of the created visitor
+
+      if (!visitorId) {
+        throw new Error('Visitor ID not received');
+      }
+
+      // 2. Upload the image
+      const formData = new FormData();
+      formData.append('visitorId', visitorId);
+      formData.append('image', visitorImage);
+
+      const imageUploadResponse = await fetch('/api/VisitorApi/Visitor-imageUpload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!imageUploadResponse.ok) {
+        throw new Error('Image upload failed');
+      }
+
       // Success!
       showNotification("Visitor entry created successfully!", "success");
       
       // Reset form
       setVisitorName('');
       setVisitorImage(null);
-      setUploadedImageId(null);
       setVisitorReason('');
       setSelectedBlock('');
       setSelectedFloor('');
@@ -315,19 +288,6 @@ const VisitorEntry = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Handle removing the uploaded image
-  const handleRemoveImage = () => {
-    // If we want to also delete the uploaded image from server
-    if (uploadedImageId) {
-      fetch(`/api/VisitorApi/delete-image/${uploadedImageId}`, {
-        method: 'DELETE',
-      }).catch(err => console.error('Error deleting uploaded image:', err));
-    }
-    
-    setVisitorImage(null);
-    setUploadedImageId(null);
   };
 
   return (
@@ -354,7 +314,6 @@ const VisitorEntry = () => {
         </div>
       )}
       
-      {/* Main loading overlay */}
       {loading && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
           <div className="bg-white p-5 rounded-lg shadow-lg">
@@ -536,18 +495,13 @@ const VisitorEntry = () => {
                       />
                       <button
                         type="button"
-                        onClick={handleRemoveImage}
+                        onClick={() => setVisitorImage(null)}
                         className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full"
                         title="Remove photo"
                       >
                         ✕
                       </button>
                     </div>
-                    {uploadedImageId && (
-                      <div className="mt-1 text-xs text-green-600">
-                        Image uploaded successfully ✓
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <button
@@ -587,15 +541,13 @@ const VisitorEntry = () => {
                       type="button"
                       onClick={capturePhoto}
                       className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                      disabled={uploadingImage}
                     >
-                      {uploadingImage ? 'Processing...' : 'Capture'}
+                      Capture
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowCamera(false)}
                       className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-                      disabled={uploadingImage}
                     >
                       Cancel
                     </button>
@@ -613,9 +565,9 @@ const VisitorEntry = () => {
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={loading || !selectedResident || !uploadedImageId || uploadingImage}
+          disabled={loading || !selectedResident || !visitorImage}
           className={`w-full py-3 rounded-md text-white font-medium ${
-            loading || !selectedResident || !uploadedImageId || uploadingImage
+            loading || !selectedResident || !visitorImage
               ? 'bg-gray-400 cursor-not-allowed' 
               : 'bg-blue-600 hover:bg-blue-700'
           }`}
