@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import {
-    User, Clock, Calendar, MessageSquare, Check, X,
-    Search, Filter, ChevronDown, ChevronUp, Eye,
+    User, Clock, Calendar, MessageSquare, Shield, Check, X,
+    Search, Filter, ChevronDown, ChevronUp, Eye, Phone,
     ArrowLeft, Loader, Home, AlertCircle, CheckCircle, XCircle
 } from 'lucide-react';
 
@@ -270,8 +270,8 @@ const VisitorEntry = () => {
                             <button
                                 onClick={() => setFilterStatus('all')}
                                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${filterStatus === 'all'
-                                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 All
@@ -279,8 +279,8 @@ const VisitorEntry = () => {
                             <button
                                 onClick={() => setFilterStatus('pending')}
                                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${filterStatus === 'pending'
-                                        ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 Pending
@@ -288,8 +288,8 @@ const VisitorEntry = () => {
                             <button
                                 onClick={() => setFilterStatus('approve')}
                                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${filterStatus === 'approved'
-                                        ? 'bg-green-100 text-green-800 border border-green-300'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    ? 'bg-green-100 text-green-800 border border-green-300'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 Approved
@@ -297,8 +297,8 @@ const VisitorEntry = () => {
                             <button
                                 onClick={() => setFilterStatus('reject')}
                                 className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${filterStatus === 'reject'
-                                        ? 'bg-red-100 text-red-800 border border-red-300'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    ? 'bg-red-100 text-red-800 border border-red-300'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 Rejected
@@ -420,6 +420,38 @@ const VisitorEntry = () => {
                                                             </ul>
                                                         </div>
 
+                                                        {/* Added Guard Information */}
+                                                        <div className="mt-3 pt-3 border-t border-gray-200">
+                                                            <h4 className="font-medium text-gray-700 mb-2 flex items-center">
+                                                                <Shield size={14} className="mr-1 text-gray-500" />
+                                                                Guard Information
+                                                            </h4>
+                                                            <div className="space-y-2 text-sm">
+                                                                <div className="flex items-center">
+                                                                    <div className="flex-shrink-0 h-8 w-8 bg-gray-200 rounded-full flex items-center justify-center mr-2">
+                                                                        {visitor.guardImage ? (
+                                                                            <img
+                                                                                src={visitor.guardImage}
+                                                                                alt={visitor.guardName}
+                                                                                className="h-8 w-8 rounded-full object-cover"
+                                                                            />
+                                                                        ) : (
+                                                                            <Shield size={14} className="text-gray-500" />
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="font-medium">{visitor.guardName || 'Not assigned'}</div>
+                                                                        {visitor.guardPhone && (
+                                                                            <div className="text-xs text-gray-500 flex items-center">
+                                                                                <Phone size={12} className="mr-1" />
+                                                                                {visitor.guardPhone}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
                                                         {visitor.status === 'pending' && (
                                                             <div className="mt-3 pt-3 border-t border-gray-200">
                                                                 <div className="grid grid-cols-2 gap-2">
@@ -427,8 +459,8 @@ const VisitorEntry = () => {
                                                                         onClick={() => handleVisitorAction(visitor._id, 'approve')}
                                                                         disabled={processingId === visitor._id}
                                                                         className={`py-2 rounded-md text-sm font-medium text-white ${processingId === visitor._id ?
-                                                                                'bg-gray-400' :
-                                                                                'bg-green-600 hover:bg-green-700'
+                                                                            'bg-gray-400' :
+                                                                            'bg-green-600 hover:bg-green-700'
                                                                             }`}
                                                                     >
                                                                         {processingId === visitor._id ?
@@ -446,8 +478,8 @@ const VisitorEntry = () => {
                                                                         onClick={() => handleVisitorAction(visitor._id, 'reject')}
                                                                         disabled={processingId === visitor._id}
                                                                         className={`py-2 rounded-md text-sm font-medium text-white ${processingId === visitor._id ?
-                                                                                'bg-gray-400' :
-                                                                                'bg-red-600 hover:bg-red-700'
+                                                                            'bg-gray-400' :
+                                                                            'bg-red-600 hover:bg-red-700'
                                                                             }`}
                                                                     >
                                                                         <span className="flex items-center justify-center">
@@ -480,6 +512,9 @@ const VisitorEntry = () => {
                                         </th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Time
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Guard
                                         </th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Status
@@ -518,6 +553,27 @@ const VisitorEntry = () => {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="text-sm text-gray-900">{formatDate(visitor.entryTime)}</div>
+                                                </td>
+                                                {/* Added Guard column */}
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center">
+                                                        <div className="flex-shrink-0 h-8 w-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                                            {visitor.guardImage ? (
+                                                                <img
+                                                                    src={visitor.guardImage}
+                                                                    alt={visitor.guardName}
+                                                                    className="h-8 w-8 rounded-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <Shield size={14} className="text-gray-500" />
+                                                            )}
+                                                        </div>
+                                                        <div className="ml-3">
+                                                            <div className="text-sm font-medium text-gray-900">
+                                                                {visitor.guardName || 'Not assigned'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {getStatusBadge(visitor.status)}
@@ -566,8 +622,8 @@ const VisitorEntry = () => {
                                             {/* Always display additional details row when clicked in desktop */}
                                             {expandedVisitor === visitor._id && (
                                                 <tr>
-                                                    <td colSpan="5" className="px-6 py-4 bg-gray-50">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <td colSpan="6" className="px-6 py-4 bg-gray-50">
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                             <div>
                                                                 <h4 className="font-medium text-gray-700 mb-2 flex items-center">
                                                                     <Calendar size={16} className="mr-1 text-gray-500" />
@@ -596,8 +652,34 @@ const VisitorEntry = () => {
                                                                     )}
                                                                 </ul>
                                                             </div>
-                                                            <div>
 
+                                                            {/* Added Guard Information Section */}
+                                                            <div>
+                                                                <h4 className="font-medium text-gray-700 mb-2 flex items-center">
+                                                                    <Shield size={16} className="mr-1 text-gray-500" />
+                                                                    Guard Information
+                                                                </h4>
+                                                                <ul className="space-y-2 text-sm">
+                                                                    <li className="flex items-start">
+                                                                        <span className="font-medium w-24 text-gray-600">Name:</span>
+                                                                        <span>{visitor.guardName || 'Not assigned'}</span>
+                                                                    </li>
+                                                                    <li className="flex items-start">
+                                                                        <span className="font-medium w-24 text-gray-600">Phone:</span>
+                                                                        <span>
+                                                                            {visitor.guardPhone ? (
+                                                                                <a href={`tel:${visitor.guardPhone}`} className="text-blue-600 hover:text-blue-800">
+                                                                                    {visitor.guardPhone}
+                                                                                </a>
+                                                                            ) : (
+                                                                                'Not available'
+                                                                            )}
+                                                                        </span>
+                                                                    </li>
+                                                                </ul>
+                                                            </div>
+
+                                                            <div>
                                                                 {visitor.status === 'pending' && (
                                                                     <div className="mt-4">
                                                                         <h5 className="text-sm font-medium text-gray-700 mb-2">Actions:</h5>
@@ -606,8 +688,8 @@ const VisitorEntry = () => {
                                                                                 onClick={() => handleVisitorAction(visitor._id, 'approve')}
                                                                                 disabled={processingId === visitor._id}
                                                                                 className={`px-4 py-2 rounded-md text-sm font-medium text-white ${processingId === visitor._id ?
-                                                                                        'bg-gray-400' :
-                                                                                        'bg-green-600 hover:bg-green-700'
+                                                                                    'bg-gray-400' :
+                                                                                    'bg-green-600 hover:bg-green-700'
                                                                                     } transition-colors`}
                                                                             >
                                                                                 {processingId === visitor._id ?
@@ -625,8 +707,8 @@ const VisitorEntry = () => {
                                                                                 onClick={() => handleVisitorAction(visitor._id, 'reject')}
                                                                                 disabled={processingId === visitor._id}
                                                                                 className={`px-4 py-2 rounded-md text-sm font-medium text-white ${processingId === visitor._id ?
-                                                                                        'bg-gray-400' :
-                                                                                        'bg-red-600 hover:bg-red-700'
+                                                                                    'bg-gray-400' :
+                                                                                    'bg-red-600 hover:bg-red-700'
                                                                                     } transition-colors`}
                                                                             >
                                                                                 <span className="flex items-center">
