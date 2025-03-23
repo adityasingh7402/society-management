@@ -66,7 +66,7 @@ const VisitorEntry = () => {
     const fetchResidents = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/Resident-Api/getAllResidents');
+        const response = await fetch('/api/Security-Api/getAllResidents');
         if (response.ok) {
           const data = await response.json();
           organizeResidentsByStructure(data);
