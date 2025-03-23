@@ -47,7 +47,7 @@ export default async function handler(req, res) {
         exitTime: exitTime ? new Date(exitTime) : null,
         CreatedBy,
         createdAt: new Date(),
-        status: 'active'
+        status: 'pending'
       });
 
       // Save the new visitor
