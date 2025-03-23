@@ -113,7 +113,7 @@ export default function Home() {
                             <li className="flex justify-start items-center space-x-4 px-2 border-b border-gray-600 pb-4">
                                 <div className="image-side relative w-16 h-16">
                                     <img
-                                        src={securityDetails.userImage || "/profile.png"}
+                                        src={securityDetails.guardImage || "/profile.png"}
                                         alt="Profile"
                                         className="w-full h-full rounded-full object-cover"
                                     />

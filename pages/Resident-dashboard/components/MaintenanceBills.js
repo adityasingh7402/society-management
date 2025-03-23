@@ -37,7 +37,7 @@ export default function MaintenanceBills() {
                 const residentId = residentData._id; // Assuming the resident ID is available in the response
 
                 // Fetch bills for the resident
-                const billsResponse = await fetch(`/api/MaintenanceBill-Api/getBills?residentId=${residentId}`);
+                const billsResponse = await fetch(`/api/MaintenanceBill-Api/getBill-Resident?residentId=${residentId}`);
                 if (!billsResponse.ok) {
                     throw new Error("Failed to fetch bills");
                 }
@@ -62,9 +62,9 @@ export default function MaintenanceBills() {
         unpaid: maintenanceBills.filter(bill => bill.status === "Pending").reduce((sum, bill) => sum + bill.amount, 0),
         paid: maintenanceBills.filter(bill => bill.status === "Paid").reduce((sum, bill) => sum + bill.amount, 0),
         due: maintenanceBills.filter(bill =>
+            bill.status !== "Paid" &&
             new Date(bill.dueDate) <= new Date(new Date().setDate(new Date().getDate() + 5))
         ).length
-
     };
 
     // Handler for opening payment modal

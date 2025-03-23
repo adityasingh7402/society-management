@@ -32,7 +32,7 @@ export default function SecurityProfile() {
             try {
                 const token = localStorage.getItem("Security");
                 if (!token) {
-                    router.push("/Login");
+                    router.push("/SecurityLogin");
                     return;
                 }
 
@@ -61,7 +61,7 @@ export default function SecurityProfile() {
                 });
             } catch (error) {
                 console.error("Error fetching profile:", error);
-                router.push("/Login");
+                router.push("/SecurityLogin");
             }
         };
 
@@ -268,7 +268,7 @@ export default function SecurityProfile() {
                                 <input
                                     type="text"
                                     name="societyName"
-                                    value={formData.societyName || ""}
+                                    value={formData.address.societyName || ""}
                                     className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                     disabled
                                 />

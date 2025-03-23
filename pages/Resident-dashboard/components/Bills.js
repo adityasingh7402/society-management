@@ -37,7 +37,7 @@ export default function Bills() {
                 const residentId = residentData._id; // Assuming the resident ID is available in the response
 
                 // Fetch utility bills for the resident
-                const billsResponse = await fetch(`/api/UtilityBill-Api/getBills?residentId=${residentId}`);
+                const billsResponse = await fetch(`/api/UtilityBill-Api/getBill-Resident?residentId=${residentId}`);
                 if (!billsResponse.ok) {
                     throw new Error("Failed to fetch utility bills");
                 }
@@ -61,7 +61,8 @@ export default function Bills() {
         total: utilityBills.reduce((sum, bill) => sum + (bill.baseAmount + bill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)), 0),
         unpaid: utilityBills.filter(bill => bill.status === "Pending").reduce((sum, bill) => sum + (bill.baseAmount + bill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)), 0),
         paid: utilityBills.filter(bill => bill.status === "Paid").reduce((sum, bill) => sum + (bill.baseAmount + bill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)), 0),
-        due: utilityBills.filter(bill =>
+        due: utilityBills.filter(bill => 
+            bill.status !== "Paid" && 
             new Date(bill.dueDate) <= new Date(new Date().setDate(new Date().getDate() + 5))
         ).length
     };
