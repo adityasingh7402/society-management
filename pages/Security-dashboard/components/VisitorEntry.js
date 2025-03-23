@@ -21,7 +21,7 @@ const VisitorEntry = () => {
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState('');
   
-  // Structure and resident state 
+  // Structure and resident 
   const [structuredResidents, setStructuredResidents] = useState({});
   const [selectedBlock, setSelectedBlock] = useState('');
   const [selectedFloor, setSelectedFloor] = useState('');
