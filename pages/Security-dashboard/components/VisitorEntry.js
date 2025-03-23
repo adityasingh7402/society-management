@@ -286,9 +286,9 @@ const VisitorEntry = () => {
         entryTime,
         exitTime,
         CreatedBy: securityId,
-        guardName: guardName,
-        guardImage: guardImage,
-        guardPhone: guardPhone
+        guardName: securityDetails.guardName,
+        guardImage: securityDetails.guardImage,
+        guardPhone: securityDetails.guardPhone
       };
 
       const entryResponse = await fetch('/api/VisitorApi/VisitorEntry', {
