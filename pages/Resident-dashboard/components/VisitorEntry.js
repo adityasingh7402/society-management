@@ -287,7 +287,7 @@ const VisitorEntry = () => {
                             </button>
                             <button
                                 onClick={() => setFilterStatus('approve')}
-                                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${filterStatus === 'approved'
+                                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${filterStatus === 'approve'
                                     ? 'bg-green-100 text-green-800 border border-green-300'
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
