@@ -73,11 +73,9 @@ const VisitorEntry = () => {
           organizeResidentsByStructure(data);
         } else {
           console.error('Failed to fetch residents');
-          showNotification("Failed to fetch residents", "error");
         }
       } catch (error) {
         console.error('Error fetching residents:', error);
-        showNotification("Error fetching residents", "error");
       } finally {
         setLoading(false);
       }
