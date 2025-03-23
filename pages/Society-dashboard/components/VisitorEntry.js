@@ -21,7 +21,7 @@ const VisitorEntry = () => {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [securityDetails, setSecurityDetails] = useState({});
-  const [securityId, setSecurityId] = useState('');
+  const [societyId, setSocietyId] = useState('');
   const [showPopup, setShowPopup] = useState(false);
   const [cameraFacingMode, setCameraFacingMode] = useState('environment');
   const [popupMessage, setPopupMessage] = useState('');
@@ -41,13 +41,13 @@ const VisitorEntry = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem("Security");
+        const token = localStorage.getItem("Society");
         if (!token) {
-          router.push("/SecurityLogin");
+          router.push("/societyLogin");
           return;
         }
 
-        const response = await fetch("/api/Security-Api/get-security-details", {
+        const response = await fetch("/api/Society-Api/get-society-details", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -59,10 +59,10 @@ const VisitorEntry = () => {
 
         const data = await response.json();
         setSecurityDetails(data);
-        setSecurityId(data._id);
+        setSocietyId(data._id);
       } catch (error) {
         console.error("Error fetching profile:", error);
-        showNotification("Failed to fetch security profile", "error");
+        showNotification("Failed to fetch Society profile", "error");
       }
     };
 
@@ -285,10 +285,7 @@ const VisitorEntry = () => {
         visitorReason,
         entryTime,
         exitTime,
-        CreatedBy: securityId,
-        guardName,
-        guardImage,
-        guardPhone
+        CreatedBy: societyId
       };
 
       const entryResponse = await fetch('/api/VisitorApi/VisitorEntry', {

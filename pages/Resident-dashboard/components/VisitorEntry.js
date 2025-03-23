@@ -1,548 +1,657 @@
-import React, { useState } from 'react';
-import { FaUserCheck, FaUserTimes, FaHistory, FaSearch, FaFilter, FaSort } from 'react-icons/fa';
-import { ArrowLeft } from "lucide-react";
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import {
+    User, Clock, Calendar, MessageSquare, Check, X,
+    Search, Filter, ChevronDown, ChevronUp, Eye,
+    ArrowLeft, Loader, Home, AlertCircle, CheckCircle, XCircle
+} from 'lucide-react';
 
-export default function VisitorEntry() {
-    const [activeTab, setActiveTab] = useState('pending');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterOpen, setFilterOpen] = useState(false);
-    const [dateRange, setDateRange] = useState({ from: '', to: '' });
-    const [visitorType, setVisitorType] = useState('all');
-    const [sortBy, setSortBy] = useState('time');
-    const [sortOrder, setSortOrder] = useState('desc');
+const VisitorEntry = () => {
     const router = useRouter();
+    const [visitors, setVisitors] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [residentDetails, setResidentDetails] = useState(null);
+    const [showPopup, setShowPopup] = useState(false);
+    const [popupMessage, setPopupMessage] = useState('');
+    const [popupType, setPopupType] = useState('');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [expandedVisitor, setExpandedVisitor] = useState(null);
+    const [processingId, setProcessingId] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
-    // Sample data for pending visitors
-    const [pendingVisitors, setPendingVisitors] = useState([
-        {
-            id: 1,
-            name: "Rajesh Kumar",
-            phone: "+91 98765 43210",
-            email: "rajesh.k@example.com",
-            purpose: "Meeting with HR Manager",
-            company: "Tech Solutions Ltd.",
-            visitType: "Business",
-            visitTime: "2025-03-20T10:30:00",
-            hostName: "Priya Sharma",
-            hostDepartment: "Human Resources",
-            image: "https://img.freepik.com/free-photo/smiling-businessman-face-portrait-wearing-suit_53876-148138.jpg"
-        },
-        {
-            id: 2,
-            name: "Ananya Singh",
-            phone: "+91 87654 32109",
-            email: "ananya.s@example.com",
-            purpose: "Job Interview",
-            company: "Freelancer",
-            visitType: "Interview",
-            visitTime: "2025-03-20T11:15:00",
-            hostName: "Vikram Malhotra",
-            hostDepartment: "Engineering",
-            image: "https://www.india.com/wp-content/uploads/2014/12/krishna-murthy.jpg"
-        },
-        {
-            id: 3,
-            name: "Mohammed Farhan",
-            phone: "+91 76543 21098",
-            email: "m.farhan@example.com",
-            purpose: "Equipment Delivery",
-            company: "QuickShip Logistics",
-            visitType: "Delivery",
-            visitTime: "2025-03-20T09:45:00",
-            hostName: "Amit Patel",
-            hostDepartment: "Facilities",
-            image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSh7mfz0ZWyJ1mc5_ObMbLHliYBsUDmEYRmXA&s"
-        }
-    ]);
-
-    // Sample data for visitor history
-    const [visitorHistory, setVisitorHistory] = useState([
-        {
-            id: 101,
-            name: "Neha Gupta",
-            phone: "+91 65432 10987",
-            email: "neha.g@example.com",
-            purpose: "Client Meeting",
-            company: "Global Finance Inc.",
-            visitType: "Business",
-            visitTime: "2025-03-19T14:30:00",
-            exitTime: "2025-03-19T16:45:00",
-            hostName: "Aditya Kapoor",
-            hostDepartment: "Sales",
-            status: "Approved",
-            image: "https://media.gettyimages.com/id/1987655119/photo/smiling-young-businesswoman-standing-in-the-corridor-of-an-office.jpg?s=612x612&w=gi&k=20&c=jyEtRXr75_9MGh9BvKh1wmTulOnFyWqTtcV8Gin9LEg="
-        },
-        {
-            id: 102,
-            name: "Karan Mehra",
-            phone: "+91 54321 09876",
-            email: "karan.m@example.com",
-            purpose: "Site Inspection",
-            company: "Safety First Consultants",
-            visitType: "Inspection",
-            visitTime: "2025-03-19T10:00:00",
-            exitTime: "2025-03-19T12:30:00",
-            hostName: "Sunita Reddy",
-            hostDepartment: "Operations",
-            status: "Approved",
-            image: "https://media.gettyimages.com/id/1987655119/photo/smiling-young-businesswoman-standing-in-the-corridor-of-an-office.jpg?s=612x612&w=gi&k=20&c=jyEtRXr75_9MGh9BvKh1wmTulOnFyWqTtcV8Gin9LEg="
-        },
-        {
-            id: 103,
-            name: "Deepika Verma",
-            phone: "+91 43210 98765",
-            email: "deepika.v@example.com",
-            purpose: "Document Submission",
-            company: "Individual",
-            visitType: "Personal",
-            visitTime: "2025-03-18T15:20:00",
-            exitTime: null,
-            hostName: "Rahul Sharma",
-            hostDepartment: "Administration",
-            status: "Rejected",
-            image: "https://media.gettyimages.com/id/1987655119/photo/smiling-young-businesswoman-standing-in-the-corridor-of-an-office.jpg?s=612x612&w=gi&k=20&c=jyEtRXr75_9MGh9BvKh1wmTulOnFyWqTtcV8Gin9LEg="
-        }
-    ]);
-
-    // Handle approval action
-    const handleApprove = (visitorId) => {
-        // Find the visitor in pending list
-        const visitor = pendingVisitors.find(v => v.id === visitorId);
-        if (visitor) {
-            // Add to history with approved status
-            setVisitorHistory([
-                {
-                    ...visitor,
-                    id: Date.now(), // Generate a new ID
-                    status: 'Approved',
-                    exitTime: null
-                },
-                ...visitorHistory
-            ]);
-            // Remove from pending list
-            setPendingVisitors(pendingVisitors.filter(v => v.id !== visitorId));
-        }
-    };
-
-    // Handle rejection action
-    const handleReject = (visitorId) => {
-        // Find the visitor in pending list
-        const visitor = pendingVisitors.find(v => v.id === visitorId);
-        if (visitor) {
-            // Add to history with rejected status
-            setVisitorHistory([
-                {
-                    ...visitor,
-                    id: Date.now(), // Generate a new ID
-                    status: 'Rejected',
-                    exitTime: null
-                },
-                ...visitorHistory
-            ]);
-            // Remove from pending list
-            setPendingVisitors(pendingVisitors.filter(v => v.id !== visitorId));
-        }
-    };
-
-    // Filter and sort functions
-    const getFilteredVisitors = (visitors) => {
-        return visitors
-            .filter(visitor => {
-                // Search term filter
-                const searchLower = searchTerm.toLowerCase();
-                const matchesSearch =
-                    visitor.name.toLowerCase().includes(searchLower) ||
-                    visitor.purpose.toLowerCase().includes(searchLower) ||
-                    visitor.company.toLowerCase().includes(searchLower) ||
-                    visitor.hostName.toLowerCase().includes(searchLower);
-
-                // Date range filter
-                const visitDate = new Date(visitor.visitTime);
-                const matchesDateFrom = !dateRange.from || visitDate >= new Date(dateRange.from);
-                const matchesDateTo = !dateRange.to || visitDate <= new Date(dateRange.to);
-
-                // Visitor type filter
-                const matchesVisitorType = visitorType === 'all' || visitor.visitType === visitorType;
-
-                return matchesSearch && matchesDateFrom && matchesDateTo && matchesVisitorType;
-            })
-            .sort((a, b) => {
-                if (sortBy === 'time') {
-                    return sortOrder === 'asc'
-                        ? new Date(a.visitTime) - new Date(b.visitTime)
-                        : new Date(b.visitTime) - new Date(a.visitTime);
-                } else if (sortBy === 'name') {
-                    return sortOrder === 'asc'
-                        ? a.name.localeCompare(b.name)
-                        : b.name.localeCompare(a.name);
-                } else if (sortBy === 'purpose') {
-                    return sortOrder === 'asc'
-                        ? a.purpose.localeCompare(b.purpose)
-                        : b.purpose.localeCompare(a.purpose);
+    // Fetch resident details on component mount
+    useEffect(() => {
+        const fetchResidentProfile = async () => {
+            try {
+                const token = localStorage.getItem("Resident");
+                if (!token) {
+                    router.push("/Login");
+                    return;
                 }
-                return 0;
-            });
+
+                const response = await fetch("/api/Resident-Api/get-resident-details", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to fetch resident profile");
+                }
+
+                const data = await response.json();
+                setResidentDetails(data);
+
+                // After getting resident details, fetch visitors
+                fetchVisitors(data);
+            } catch (error) {
+                console.error("Error fetching resident profile:", error);
+                setError("Failed to load your profile. Please login again.");
+                router.push("/Login");
+            }
+        };
+
+        fetchResidentProfile();
+    }, [router]);
+
+    // Fetch visitors based on resident flat details
+    const fetchVisitors = async (resident) => {
+        if (!resident || !resident.flatDetails) return;
+
+        setLoading(true);
+        try {
+            // Extract flat details
+            const { societyId } = resident;
+            const { blockName, flatNumber } = resident.flatDetails;
+            const floorNumber = resident.flatDetails.floorIndex + 1; // Adjust floor index as needed
+
+            // Fetch visitors for this resident's flat
+            const response = await fetch(`/api/VisitorApi/Get-All-Visitors?societyId=${societyId}&blockName=${blockName}&floorNumber=${floorNumber}&flatNumber=${flatNumber}`);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch visitors');
+            }
+
+            const data = await response.json();
+            setVisitors(data.data || []);
+        } catch (error) {
+            console.error('Error fetching visitors:', error);
+            setError('Failed to load visitor data');
+            showNotification('Error loading visitor data', 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const filteredPendingVisitors = getFilteredVisitors(pendingVisitors);
-    const filteredVisitorHistory = getFilteredVisitors(visitorHistory);
+    // Handle visitor approval/rejection
+    const handleVisitorAction = async (visitorId, action) => {
+        setProcessingId(visitorId);
+        try {
+            const response = await fetch('/api/VisitorApi/update-visitor-status', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    visitorId,
+                    status: action,
+                    updatedBy: residentDetails._id
+                }),
+            });
 
-    // Format date-time
-    const formatDateTime = (dateTimeStr) => {
-        const options = {
+            if (!response.ok) {
+                throw new Error('Failed to update visitor status');
+            }
+
+            // Update local state with the new status
+            setVisitors(prev =>
+                prev.map(visitor =>
+                    visitor._id === visitorId
+                        ? { ...visitor, status: action, statusUpdatedAt: new Date().toISOString() }
+                        : visitor
+                )
+            );
+
+            showNotification(`Visitor ${action === 'approve' ? 'approve' : 'reject'} successfully`, 'success');
+        } catch (error) {
+            console.error('Error updating visitor status:', error);
+            showNotification(error.message, 'error');
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    // Show notification popup
+    const showNotification = (message, type) => {
+        setPopupMessage(message);
+        setPopupType(type);
+        setShowPopup(true);
+
+        // Auto hide after 3 seconds
+        setTimeout(() => {
+            setShowPopup(false);
+        }, 3000);
+    };
+
+    // Format date for display
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
-        };
-        return new Date(dateTimeStr).toLocaleString('en-IN', options);
+        });
     };
 
-    const resetFilters = () => {
-        setSearchTerm('');
-        setDateRange({ from: '', to: '' });
-        setVisitorType('all');
-        setSortBy('time');
-        setSortOrder('desc');
-        setFilterOpen(false);
+    // Filter visitors based on status and search query
+    const filteredVisitors = visitors.filter(visitor => {
+        // Filter by status
+        if (filterStatus !== 'all' && visitor.status !== filterStatus) return false;
+
+        // Filter by search query
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            return (
+                visitor.visitorName?.toLowerCase().includes(query) ||
+                visitor.visitorReason?.toLowerCase().includes(query)
+            );
+        }
+
+        return true;
+    });
+
+    // Toggle visitor details expansion (mobile view only)
+    const toggleExpand = (id) => {
+        setExpandedVisitor(expandedVisitor === id ? null : id);
+    };
+
+    // Helper function to get status badge
+    const getStatusBadge = (status) => {
+        switch (status) {
+            case 'approve':
+                return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Approved
+                </span>;
+            case 'reject':
+                return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    <XCircle className="w-3 h-3 mr-1" />
+                    Rejected
+                </span>;
+            case 'pending':
+            default:
+                return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    <Clock className="w-3 h-3 mr-1" />
+                    Pending
+                </span>;
+        }
     };
 
     return (
-        <div className="min-h-screen bg-gray-100">
+        <div className="min-h-screen bg-gray-50 p-4">
             {/* Header */}
-            <div>
-                <button onClick={() => router.back()} className="flex items-center p-4 md:p-6 space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors">
-                    <ArrowLeft size={18} />
-                    <span className="text-base">Back</span>
+            <div className="mb-6">
+                <button onClick={() => router.back()} className="flex items-center text-blue-600 hover:text-blue-800 mb-4">
+                    <ArrowLeft size={18} className="mr-1" />
+                    <span>Back</span>
                 </button>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Visitor Approval</h1>
+                <p className="text-gray-600 mt-1">Manage visitor requests for your apartment</p>
             </div>
-            <h1 className="text-2xl md:text-4xl font-bold text-blue-600 mb-4 md:mb-8 text-center">Visitor Entry</h1>
 
-            {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                {/* Tabs */}
-                <div className="flex border-b border-gray-200 mb-6">
-                    <button
-                        className={`py-4 px-6 text-center border-b-2 font-medium text-sm md:text-base ${activeTab === 'pending'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        onClick={() => setActiveTab('pending')}
-                    >
-                        Pending Approval ({pendingVisitors.length})
-                    </button>
-                    <button
-                        className={`py-4 px-6 text-center border-b-2 font-medium text-sm md:text-base ${activeTab === 'history'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        onClick={() => setActiveTab('history')}
-                    >
-                        <FaHistory className="inline mr-2" />
-                        Visitor History
-                    </button>
+            {/* Notification Popup */}
+            {showPopup && (
+                <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-xs animate-pulse ${popupType === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                    }`}>
+                    <div className="flex items-center">
+                        <span className="mr-2 flex-shrink-0">
+                            {popupType === 'success' ? <CheckCircle size={20} /> : <XCircle size={20} />}
+                        </span>
+                        <p className="text-sm">{popupMessage}</p>
+                        <button
+                            onClick={() => setShowPopup(false)}
+                            className="ml-auto text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 flex-shrink-0"
+                            aria-label="Close notification"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
                 </div>
+            )}
 
-                {/* Search and Filter Controls */}
-                <div className="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
-                    <div className="flex flex-col gap-4 mb-4">
-                        {/* Search */}
-                        <div className="relative w-full">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <FaSearch className="text-gray-400" />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="Search visitors, purpose, host..."
-                                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+            {/* Resident Info Card */}
+            {residentDetails && residentDetails.flatDetails && (
+                <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border-l-4 border-blue-500">
+                    <div className="flex items-center space-x-4">
+                        <div className="bg-blue-100 p-3 rounded-full">
+                            <Home size={24} className="text-blue-600" />
                         </div>
-
-                        {/* Filter and Sort Controls */}
-                        <div className="flex flex-wrap gap-2">
-                            {/* Filter Toggle Button */}
-                            <button
-                                onClick={() => setFilterOpen(!filterOpen)}
-                                className="flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                            >
-                                <FaFilter className="mr-2" />
-                                Filters {Object.values({
-                                    date: dateRange.from || dateRange.to,
-                                    visitor: visitorType !== 'all'
-                                }).filter(Boolean).length > 0 ? `(${Object.values({
-                                    date: dateRange.from || dateRange.to,
-                                    visitor: visitorType !== 'all'
-                                }).filter(Boolean).length})` : ''}
-                            </button>
-
-                            {/* Sort Direction Button */}
-                            <button
-                                onClick={() => {
-                                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                }}
-                                className="flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                            >
-                                <FaSort className="mr-2" />
-                                {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                            </button>
-
-                            {/* Sort By Dropdown */}
-                            <select
-                                value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value)}
-                                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                            >
-                                <option value="time">Sort by Time</option>
-                                <option value="name">Sort by Name</option>
-                                <option value="purpose">Sort by Purpose</option>
-                            </select>
+                        <div>
+                            <h2 className="font-medium text-lg">{residentDetails.name}</h2>
+                            <p className="text-gray-600 text-sm">
+                                Block {residentDetails.flatDetails.blockName},
+                                Floor {residentDetails.flatDetails.floorIndex + 1},
+                                Flat {residentDetails.flatDetails.flatNumber}
+                            </p>
                         </div>
                     </div>
-
-                    {/* Filter Panel */}
-                    {filterOpen && (
-                        <div className="bg-gray-50 p-4 rounded-lg mt-2 border border-gray-200">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Date Range */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-                                    <div className="flex space-x-2">
-                                        <div className="flex-1">
-                                            <label className="block text-xs text-gray-500">From</label>
-                                            <input
-                                                type="date"
-                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                                value={dateRange.from}
-                                                onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="flex-1">
-                                            <label className="block text-xs text-gray-500">To</label>
-                                            <input
-                                                type="date"
-                                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                                value={dateRange.to}
-                                                onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Visitor Type */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Visitor Type</label>
-                                    <select
-                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={visitorType}
-                                        onChange={(e) => setVisitorType(e.target.value)}
-                                    >
-                                        <option value="all">All Visitor Types</option>
-                                        <option value="Business">Business</option>
-                                        <option value="Interview">Interview</option>
-                                        <option value="Delivery">Delivery</option>
-                                        <option value="Personal">Personal</option>
-                                        <option value="Inspection">Inspection</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="flex justify-end mt-4">
-                                <button
-                                    onClick={resetFilters}
-                                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                                >
-                                    Reset Filters
-                                </button>
-                            </div>
-                        </div>
-                    )}
                 </div>
+            )}
 
-                {/* Visitor Cards */}
-                {activeTab === 'pending' && (
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Visitors Waiting for Approval</h2>
+            {/* Search and Filter Controls */}
+            <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    {/* Search Bar */}
+                    <div className="relative w-full md:w-64">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Search size={18} className="text-gray-400" />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Search visitors..."
+                            className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
 
-                        {filteredPendingVisitors.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {filteredPendingVisitors.map(visitor => (
-                                    <div key={visitor.id} className="bg-white rounded-lg shadow overflow-hidden">
-                                        <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                                            <div className="flex items-center">
-                                                <div className="flex-shrink-0 h-10 w-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
-                                                    <span className="font-semibold text-lg">{visitor.name.charAt(0)}</span>
+                    {/* Filter Buttons */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center mr-2">
+                            <Filter size={16} className="text-gray-500 mr-1" />
+                            <span className="text-gray-700 text-sm font-medium">Status:</span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                onClick={() => setFilterStatus('all')}
+                                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${filterStatus === 'all'
+                                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                            >
+                                All
+                            </button>
+                            <button
+                                onClick={() => setFilterStatus('pending')}
+                                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${filterStatus === 'pending'
+                                        ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                            >
+                                Pending
+                            </button>
+                            <button
+                                onClick={() => setFilterStatus('approve')}
+                                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${filterStatus === 'approved'
+                                        ? 'bg-green-100 text-green-800 border border-green-300'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                            >
+                                Approved
+                            </button>
+                            <button
+                                onClick={() => setFilterStatus('reject')}
+                                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${filterStatus === 'reject'
+                                        ? 'bg-red-100 text-red-800 border border-red-300'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                            >
+                                Rejected
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Content - Visitor Cards (Mobile View) & Table (Desktop View) */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                {loading ? (
+                    <div className="p-8 flex flex-col items-center justify-center">
+                        <Loader className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+                        <p className="text-gray-600">Loading visitor data...</p>
+                    </div>
+                ) : error ? (
+                    <div className="p-8 flex flex-col items-center justify-center text-red-500">
+                        <AlertCircle className="w-10 h-10 mb-4" />
+                        <p>{error}</p>
+                    </div>
+                ) : filteredVisitors.length === 0 ? (
+                    <div className="p-8 flex flex-col items-center justify-center text-gray-500">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                            <User size={32} className="text-gray-400" />
+                        </div>
+                        <p className="text-lg mb-1">No visitors found</p>
+                        <p className="text-sm text-gray-500">
+                            {filterStatus === 'all' && !searchQuery
+                                ? "You don't have any visitor records yet"
+                                : `No visitors match your current filters`}
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Mobile View - Card Layout with Expand/Collapse */}
+                        <div className="md:hidden">
+                            <div className="p-4 space-y-4">
+                                {filteredVisitors.map((visitor) => (
+                                    <div key={visitor._id} className="border rounded-lg overflow-hidden bg-white">
+                                        <div className="p-4 border-b">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center">
+                                                    <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                                        {visitor.visitorImage ? (
+                                                            <img
+                                                                src={visitor.visitorImage}
+                                                                alt={visitor.visitorName}
+                                                                className="h-10 w-10 rounded-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <User className="h-5 w-5 text-gray-500" />
+                                                        )}
+                                                    </div>
+                                                    <div className="ml-3">
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {visitor.visitorName}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">{formatDate(visitor.entryTime)}</div>
+                                                    </div>
                                                 </div>
-                                                <div className="ml-3">
-                                                    <h3 className="text-lg font-medium text-gray-900">{visitor.name}</h3>
-                                                    <p className="text-sm text-gray-500">{visitor.company}</p>
-                                                </div>
+                                                <div>{getStatusBadge(visitor.status)}</div>
                                             </div>
-                                            <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full uppercase font-medium">
-                                                {visitor.visitType}
-                                            </span>
                                         </div>
 
-                                        <div className="p-4 flex">
-                                            <div className="flex-shrink-0 mr-4">
-                                                <img
-                                                    src={visitor.image}
-                                                    alt={visitor.name}
-                                                    className="h-32 w-32 object-cover rounded-lg"
-                                                />
+                                        <div className="p-4 bg-gray-50">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <div className="text-sm font-medium text-gray-700">Purpose:</div>
+                                                <div className="text-sm text-gray-900">{visitor.visitorReason || 'Not specified'}</div>
                                             </div>
-                                            <div className="flex-grow">
-                                                <div className="mb-2">
-                                                    <h4 className="text-sm font-medium text-gray-500">Purpose of Visit</h4>
-                                                    <p className="text-sm text-gray-900">{visitor.purpose}</p>
-                                                </div>
-                                                <div className="mb-2">
-                                                    <h4 className="text-sm font-medium text-gray-500">Visit Time</h4>
-                                                    <p className="text-sm text-gray-900">{formatDateTime(visitor.visitTime)}</p>
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-500">Meeting With</h4>
-                                                    <p className="text-sm text-gray-900">{visitor.hostName}</p>
-                                                    <p className="text-xs text-gray-500">{visitor.hostDepartment}</p>
-                                                </div>
-                                            </div>
-                                        </div>
 
-                                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-between">
-                                            <div>
-                                                <p className="text-xs text-gray-500">{visitor.phone}</p>
-                                                <p className="text-xs text-gray-500">{visitor.email}</p>
-                                            </div>
-                                            <div className="flex space-x-2">
-                                                <button
-                                                    onClick={() => handleReject(visitor.id)}
-                                                    className="px-3 py-1 border border-red-300 rounded text-sm font-medium text-red-700 bg-white hover:bg-red-50"
-                                                >
-                                                    <FaUserTimes className="inline mr-1" />
-                                                    Reject
-                                                </button>
-                                                <button
-                                                    onClick={() => handleApprove(visitor.id)}
-                                                    className="px-3 py-1 border border-transparent rounded text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-                                                >
-                                                    <FaUserCheck className="inline mr-1" />
-                                                    Approve
-                                                </button>
-                                            </div>
+                                            {/* Mobile-only expand button */}
+                                            <button
+                                                onClick={() => toggleExpand(visitor._id)}
+                                                className="w-full mt-2 flex items-center justify-center p-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                                            >
+                                                {expandedVisitor === visitor._id ? (
+                                                    <>
+                                                        <ChevronUp size={16} className="mr-1" />
+                                                        Hide details
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ChevronDown size={16} className="mr-1" />
+                                                        Show details
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            {expandedVisitor === visitor._id && (
+                                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <h4 className="font-medium text-gray-700 mb-2 flex items-center">
+                                                                <Calendar size={14} className="mr-1 text-gray-500" />
+                                                                Visit Details
+                                                            </h4>
+                                                            <ul className="space-y-2 text-sm">
+                                                                <li className="flex justify-between">
+                                                                    <span className="text-gray-600">Entry Time:</span>
+                                                                    <span>{formatDate(visitor.entryTime)}</span>
+                                                                </li>
+                                                                {visitor.exitTime && (
+                                                                    <li className="flex justify-between">
+                                                                        <span className="text-gray-600">Exit Time:</span>
+                                                                        <span>{formatDate(visitor.exitTime)}</span>
+                                                                    </li>
+                                                                )}
+                                                                <li className="flex justify-between">
+                                                                    <span className="text-gray-600">Created By:</span>
+                                                                    <span>{visitor.securityName || 'Security Staff'}</span>
+                                                                </li>
+                                                                {visitor.status !== 'pending' && (
+                                                                    <li className="flex justify-between">
+                                                                        <span className="text-gray-600">Status Updated:</span>
+                                                                        <span>{formatDate(visitor.updatedAt)}</span>
+                                                                    </li>
+                                                                )}
+                                                            </ul>
+                                                        </div>
+
+                                                        {visitor.status === 'pending' && (
+                                                            <div className="mt-3 pt-3 border-t border-gray-200">
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    <button
+                                                                        onClick={() => handleVisitorAction(visitor._id, 'approve')}
+                                                                        disabled={processingId === visitor._id}
+                                                                        className={`py-2 rounded-md text-sm font-medium text-white ${processingId === visitor._id ?
+                                                                                'bg-gray-400' :
+                                                                                'bg-green-600 hover:bg-green-700'
+                                                                            }`}
+                                                                    >
+                                                                        {processingId === visitor._id ?
+                                                                            <span className="flex items-center justify-center">
+                                                                                <Loader size={16} className="animate-spin mr-1" />
+                                                                                Processing
+                                                                            </span> :
+                                                                            <span className="flex items-center justify-center">
+                                                                                <Check size={16} className="mr-1" />
+                                                                                Approve
+                                                                            </span>
+                                                                        }
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleVisitorAction(visitor._id, 'reject')}
+                                                                        disabled={processingId === visitor._id}
+                                                                        className={`py-2 rounded-md text-sm font-medium text-white ${processingId === visitor._id ?
+                                                                                'bg-gray-400' :
+                                                                                'bg-red-600 hover:bg-red-700'
+                                                                            }`}
+                                                                    >
+                                                                        <span className="flex items-center justify-center">
+                                                                            <X size={16} className="mr-1" />
+                                                                            Reject
+                                                                        </span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        ) : (
-                            <div className="bg-white rounded-lg shadow p-8 text-center">
-                                <p className="text-gray-500 mb-4">No pending visitors match your filters.</p>
-                                {(searchTerm || dateRange.from || dateRange.to || visitorType !== 'all') && (
-                                    <button
-                                        onClick={resetFilters}
-                                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                                    >
-                                        Reset Filters
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
+                        </div>
 
-                {/* Visitor History */}
-                {activeTab === 'history' && (
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Visitor History</h2>
-
-                        {filteredVisitorHistory.length > 0 ? (
-                            <div className="bg-white rounded-lg shadow overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Visitor
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Purpose
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Visit Time
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Host
-                                                </th>
-                                                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Status
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {filteredVisitorHistory.map((visitor) => (
-                                                <tr key={visitor.id} className="hover:bg-gray-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <div className="flex-shrink-0 h-10 w-10">
+                        {/* Desktop View - Table Layout with Always-Visible Details */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Visitor
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Purpose
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Time
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredVisitors.map((visitor) => (
+                                        <React.Fragment key={visitor._id}>
+                                            <tr className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center">
+                                                        <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                                            {visitor.visitorImage ? (
                                                                 <img
+                                                                    src={visitor.visitorImage}
+                                                                    alt={visitor.visitorName}
                                                                     className="h-10 w-10 rounded-full object-cover"
-                                                                    src={visitor.image}
-                                                                    alt={visitor.name}
                                                                 />
+                                                            ) : (
+                                                                <User className="h-5 w-5 text-gray-500" />
+                                                            )}
+                                                        </div>
+                                                        <div className="ml-4">
+                                                            <div className="text-sm font-medium text-gray-900">
+                                                                {visitor.visitorName}
                                                             </div>
-                                                            <div className="ml-4">
-                                                                <div className="text-sm font-medium text-gray-900">{visitor.name}</div>
-                                                                <div className="text-sm text-gray-500">{visitor.company}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm text-gray-900">{visitor.visitorReason || 'Not specified'}</div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm text-gray-900">{formatDate(visitor.entryTime)}</div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {getStatusBadge(visitor.status)}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm font-medium">
+                                                    <div className="flex space-x-3">
+                                                        {/* Desktop view - only action buttons, no expand/collapse */}
+                                                        {visitor.status === 'pending' && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleVisitorAction(visitor._id, 'approve')}
+                                                                    disabled={processingId === visitor._id}
+                                                                    className="flex items-center text-green-600 hover:text-green-900 disabled:opacity-50 transition-colors"
+                                                                >
+                                                                    {processingId === visitor._id ?
+                                                                        <Loader size={16} className="animate-spin" /> :
+                                                                        <>
+                                                                            <Check size={16} className="mr-1" />
+                                                                            <span>Approve</span>
+                                                                        </>
+                                                                    }
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleVisitorAction(visitor._id, 'reject')}
+                                                                    disabled={processingId === visitor._id}
+                                                                    className="flex items-center text-red-600 hover:text-red-900 disabled:opacity-50 transition-colors"
+                                                                >
+                                                                    <X size={16} className="mr-1" />
+                                                                    <span>Reject</span>
+                                                                </button>
+                                                            </>
+                                                        )}
+
+                                                        {/* View button with Eye icon */}
+                                                        <button
+                                                            onClick={() => toggleExpand(visitor._id)}
+                                                            className="flex items-center text-blue-600 hover:text-blue-900 transition-colors"
+                                                        >
+                                                            <Eye size={16} className="mr-1" />
+                                                            <span>Details</span>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            {/* Always display additional details row when clicked in desktop */}
+                                            {expandedVisitor === visitor._id && (
+                                                <tr>
+                                                    <td colSpan="5" className="px-6 py-4 bg-gray-50">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            <div>
+                                                                <h4 className="font-medium text-gray-700 mb-2 flex items-center">
+                                                                    <Calendar size={16} className="mr-1 text-gray-500" />
+                                                                    Visit Details
+                                                                </h4>
+                                                                <ul className="space-y-2 text-sm">
+                                                                    <li className="flex items-start">
+                                                                        <span className="font-medium w-24 text-gray-600">Entry Time:</span>
+                                                                        <span>{formatDate(visitor.entryTime)}</span>
+                                                                    </li>
+                                                                    {visitor.exitTime && (
+                                                                        <li className="flex items-start">
+                                                                            <span className="font-medium w-24 text-gray-600">Exit Time:</span>
+                                                                            <span>{formatDate(visitor.exitTime)}</span>
+                                                                        </li>
+                                                                    )}
+                                                                    <li className="flex items-start">
+                                                                        <span className="font-medium w-24 text-gray-600">Created By:</span>
+                                                                        <span>{visitor.securityName || 'Security Staff'}</span>
+                                                                    </li>
+                                                                    {visitor.status !== 'pending' && (
+                                                                        <li className="flex items-start">
+                                                                            <span className="font-medium w-24 text-gray-600">Status Updated:</span>
+                                                                            <span>{formatDate(visitor.statusUpdatedAt)}</span>
+                                                                        </li>
+                                                                    )}
+                                                                </ul>
+                                                            </div>
+                                                            <div>
+
+                                                                {visitor.status === 'pending' && (
+                                                                    <div className="mt-4">
+                                                                        <h5 className="text-sm font-medium text-gray-700 mb-2">Actions:</h5>
+                                                                        <div className="flex space-x-2">
+                                                                            <button
+                                                                                onClick={() => handleVisitorAction(visitor._id, 'approve')}
+                                                                                disabled={processingId === visitor._id}
+                                                                                className={`px-4 py-2 rounded-md text-sm font-medium text-white ${processingId === visitor._id ?
+                                                                                        'bg-gray-400' :
+                                                                                        'bg-green-600 hover:bg-green-700'
+                                                                                    } transition-colors`}
+                                                                            >
+                                                                                {processingId === visitor._id ?
+                                                                                    <span className="flex items-center">
+                                                                                        <Loader size={16} className="animate-spin mr-2" />
+                                                                                        Processing...
+                                                                                    </span> :
+                                                                                    <span className="flex items-center">
+                                                                                        <Check size={16} className="mr-1" />
+                                                                                        Approve
+                                                                                    </span>
+                                                                                }
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleVisitorAction(visitor._id, 'reject')}
+                                                                                disabled={processingId === visitor._id}
+                                                                                className={`px-4 py-2 rounded-md text-sm font-medium text-white ${processingId === visitor._id ?
+                                                                                        'bg-gray-400' :
+                                                                                        'bg-red-600 hover:bg-red-700'
+                                                                                    } transition-colors`}
+                                                                            >
+                                                                                <span className="flex items-center">
+                                                                                    <X size={16} className="mr-1" />
+                                                                                    Reject
+                                                                                </span>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="text-sm text-gray-900">{visitor.purpose}</div>
-                                                        <div className="text-sm text-gray-500">{visitor.visitType}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="text-sm text-gray-900">{formatDateTime(visitor.visitTime)}</div>
-                                                        {visitor.exitTime && (
-                                                            <div className="text-sm text-gray-500">
-                                                                Exit: {formatDateTime(visitor.exitTime)}
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="text-sm text-gray-900">{visitor.hostName}</div>
-                                                        <div className="text-sm text-gray-500">{visitor.hostDepartment}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${visitor.status === 'Approved'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : 'bg-red-100 text-red-800'
-                                                            }`}>
-                                                            {visitor.status}
-                                                        </span>
-                                                    </td>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="bg-white rounded-lg shadow p-8 text-center">
-                                <p className="text-gray-500 mb-4">No visitor history matches your filters.</p>
-                                {(searchTerm || dateRange.from || dateRange.to || visitorType !== 'all') && (
-                                    <button
-                                        onClick={resetFilters}
-                                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                                    >
-                                        Reset Filters
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                                            )}
+                                        </React.Fragment>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 )}
             </div>
         </div>
     );
-}
+};
+
+export default VisitorEntry;

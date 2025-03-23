@@ -14,8 +14,19 @@ export default async function handler(req, res) {
 
       const query = { societyId };
       if (blockName) query.blockName = blockName;
-      if (floorNumber) query.floorNumber = floorNumber;
-      if (flatNumber) query.flatNumber = flatNumber;
+      // Convert floorNumber to integer if it exists
+      if (floorNumber) query.floorNumber = parseInt(floorNumber, 10);
+      
+      // Extract just the numeric part from flatNumber (e.g., "B-101" to "101")
+      if (flatNumber) {
+        // Use regex to match only numbers in the flatNumber
+        const numericPart = flatNumber.match(/\d+/g);
+        if (numericPart && numericPart.length > 0) {
+          query.flatNumber = numericPart[0]; // Use the first matched number
+        } else {
+          query.flatNumber = flatNumber; // Fallback to original if no numbers found
+        }
+      }
 
       const visitors = await Visitor.find(query).sort({ entryTime: -1 });
 
