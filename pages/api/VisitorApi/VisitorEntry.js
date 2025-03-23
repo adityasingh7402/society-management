@@ -70,7 +70,7 @@ export default async function handler(req, res) {
   } else {
     res.status(405).json({ 
       success: false,
-      error: 'Method Not Allowed' 
+      error: 'Method Not Allowed'  
     });
   }
 }

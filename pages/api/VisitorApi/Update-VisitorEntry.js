@@ -56,6 +56,7 @@ export default async function handler(req, res) {
         });
         
         const imageUrl = result.secure_url;
+        console.log(imageUrl)
         
         // Connect to the database
         await connectToDatabase();
