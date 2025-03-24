@@ -102,7 +102,7 @@ const ApproveVisitor = () => {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          approvalStatus: status,
+          status: status,
           approvedBy: securityDetails._id,
           // No need to include approvedAt as we'll use updatedAt from DB
         }),
@@ -116,7 +116,7 @@ const ApproveVisitor = () => {
       setVisitors(prevVisitors => 
         prevVisitors.map(visitor => 
           visitor._id === visitorId 
-            ? { ...visitor, approvalStatus: status, approvedBy: securityDetails._id, updatedAt: new Date().toISOString() } 
+            ? { ...visitor, status: status, approvedBy: securityDetails._id, updatedAt: new Date().toISOString() } 
             : visitor
         )
       );
@@ -133,7 +133,7 @@ const ApproveVisitor = () => {
   // Filter visitors based on status - updated for 'approve'/'reject'
   const filteredVisitors = filterStatus === 'all' 
     ? visitors 
-    : visitors.filter(visitor => visitor.approvalStatus === filterStatus);
+    : visitors.filter(visitor => visitor.status === filterStatus);
 
   // Format date and time
   const formatDateTime = (dateTimeStr) => {
@@ -262,9 +262,9 @@ const ApproveVisitor = () => {
             <div 
               key={visitor._id} 
               className={`bg-white rounded-lg shadow-md overflow-hidden border-l-4 ${
-                visitor.approvalStatus === 'approve' 
+                visitor.status === 'approve' 
                   ? 'border-green-500' 
-                  : visitor.approvalStatus === 'reject' 
+                  : visitor.status === 'reject' 
                     ? 'border-red-500' 
                     : 'border-yellow-500'
               }`}
@@ -275,15 +275,15 @@ const ApproveVisitor = () => {
                     <h3 className="text-lg font-medium text-gray-800 flex items-center">
                       <User size={18} className="mr-2 text-blue-600" />
                       {visitor.visitorName}
-                      {visitor.approvalStatus && (
+                      {visitor.status && (
                         <span className={`ml-2 text-xs px-2 py-1 rounded-full ${
-                          visitor.approvalStatus === 'approve' 
+                          visitor.status === 'approve' 
                             ? 'bg-green-100 text-green-800' 
-                            : visitor.approvalStatus === 'reject' 
+                            : visitor.status === 'reject' 
                               ? 'bg-red-100 text-red-800' 
                               : 'bg-yellow-100 text-yellow-800'
                         }`}>
-                          {getStatusLabel(visitor.approvalStatus)}
+                          {getStatusLabel(visitor.status)}
                         </span>
                       )}
                     </h3>
@@ -316,12 +316,12 @@ const ApproveVisitor = () => {
                   {visitor.visitorImage && (
                     <div className="ml-4 w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                       <img 
-                        src={`/api/VisitorApi/get-visitor-image/${visitor.visitorImage}`} 
+                        src={visitor.visitorImage} 
                         alt={visitor.visitorName} 
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.target.onerror = null;
-                          e.target.src = '/placeholder-person.png'; // Fallback image
+                          e.target.src = '/profile.png'; // Fallback image
                         }}
                       />
                     </div>
@@ -329,7 +329,7 @@ const ApproveVisitor = () => {
                 </div>
                 
                 {/* Approval actions - updated for 'approve'/'reject' */}
-                {visitor.approvalStatus === 'pending' && (
+                {/* {visitor.status === 'pending' && (
                   <div className="mt-4 flex space-x-2">
                     <button
                       onClick={() => handleApprovalStatus(visitor._id, 'approve')}
@@ -344,14 +344,14 @@ const ApproveVisitor = () => {
                       <X size={16} className="mr-1" /> Reject
                     </button>
                   </div>
-                )}
+                )} */}
                 
                 {/* Status information - now using updatedAt instead of approvedAt */}
-                {visitor.approvalStatus !== 'pending' && visitor.updatedAt && (
+                {visitor.status !== 'pending' && visitor.updatedAt && (
                   <div className={`mt-3 text-xs p-2 rounded-md ${
-                    visitor.approvalStatus === 'approve' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                    visitor.status === 'approve' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
                   }`}>
-                    <span className="font-medium">{visitor.approvalStatus === 'approve' ? 'Approved' : 'Rejected'}</span> on {formatDateTime(visitor.updatedAt)}
+                    <span className="font-medium">{visitor.status === 'approve' ? 'Approved' : 'Rejected'}</span> on {formatDateTime(visitor.updatedAt)}
                   </div>
                 )}
               </div>
