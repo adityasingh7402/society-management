@@ -64,7 +64,7 @@ const VisitorEntry = () => {
             // Extract flat details
             const { societyId } = resident;
             const { blockName, flatNumber } = resident.flatDetails;
-            const floorNumber = resident.flatDetails.floorIndex + 1; // Adjust floor index as needed
+            const floorNumber = resident.flatDetails.floorIndex; // Adjust floor index as needed
 
             // Fetch visitors for this resident's flat
             const response = await fetch(`/api/VisitorApi/Get-All-Visitors?societyId=${societyId}&blockName=${blockName}&floorNumber=${floorNumber}&flatNumber=${flatNumber}`);

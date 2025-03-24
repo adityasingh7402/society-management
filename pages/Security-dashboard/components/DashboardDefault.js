@@ -10,7 +10,7 @@ const SecurityDashboardDefault = () => {
   const togglePopup = () => {
     setIsPopupOpen(!isPopupOpen);
   };
-
+ 
   const menuItems = [
     { icon: UserCircle, label: 'Profile', href: '/Security-dashboard/components/Profile' },
     { icon: ClipboardList, label: 'Visitor Entry', href: '/Security-dashboard/components/VisitorEntry' },
