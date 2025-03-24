@@ -31,6 +31,7 @@ const VisitorEntry = () => {
   const [structuredResidents, setStructuredResidents] = useState({});
   const [selectedBlock, setSelectedBlock] = useState('');
   const [selectedFloor, setSelectedFloor] = useState('');
+  const [structureType, setStructureType] = useState('Block');
   const [selectedFlat, setSelectedFlat] = useState('');
   const [selectedResident, setSelectedResident] = useState(null);
   const [activeStep, setActiveStep] = useState(1);
@@ -107,6 +108,14 @@ const VisitorEntry = () => {
   const organizeResidentsByStructure = (residents) => {
     const structure = {};
 
+    if (residents.length > 0) {
+      // Look for the first resident with flatDetails
+      const residentWithFlatDetails = residents.find(r => r.flatDetails && r.flatDetails.structureType);
+      if (residentWithFlatDetails && residentWithFlatDetails.flatDetails.structureType) {
+        setStructureType(residentWithFlatDetails.flatDetails.structureType);
+      }
+      // If none found, keep the default 'Block'
+    }
     residents.forEach(resident => {
       if (!resident.flatDetails || !resident.flatDetails.flatNumber) return;
 
@@ -444,7 +453,7 @@ const VisitorEntry = () => {
 
           {/* Block Selection */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Block</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">{structureType}</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Layers size={18} className="text-gray-500" />
@@ -452,13 +461,13 @@ const VisitorEntry = () => {
               <select
                 value={selectedBlock}
                 onChange={handleBlockChange}
-                className="block w-full pl-10 p-2.5 border border-gray-300 rounded-md bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full capitalize pl-10 p-2.5 border border-gray-300 rounded-md bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 required
               >
-                <option value="">Select Block</option>
+                <option value="">Select {structureType}</option>
                 {Object.keys(structuredResidents).sort().map((block) => (
                   <option key={block} value={block}>
-                    Block {block}
+                    {structureType} {block}
                   </option>
                 ))}
               </select>

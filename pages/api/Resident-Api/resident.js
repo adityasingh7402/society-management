@@ -7,26 +7,29 @@ export default async function handler(req, res) {
     const { societyId, name, phone, email, street, city, state, pinCode } = req.body;
 
     // Step 1: Input Validation
-    if (!societyId || !name || !phone || !email || !street || !city || !state) {
-      return res.status(400).json({ message: 'All fields are required' });
+    if (!societyId || !name || !phone || !email) {
+      return res.status(400).json({ message: 'Required fields are missing' });
     }
 
-    // Step 2: Connect to the database
-    await connectToDatabase();
-
     try {
+      // Step 2: Connect to the database
+      await connectToDatabase();
+
       // Step 3: Find the society by societyId
       const society = await Society.findOne({ societyId: societyId });
-
+      
       if (!society) {
         return res.status(400).json({ message: 'Society ID not found' });
       }
 
-      // Step 4: Check if a resident with the same phone number already exists
-      const existingResident = await Resident.findOne({ phone });
+      // Step 4: Check if a resident with the same phone number or email already exists
+      const existingResident = await Resident.findOne({ 
+        $or: [{ phone }, { email }]
+      });
 
       if (existingResident) {
-        return res.status(400).json({ message: 'Resident with this Mobile already exists' });
+        const duplicateField = existingResident.phone === phone ? 'Mobile' : 'Email';
+        return res.status(400).json({ message: `Resident with this ${duplicateField} already exists` });
       }
 
       // Step 5: Create the new resident document with structured address
@@ -35,30 +38,29 @@ export default async function handler(req, res) {
         phone,
         email,
         societyCode: society.societyId,
-        societyId: society._id, // Link to the society by _id
-        societyName: society.societyName, // Store the society name
+        societyId: society._id,
+        societyName: society.societyName,
         address: {
-          societyName: society.societyName, // Automatically set from the found society
-          street,
-          city,
-          state,
-          pinCode
+          societyName: society.societyName,
+          street: street || '',
+          city: city || '',
+          state: state || '',
+          pinCode: pinCode || ''
         }
       });
 
-      await newResident.save();
+      const savedResident = await newResident.save();
 
-      // Step 6: Add the new resident's ID to the society's resident list
-      if (!Array.isArray(society.residents)) {
-        society.residents = []; // Ensure residents is an array
-      }
-      society.residents.push(newResident._id);
-      await society.save();
+      // Step 6: Update the society's resident list using findByIdAndUpdate
+      await Society.findByIdAndUpdate(
+        society._id,
+        { $push: { residents: savedResident._id } },
+        { runValidators: false }
+      );
 
       // Step 7: Respond with success message
       res.status(200).json({ message: 'Resident signed up successfully!' });
     } catch (error) {
-      console.error('Error in signup:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   } else {

@@ -14,7 +14,7 @@ const SecurityDashboardDefault = () => {
   const menuItems = [
     { icon: UserCircle, label: 'Profile', href: '/Security-dashboard/components/Profile' },
     { icon: ClipboardList, label: 'Visitor Entry', href: '/Security-dashboard/components/VisitorEntry' },
-    { icon: Wrench, label: 'Visitor Log', href: '/Security-dashboard/components/VisitorLog' },
+    { icon: Wrench, label: 'Approve/Visitor', href: '/Security-dashboard/components/ApproveVisitor' },
     { icon: Siren, label: 'Emergency', href: '/Security-dashboard/components/EmergencyAlerts' },
     { icon: Bell, label: 'Incident Log', href: '/Security-dashboard/components/IncidentLog' },
     { icon: PieChart, label: 'Delivery Log', href: '/Security-dashboard/components/DeliveryLog' },

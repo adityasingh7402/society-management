@@ -17,20 +17,24 @@ export default async function handler(req, res) {
 
     // Find the society by ID
     const society = await Society.findOne({ societyId });
-    
-    console.log(society)
+
     if (!society) {
       return res.status(404).json({ error: 'Society not found.' });
     }
 
-    // If apartmentStructure does not exist, return an empty array
-    const apartmentStructure = society.apartmentStructure || [];
+    // If apartmentStructure does not exist, return an empty object
+    const apartmentStructure = society.apartmentStructure || { structures: [] };
+
+    // Extract structureType and customStructureName from the first block (if it exists)
+    const firstBlock = apartmentStructure.structures[0] || {};
+    const structureType = firstBlock.structureType || 'block';
+    const customStructureName = firstBlock.customStructureName || '';
 
     return res.status(200).json({
       success: true,
       data: apartmentStructure,
-      structureType: society.structureType || 'block',
-      customStructureName: society.customStructureName || ''
+      structureType,
+      customStructureName,
     });
   } catch (error) {
     console.error('Error fetching apartment structure:', error);

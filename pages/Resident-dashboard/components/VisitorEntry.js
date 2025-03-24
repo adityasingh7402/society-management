@@ -232,9 +232,9 @@ const VisitorEntry = () => {
                         </div>
                         <div>
                             <h2 className="font-medium text-lg">{residentDetails.name}</h2>
-                            <p className="text-gray-600 text-sm">
-                                Block {residentDetails.flatDetails.blockName},
-                                Floor {residentDetails.flatDetails.floorIndex + 1},
+                            <p className="text-gray-600 text-sm capitalize">
+                                {residentDetails.flatDetails.structureType} {residentDetails.flatDetails.blockName},
+                                Floor {residentDetails.flatDetails.floorIndex},
                                 Flat {residentDetails.flatDetails.flatNumber}
                             </p>
                         </div>

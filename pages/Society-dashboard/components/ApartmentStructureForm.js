@@ -7,6 +7,7 @@ export default function ApartmentStructureForm() {
   const [blocks, setBlocks] = useState([{ blockName: '', floors: [{ flats: [{ flatNumber: '', residents: [] }] }], isOpen: true }]);
   const [loading, setLoading] = useState(true);
   const [structureType, setStructureType] = useState('block');
+  const [structure, setStructure] = useState({});
   const [customStructureName, setCustomStructureName] = useState('');
   const router = useRouter();
 
@@ -60,25 +61,24 @@ export default function ApartmentStructureForm() {
         const societyId = societyData.societyId;
 
         // Fetch apartment structure using societyId
-        const structureResponse = await fetch(`/api/Society-Api/update-apartment-structure?societyId=${societyId}`);
+        const structureResponse = await fetch(`/api/Society-Api/get-apartment-structure?societyId=${societyId}`);
         if (!structureResponse.ok) {
           throw new Error('Failed to fetch apartment structure');
         }
 
         const structureData = await structureResponse.json();
-        
-        // Set structure type and custom name if available
-        if (structureData.data.structureType) {
-          setStructureType(structureData.data.structureType);
-        }
-        
+        setStructure(structureData);
 
-        if (structureData.data.customStructureName) {
-          setCustomStructureName(structureData.data.customStructureName);
+        // Set structure type and custom name if available
+        if (structureData.structureType) {
+          setStructureType(structureData.structureType);
         }
-        
+        if (structureData.customStructureName) {
+          setCustomStructureName(structureData.customStructureName);
+        }
+
         // Add isOpen property to each block and floor for dropdown functionality
-        const blocksWithOpenState = (structureData.data.apartmentStructure || [{ blockName: '', floors: [{ flats: [{ flatNumber: '', residents: [] }] }] }])
+        const blocksWithOpenState = (structureData.data.structures || [{ blockName: '', floors: [{ flats: [{ flatNumber: '', residents: [] }] }] }])
           .map(block => ({
             ...block,
             isOpen: true,
@@ -87,8 +87,12 @@ export default function ApartmentStructureForm() {
               isOpen: true
             }))
           }));
-        
+
+        console.log('Transformed Blocks:', blocksWithOpenState);
         setBlocks(blocksWithOpenState);
+
+        setBlocks(blocksWithOpenState);
+        console.log('Blocks after setting state:', blocksWithOpenState); // Log here
       } catch (error) {
         console.error('Error:', error);
       } finally {
@@ -99,7 +103,8 @@ export default function ApartmentStructureForm() {
     fetchSocietyAndStructure();
   }, [router]);
 
-  console.log(structureType)
+  console.log(blocks)
+
   // Toggle block dropdown
   const toggleBlock = (blockIndex) => {
     const updatedBlocks = [...blocks];
@@ -183,6 +188,8 @@ export default function ApartmentStructureForm() {
       // Clean up the blocks data before sending (remove isOpen property)
       const cleanedBlocks = blocks.map(block => ({
         blockName: block.blockName,
+        structureType: structureType,
+        customStructureName: structureType === 'custom' ? customStructureName : '',
         floors: block.floors.map(floor => ({
           flats: floor.flats
         }))
@@ -195,9 +202,9 @@ export default function ApartmentStructureForm() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
-          societyId, 
-          apartmentStructure: cleanedBlocks,
+        body: JSON.stringify({
+          societyId,
+          apartmentStructure: { structures: cleanedBlocks },
           structureType,
           customStructureName: structureType === 'custom' ? customStructureName : ''
         }),
@@ -224,13 +231,13 @@ export default function ApartmentStructureForm() {
     if (!fullFlatNumber) {
       return '';
     }
-    
+
     const blockName = blocks[blockIndex]?.blockName;
     if (blockName && fullFlatNumber === `${blockName}-`) {
       return '';
     }
-    
-    return blockName && fullFlatNumber.startsWith(`${blockName}-`) 
+
+    return blockName && fullFlatNumber.startsWith(`${blockName}-`)
       ? fullFlatNumber.substring(blockName.length + 1)
       : fullFlatNumber;
   };
@@ -239,14 +246,14 @@ export default function ApartmentStructureForm() {
   const updateFlatNumber = (blockIndex, floorIndex, flatIndex, value) => {
     const updatedBlocks = [...blocks];
     const blockName = updatedBlocks[blockIndex].blockName;
-    
+
     if (value === '') {
       updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber = '';
     } else {
-      updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber = 
+      updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber =
         blockName ? `${blockName}-${value}` : value;
     }
-    
+
     setBlocks(updatedBlocks);
   };
 
@@ -259,14 +266,14 @@ export default function ApartmentStructureForm() {
       <h1 className="text-2xl font-bold text-center mb-6 text-gray-800 flex items-center justify-center">
         <Building className="mr-2" size={28} /> Apartment Structure Management
       </h1>
-      
+
       {/* Structure Type Selection */}
       <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
         <div className="flex items-center mb-2">
           <Settings className="mr-2" size={20} />
           <h2 className="text-lg font-semibold">Structure Configuration</h2>
         </div>
-        
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex items-center space-x-2">
             <input
@@ -280,7 +287,7 @@ export default function ApartmentStructureForm() {
             />
             <label htmlFor="structure-block" className="text-gray-700">Blocks</label>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <input
               type="radio"
@@ -293,7 +300,7 @@ export default function ApartmentStructureForm() {
             />
             <label htmlFor="structure-wing" className="text-gray-700">Wings</label>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <input
               type="radio"
@@ -306,7 +313,7 @@ export default function ApartmentStructureForm() {
             />
             <label htmlFor="structure-tower" className="text-gray-700">Towers</label>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <input
               type="radio"
@@ -320,7 +327,7 @@ export default function ApartmentStructureForm() {
             <label htmlFor="structure-custom" className="text-gray-700">Custom</label>
           </div>
         </div>
-        
+
         {structureType === 'custom' && (
           <div className="mt-3">
             <input
@@ -333,11 +340,11 @@ export default function ApartmentStructureForm() {
           </div>
         )}
       </div>
-      
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {blocks.map((block, blockIndex) => (
           <div key={blockIndex} className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden">
-            <div 
+            <div
               className="bg-gradient-to-r from-blue-500 to-blue-700 p-4 flex justify-between items-center cursor-pointer"
               onClick={() => toggleBlock(blockIndex)}
             >
@@ -356,7 +363,7 @@ export default function ApartmentStructureForm() {
                   className="bg-white text-gray-800 p-2 rounded w-full max-w-xs"
                 />
               </div>
-              
+
               <div className="flex items-center">
                 <button
                   type="button"
@@ -386,7 +393,7 @@ export default function ApartmentStructureForm() {
 
                 {block.floors.map((floor, floorIndex) => (
                   <div key={floorIndex} className="mb-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                    <div 
+                    <div
                       className="bg-gradient-to-r from-purple-400 to-purple-600 p-3 flex justify-between items-center cursor-pointer"
                       onClick={() => toggleFloor(blockIndex, floorIndex)}
                     >
@@ -394,7 +401,7 @@ export default function ApartmentStructureForm() {
                         <Layers className="mr-2" size={18} />
                         Floor {floorIndex + 1}
                       </div>
-                      
+
                       <div className="flex items-center">
                         <button
                           type="button"
@@ -443,18 +450,18 @@ export default function ApartmentStructureForm() {
                                   onChange={(e) => updateFlatNumber(blockIndex, floorIndex, flatIndex, e.target.value)}
                                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all"
                                 />
-                                
+
                                 <div className="mt-3 flex flex-col">
                                   <div className="text-xs text-gray-500 mb-2">
                                     Full ID: {flat.flatNumber || 'Not set'}
                                   </div>
-                                  
+
                                   {isFlatOccupied(flat) ? (
                                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                       Occupied
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                       Vacant
                                     </span>
                                   )}
@@ -472,22 +479,21 @@ export default function ApartmentStructureForm() {
           </div>
         ))}
 
-        <div className="flex flex-wrap gap-3 mt-6">
+        <div className="flex justify-between items-center">
           <button
             type="button"
             onClick={addBlock}
-            className="flex items-center bg-pink-500 hover:bg-pink-600 text-white py-2 px-4 rounded-md transition-all shadow-md"
+            className="flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition-all"
           >
-            {getStructureIcon()}
             <Plus size={16} className="mr-1" />
             Add {getStructureLabel()}
           </button>
-          
-          <button 
-            type="submit" 
-            className="flex items-center bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md transition-all shadow-md"
+
+          <button
+            type="submit"
+            className="flex items-center bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition-all"
           >
-            <Save className="mr-1" size={16} />
+            <Save size={16} className="mr-1" />
             Save Structure
           </button>
         </div>

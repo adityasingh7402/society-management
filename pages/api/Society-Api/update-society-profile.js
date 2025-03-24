@@ -1,5 +1,7 @@
-import connectToDatabase from '../../../lib/mongodb'; // Import the DB connection helper
-import Society from '../../../models/Society'; // Import your Society model
+import connectToDatabase from '../../../lib/mongodb';
+import Society from '../../../models/Society';
+import Resident from '../../../models/Resident';
+import SecurityGuard from '../../../models/Security';
 
 export default async function handler(req, res) {
   await connectToDatabase(); // Ensure the database connection is established
@@ -34,7 +36,6 @@ export default async function handler(req, res) {
       description,
     } = req.body;
 
-    // console.log(societyName)
     if (!societyId) {
       return res.status(400).json({ error: 'Society ID is required.' });
     }
@@ -61,9 +62,39 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Society not found.' });
     }
 
+    // Update all residents' addresses that belong to this society
+    await Resident.updateMany(
+      { societyId: updatedSociety._id },
+      {
+        $set: {
+          societyName: societyName,
+          'address.societyName': societyName,
+          'address.street': street,
+          'address.city': city,
+          'address.state': state,
+          'address.pinCode': pinCode
+        }
+      }
+    );
+
+    // Update all security guards' addresses that belong to this society
+    await SecurityGuard.updateMany(
+      { societyId: updatedSociety._id },
+      {
+        $set: {
+          societyName: societyName,
+          'address.societyName': societyName,
+          'address.street': street,
+          'address.city': city,
+          'address.state': state,
+          'address.pinCode': pinCode
+        }
+      }
+    );
+
     return res.status(200).json({
       success: true,
-      message: 'Society profile updated successfully!',
+      message: 'Society profile and all associated addresses updated successfully!',
       data: updatedSociety,
     });
   } catch (error) {

@@ -27,6 +27,7 @@ export default function MaintenanceBills() {
   const [selectedResident, setSelectedResident] = useState(null);
   const [billType, setBillType] = useState('');
   const [description, setDescription] = useState('');
+  const [structureType, setStructureType] = useState('Block');
   const [amount, setAmount] = useState('');
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
@@ -110,6 +111,15 @@ export default function MaintenanceBills() {
     const blockOpenState = {};
     const floorOpenState = {};
     const flatOpenState = {};
+
+    if (residents.length > 0) {
+      // Look for the first resident with flatDetails
+      const residentWithFlatDetails = residents.find(r => r.flatDetails && r.flatDetails.structureType);
+      if (residentWithFlatDetails && residentWithFlatDetails.flatDetails.structureType) {
+        setStructureType(residentWithFlatDetails.flatDetails.structureType);
+      }
+      // If none found, keep the default 'Block'
+    }
 
     residents.forEach(resident => {
       if (!resident.flatDetails || !resident.flatDetails.flatNumber) return;
@@ -379,7 +389,7 @@ export default function MaintenanceBills() {
                         className="flex justify-between items-center p-3 bg-gray-50 cursor-pointer"
                         onClick={() => toggleBlock(blockName)}
                       >
-                        <div className="font-medium">Block {blockName}</div>
+                        <div className="font-medium capitalize">{structureType} {blockName}</div>
                         <div>{openBlocks[blockName] ? '−' : '+'}</div>
                       </div>
 
@@ -481,10 +491,6 @@ export default function MaintenanceBills() {
                         <option value="Security">Security</option>
                         <option value="Cleaning">Cleaning</option>
                         <option value="Parking">Parking</option>
-                        <option value="Maintenance">General Maintenance</option>
-                        <option value="Electricity">Common Electricity</option>
-                        <option value="Water">Water</option>
-                        <option value="Repairs">Repairs</option>
                         <option value="Other">Other</option>
                       </select>
                     </div>

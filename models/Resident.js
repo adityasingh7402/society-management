@@ -42,7 +42,8 @@ const residentSchema = new mongoose.Schema({
   flatDetails: {
     blockName: { type: String },
     floorIndex: { type: Number },
-    flatNumber: { type: String }
+    flatNumber: { type: String },
+    structureType: { type: String }
   }
 });
 

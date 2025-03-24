@@ -9,7 +9,7 @@ export default function FlatSelection({ residentId }) {
     const [selectedFloor, setSelectedFloor] = useState("");
     const [selectedFlat, setSelectedFlat] = useState("");
     const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
+    const [submitting, setSubmitting] = useState(false); 
     const [residentDetails, setResidentDetails] = useState({});
     const [structureType, setStructureType] = useState('block');
     const [customStructureName, setCustomStructureName] = useState('');
@@ -77,7 +77,6 @@ export default function FlatSelection({ residentId }) {
     }, [router]);
 
     // Fetch apartment structure when resident details are available
-    // Fetch apartment structure when resident details are available
     useEffect(() => {
         if (!residentDetails.societyCode) return;
 
@@ -88,22 +87,29 @@ export default function FlatSelection({ residentId }) {
                 if (!response.ok) {
                     throw new Error("Failed to fetch apartment structure");
                 }
+                
                 const structureData = await response.json();
-
-                // For the data directly, since it's the apartment structure array
-                setBlocks(structureData.data || []);
-
-                // If the society has structure type data, it should be in a parent property
-                // You need to adjust your API to return this data
-                if (structureData.structureType) {
-                    setStructureType(structureData.structureType);
+                
+                // The API now returns the complete structure data in the data property
+                // And the data property contains the structures array
+                if (structureData.success && structureData.data) {
+                    // Access the structures array from the apartment structure
+                    setBlocks(structureData.data.structures || []);
+                    
+                    // Set structure type from the API response
+                    if (structureData.structureType) {
+                        setStructureType(structureData.structureType);
+                    }
+                    
+                    // Set custom structure name from the API response
+                    if (structureData.customStructureName) {
+                        setCustomStructureName(structureData.customStructureName);
+                    }
+                } else {
+                    // Handle case when data is not available
+                    console.error("Apartment structure data is invalid:", structureData);
+                    setBlocks([]);
                 }
-
-                // Same for custom structure name
-                if (structureData.customStructureName) {
-                    setCustomStructureName(structureData.customStructureName);
-                }
-
             } catch (error) {
                 console.error("Error fetching apartment structure:", error);
             } finally {
@@ -113,6 +119,7 @@ export default function FlatSelection({ residentId }) {
 
         fetchApartmentStructure();
     }, [residentDetails.societyCode]);
+    
     // Auto-hide notification after 5 seconds
     useEffect(() => {
         let timer;

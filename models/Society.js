@@ -8,16 +8,31 @@ const FlatSchema = new mongoose.Schema({
 
 // Define the schema for a floor
 const FloorSchema = new mongoose.Schema({
+  floorNumber: { type: String, required: true }, // Floor number or identifier
   flats: [FlatSchema], // Array of flats on the floor
 });
 
 // Define the schema for a block/wing/tower
 const BlockSchema = new mongoose.Schema({
   blockName: { type: String, required: true }, // Block name (e.g., A, B, C)
+  structureType: { 
+    type: String, 
+    enum: ['block', 'wing', 'tower', 'custom'],
+    default: 'block'
+  },
+  customStructureName: { 
+    type: String,
+    default: ''
+  },
   floors: [FloorSchema], // Array of floors in the block
 });
 
-// Update Society Schema to include structure type preferences
+// Define schema for apartment structure that includes structure type information
+const ApartmentStructureSchema = new mongoose.Schema({
+  structures: [BlockSchema], // Array of blocks/wings/towers
+});
+
+// Update Society Schema with the new apartment structure schema
 const SocietySchema = new mongoose.Schema({
   societyId: {
     type: String,
@@ -29,17 +44,6 @@ const SocietySchema = new mongoose.Schema({
   managerName: { type: String, required: true },
   managerPhone: { type: String, required: true, unique: true },
   managerEmail: { type: String, required: true },
-  
-  // Structure naming preference
-  structureType: { 
-    type: String, 
-    enum: ['block', 'wing', 'tower', 'custom'],
-    default: 'block'
-  },
-  customStructureName: { 
-    type: String,
-    default: ''
-  },
   
   // Address Fields
   street: { type: String, required: true },
@@ -73,8 +77,8 @@ const SocietySchema = new mongoose.Schema({
   emergencyNotifications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'EmergencyNotification' }],
   emergencyIncidents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'EmergencyIncident' }],
 
-  // Apartment Structure
-  apartmentStructure: [BlockSchema], // Array of blocks in the apartment structure
+  // Apartment Structure - now using the new schema that includes structure type
+  apartmentStructure: ApartmentStructureSchema,
 }, { timestamps: true });
 
 export default mongoose.models.Society || mongoose.model('Society', SocietySchema);

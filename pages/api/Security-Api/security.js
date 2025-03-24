@@ -11,10 +11,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Step 2: Connect to the database
-    await connectToDatabase();
-
     try {
+      // Step 2: Connect to the database
+      await connectToDatabase();
+
       // Step 3: Find the society by societyId
       const society = await Society.findOne({ societyId: societyId });
 
@@ -44,23 +44,23 @@ export default async function handler(req, res) {
           street,
           city,
           state,
-          pinCode
+          pinCode: pinCode || ''
         }
       });
 
       await newSecurityGuard.save();
 
-      // Step 6: Add the new security guard's ID to the society's security list
-      if (!Array.isArray(society.security)) {
-        society.security = []; // Ensure security is an array
-      }
-      society.security.push(newSecurityGuard._id);
-      await society.save();
+      // Step 6: Update the society's security list using findByIdAndUpdate
+      // This avoids triggering validation on the entire society document
+      await Society.findByIdAndUpdate(
+        society._id,
+        { $push: { security: newSecurityGuard._id } },
+        { runValidators: false }
+      );
 
       // Step 7: Respond with success message
       res.status(200).json({ message: 'Security guard signed up successfully!' });
     } catch (error) {
-      console.error('Error in signup:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   } else {

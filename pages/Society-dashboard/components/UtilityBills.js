@@ -27,6 +27,7 @@ export default function UtilityBills() {
   const [selectedResident, setSelectedResident] = useState(null);
   const [utilityType, setUtilityType] = useState('');
   const [description, setDescription] = useState('');
+  const [structureType, setStructureType] = useState('Block');
   const [unitUsage, setUnitUsage] = useState('');
   const [perUnitRate, setPerUnitRate] = useState('');
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
@@ -117,6 +118,14 @@ export default function UtilityBills() {
     const floorOpenState = {};
     const flatOpenState = {};
 
+    if (residents.length > 0) {
+      // Look for the first resident with flatDetails
+      const residentWithFlatDetails = residents.find(r => r.flatDetails && r.flatDetails.structureType);
+      if (residentWithFlatDetails && residentWithFlatDetails.flatDetails.structureType) {
+        setStructureType(residentWithFlatDetails.flatDetails.structureType);
+      }
+      // If none found, keep the default 'Block'
+    }
     residents.forEach(resident => {
       if (!resident.flatDetails || !resident.flatDetails.flatNumber) return;
 
@@ -321,7 +330,7 @@ export default function UtilityBills() {
         },
         body: JSON.stringify({ status: 'Paid' }),
       });
- 
+
       if (response.ok) {
         alert('Bill marked as paid');
 
@@ -465,7 +474,7 @@ export default function UtilityBills() {
                         className="flex justify-between items-center p-3 bg-gray-50 cursor-pointer"
                         onClick={() => toggleBlock(blockName)}
                       >
-                        <div className="font-medium">Block {blockName}</div>
+                        <div className="font-medium capitalize">{structureType} {blockName}</div>
                         <div>{openBlocks[blockName] ? '−' : '+'}</div>
                       </div>
 
@@ -974,26 +983,40 @@ export default function UtilityBills() {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <p className="text-sm text-gray-500">Bill ID</p>
-                      <p className="font-medium">{viewBillData._id.substring(viewBillData._id.length - 6).toUpperCase()}</p>
+                      <p className="font-medium">
+                        {viewBillData && viewBillData._id
+                          ? viewBillData._id.substring(viewBillData._id.length - 6).toUpperCase()
+                          : 'N/A'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Utility Type</p>
-                      <p className="font-medium">{viewBillData.utilityType}</p>
+                      <p className="font-medium">{viewBillData?.utilityType || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Issue Date</p>
-                      <p className="font-medium">{new Date(viewBillData.issueDate).toLocaleDateString()}</p>
+                      <p className="font-medium">
+                        {viewBillData?.issueDate
+                          ? new Date(viewBillData.issueDate).toLocaleDateString()
+                          : 'N/A'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Due Date</p>
-                      <p className="font-medium">{new Date(viewBillData.dueDate).toLocaleDateString()}</p>
+                      <p className="font-medium">
+                        {viewBillData?.dueDate
+                          ? new Date(viewBillData.dueDate).toLocaleDateString()
+                          : 'N/A'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Status</p>
-                      <p className={`font-medium ${viewBillData.status === 'Paid' ? 'text-green-600' :
-                        viewBillData.status === 'Overdue' ? 'text-red-600' :
+                      <p className={`font-medium ${viewBillData?.status === 'Paid' ? 'text-green-600' :
+                        viewBillData?.status === 'Overdue' ? 'text-red-600' :
                           'text-amber-600'
-                        }`}>{viewBillData.status}</p>
+                        }`}>
+                        {viewBillData?.status || 'N/A'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1013,11 +1036,19 @@ export default function UtilityBills() {
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Rate per Unit</p>
-                      <p className="font-medium">₹{viewBillData.perUnitRate.toFixed(2)}</p>
+                      <p className="font-medium">
+                        ₹{viewBillData?.perUnitRate !== undefined
+                          ? viewBillData.perUnitRate.toFixed(2)
+                          : 'N/A'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Base Amount</p>
-                      <p className="font-medium">₹{viewBillData.baseAmount.toFixed(2)}</p>
+                      <p className="font-medium">
+                        ₹{viewBillData?.baseAmount !== undefined
+                          ? viewBillData.baseAmount.toFixed(2)
+                          : 'N/A'}
+                      </p>
                     </div>
                   </div>
                 </div>
