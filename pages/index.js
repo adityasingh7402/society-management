@@ -91,7 +91,7 @@ export default function Home() {
                 </Link>
               </motion.div>
               <motion.div whileHover={{ scale: 1.1 }}>
-                <Link href={"/Security-dashboard"}>
+                <Link href={"/Contact"}>
                   <div className="text-lg font-medium">Contact</div>
                 </Link>
               </motion.div>
