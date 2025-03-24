@@ -76,7 +76,7 @@ export default function Home() {
       >
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <motion.h1 
-            className="sm:text-xl md:text-3xl font-bold"
+            className="sm:text-xl md:text-3xl cursor-pointer font-bold"
             whileHover={{ scale: 1.05 }}
           >
             SocietyManage
@@ -85,14 +85,14 @@ export default function Home() {
             <ul className="flex space-x-6">
               <motion.div whileHover={{ scale: 1.1 }}>
                 <Link href={isSocietyLogged ? "/Society-dashboard" : "/societyLogin"}>
-                  <div className="hover:underline text-lg font-medium">
+                  <div className="text-lg font-medium">
                     {isSocietyLogged ? "Dashboard" : "Society Login"}
                   </div>
                 </Link>
               </motion.div>
               <motion.div whileHover={{ scale: 1.1 }}>
-                <Link href={"/Contact"}>
-                  <div className="hover:underline text-lg font-medium">Contact</div>
+                <Link href={"/Security-dashboard"}>
+                  <div className="text-lg font-medium">Contact</div>
                 </Link>
               </motion.div>
             </ul>
@@ -341,7 +341,7 @@ export default function Home() {
               <p className="mb-2">Contact us at</p>
               <motion.a 
                 href="mailto:support@societymanage.com" 
-                className="text-indigo-400 hover:underline text-lg font-medium"
+                className="text-indigo-400 text-lg font-medium"
                 whileHover={{ scale: 1.05 }}
               >
                 support@societymanage.com
