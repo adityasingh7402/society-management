@@ -134,7 +134,6 @@ export default function Home() {
                             
                             <li className="mb-1 font-semibold text-gray-400 px-5 pt-2">Profile Management</li>
                             <Link href={"./Security-dashboard/components/Profile"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-green-600"><FaUser className="mr-2" /> Profile</li></Link>
-                            <Link href={"./Security-dashboard/components/Dashboard"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-green-600"><FaHome className="mr-2" /> Dashboard</li></Link>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Visitor Management</li>
                             <Link href={"./Security-dashboard/components/VisitorEntry"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-green-600"><FaIdBadge className="mr-2" /> Visitor Entry</li></Link>

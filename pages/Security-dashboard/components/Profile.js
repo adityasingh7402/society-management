@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { FaArrowLeft } from "react-icons/fa";
+import { ArrowLeft, Copy, Plus, Trash2, Edit, Save, Clock, User, Phone, Building, MapPin } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function SecurityProfile() {
     const [formData, setFormData] = useState({
@@ -147,198 +148,262 @@ export default function SecurityProfile() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            <div className="classss">
-                <button onClick={() => router.back()} className="flex items-center p-4 md:p-6 space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors">
-                    <FaArrowLeft size={18} />
-                    <span className="text-base">Back</span>
-                </button>
+        <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="min-h-screen bg-white"
+        >
+            {/* App Header with Back Button */}
+            <div className="sticky top-0 z-10 bg-green-600 text-white shadow-md">
+                <div className="flex items-center justify-between p-4">
+                    <button 
+                        onClick={() => router.back()} 
+                        className="flex items-center space-x-2 text-white"
+                    >
+                        <ArrowLeft size={20} />
+                        <span className="text-base font-medium">Back</span>
+                    </button>
+                    <h1 className="text-xl font-bold">Security Profile</h1>
+                    <div className="w-6"></div> {/* Spacer for alignment */}
+                </div>
             </div>
-            <h1 className="text-2xl md:text-4xl font-bold text-blue-600 mb-4 md:mb-8 text-center">Security Guard Profile</h1>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 md:py-8">
-                {/* Profile Form */}
-                <div className="bg-white rounded-lg shadow p-4 md:p-6">
-                    <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 md:mb-6">Edit Security Guard Profile</h2>
-                    <form onSubmit={handlePreviewSubmit}>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+            <main className="max-w-7xl mx-auto px-4 py-6">
+                {/* Profile Form Card */}
+                <motion.div 
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-white rounded-xl shadow-md overflow-hidden mb-6"
+                >
+                    <div className="bg-green-500 text-white p-4">
+                        <div className="flex items-center space-x-3">
+                            <User size={24} />
+                            <h2 className="text-xl font-semibold">Edit Profile</h2>
+                        </div>
+                    </div>
+                    
+                    <form onSubmit={handlePreviewSubmit} className="p-4">
+                        <div className="space-y-5">
                             {/* Guard Name */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Guard Name</label>
+                            <motion.div whileHover={{ scale: 1.01 }} className="bg-gray-50 p-3 rounded-lg">
+                                <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+                                    <User size={16} />
+                                    <span>Guard Name</span>
+                                </label>
                                 <input
                                     type="text"
                                     name="guardName"
                                     value={formData.guardName}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="w-full p-3 border-b-2 border-green-300 focus:border-green-500 bg-white rounded-md outline-none transition-all"
                                     required
                                 />
-                            </div>
+                            </motion.div>
 
                             {/* Primary Phone */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Primary Phone</label>
+                            <motion.div whileHover={{ scale: 1.01 }} className="bg-gray-50 p-3 rounded-lg">
+                                <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+                                    <Phone size={16} />
+                                    <span>Primary Phone</span>
+                                </label>
                                 <input
                                     type="text"
                                     name="guardPhone"
                                     value={formData.guardPhone}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="w-full p-3 border-b-2 border-green-300 focus:border-green-500 bg-white rounded-md outline-none transition-all"
                                     required
                                 />
-                            </div>
+                            </motion.div>
 
                             {/* Additional Phone Numbers */}
-                            {formData.additionalNumbers && formData.additionalNumbers.map((number, index) => (
-                                <div key={index}>
-                                    <label className="block text-sm font-medium text-gray-700">
-                                        Additional Phone {index + 1}
-                                    </label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={number}
-                                            onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
-                                            className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemoveNumber(index)}
-                                            className="mt-1 bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600"
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                            <AnimatePresence>
+                                {formData.additionalNumbers.map((number, index) => (
+                                    <motion.div 
+                                        key={index}
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="bg-gray-50 p-3 rounded-lg"
+                                    >
+                                        <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+                                            <Phone size={16} />
+                                            <span>Additional Phone {index + 1}</span>
+                                        </label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={number}
+                                                onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
+                                                className="flex-grow p-3 border-b-2 border-green-300 focus:border-green-500 bg-white rounded-md outline-none transition-all"
+                                            />
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                type="button"
+                                                onClick={() => handleRemoveNumber(index)}
+                                                className="bg-red-500 text-white p-2 rounded-md flex items-center justify-center"
+                                            >
+                                                <Trash2 size={18} />
+                                            </motion.button>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
 
                             {/* Add Another Number Button */}
-                            <div className="col-span-1 md:col-span-2">
-                                <button
-                                    type="button"
-                                    onClick={handleAddNumber}
-                                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 w-full md:w-auto"
-                                >
-                                    Add Another Number
-                                </button>
-                            </div>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                type="button"
+                                onClick={handleAddNumber}
+                                className="flex items-center justify-center space-x-2 w-full bg-green-100 text-green-700 p-3 rounded-lg border border-green-300 hover:bg-green-200 transition-all"
+                            >
+                                <Plus size={18} />
+                                <span>Add Another Number</span>
+                            </motion.button>
 
-                            {/* Shift Start */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Shift Start</label>
-                                <input
-                                    type="time"
-                                    name="start"
-                                    value={formData.shiftTimings.start}
-                                    onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                    required
-                                />
-                            </div>
-
-                            {/* Shift End */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Shift End</label>
-                                <input
-                                    type="time"
-                                    name="end"
-                                    value={formData.shiftTimings.end}
-                                    onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                    required
-                                />
-                            </div>
-
-                            {/* Society ID */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Society ID</label>
-                                <input
-                                    type="text"
-                                    name="societyId"
-                                    value={formData.societyId}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                    disabled
-                                />
-                            </div>
-
-                            {/* Society Name */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Society Name</label>
-                                <input
-                                    type="text"
-                                    name="societyName"
-                                    value={formData.address.societyName || ""}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                    disabled
-                                />
-                            </div>
-
-                            {/* Security ID */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Security ID</label>
-                                <div className="flex gap-2">
+                            {/* Shift Timings */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Shift Start */}
+                                <motion.div whileHover={{ scale: 1.01 }} className="bg-gray-50 p-3 rounded-lg">
+                                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+                                        <Clock size={16} />
+                                        <span>Shift Start</span>
+                                    </label>
                                     <input
-                                        type="text"
-                                        name="securityId"
-                                        value={formData.securityId}
-                                        className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                        disabled
+                                        type="time"
+                                        name="start"
+                                        value={formData.shiftTimings.start}
+                                        onChange={handleChange}
+                                        className="w-full p-3 border-b-2 border-green-300 focus:border-green-500 bg-white rounded-md outline-none transition-all"
+                                        required
                                     />
-                                    <button
-                                        type="button"
-                                        onClick={handleCopy}
-                                        className="mt-1 bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700"
-                                    >
-                                        {copySuccess ? "Copied!" : "Copy"}
-                                    </button>
+                                </motion.div>
+
+                                {/* Shift End */}
+                                <motion.div whileHover={{ scale: 1.01 }} className="bg-gray-50 p-3 rounded-lg">
+                                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
+                                        <Clock size={16} />
+                                        <span>Shift End</span>
+                                    </label>
+                                    <input
+                                        type="time"
+                                        name="end"
+                                        value={formData.shiftTimings.end}
+                                        onChange={handleChange}
+                                        className="w-full p-3 border-b-2 border-green-300 focus:border-green-500 bg-white rounded-md outline-none transition-all"
+                                        required
+                                    />
+                                </motion.div>
+                            </div>
+
+                            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                                <h3 className="text-md font-semibold text-green-800 mb-3 flex items-center">
+                                    <Building size={18} className="mr-2" />
+                                    Society Information
+                                </h3>
+                                
+                                <div className="space-y-4">
+                                    {/* Society ID */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Society ID</label>
+                                        <input
+                                            type="text"
+                                            name="societyId"
+                                            value={formData.societyId}
+                                            className="w-full p-2 bg-white border border-gray-200 rounded-md text-gray-500"
+                                            disabled
+                                        />
+                                    </div>
+
+                                    {/* Society Name */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Society Name</label>
+                                        <input
+                                            type="text"
+                                            name="societyName"
+                                            value={formData.address.societyName || ""}
+                                            className="w-full p-2 bg-white border border-gray-200 rounded-md text-gray-500"
+                                            disabled
+                                        />
+                                    </div>
+
+                                    {/* Security ID */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Security ID</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                name="securityId"
+                                                value={formData.securityId}
+                                                className="flex-grow p-2 bg-white border border-gray-200 rounded-md text-gray-500"
+                                                disabled
+                                            />
+                                            <motion.button
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                type="button"
+                                                onClick={handleCopy}
+                                                className="bg-green-600 text-white p-2 rounded-md flex items-center justify-center"
+                                            >
+                                                {copySuccess ? <Check size={18} /> : <Copy size={18} />}
+                                            </motion.button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Address Section - All fields uneditable */}
-                            <div className="col-span-1 md:col-span-2 mt-4">
-                                <h3 className="text-md font-semibold text-gray-700 mb-3">Address Information</h3>
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+                            {/* Address Section */}
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <h3 className="text-md font-semibold text-gray-700 mb-3 flex items-center">
+                                    <MapPin size={18} className="mr-2" />
+                                    Address Information
+                                </h3>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {/* Street */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Street</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Street</label>
                                         <input
                                             type="text"
                                             value={formData.address.street}
-                                            className="mt-1 block w-full outline-0 bg-gray-50 px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm sm:text-sm"
+                                            className="w-full p-2 bg-white border border-gray-200 rounded-md text-gray-500"
                                             disabled
                                         />
                                     </div>
 
                                     {/* City */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">City</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                                         <input
                                             type="text"
                                             value={formData.address.city}
-                                            className="mt-1 block w-full outline-0 bg-gray-50 px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm sm:text-sm"
+                                            className="w-full p-2 bg-white border border-gray-200 rounded-md text-gray-500"
                                             disabled
                                         />
                                     </div>
 
                                     {/* State */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">State</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
                                         <input
                                             type="text"
                                             value={formData.address.state}
-                                            className="mt-1 block w-full outline-0 bg-gray-50 px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm sm:text-sm"
+                                            className="w-full p-2 bg-white border border-gray-200 rounded-md text-gray-500"
                                             disabled
                                         />
                                     </div>
 
                                     {/* Pin Code */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">PIN Code</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code</label>
                                         <input
                                             type="text"
                                             value={formData.address.pinCode}
-                                            className="mt-1 block w-full outline-0 bg-gray-50 px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm sm:text-sm"
+                                            className="w-full p-2 bg-white border border-gray-200 rounded-md text-gray-500"
                                             disabled
                                         />
                                     </div>
@@ -347,75 +412,152 @@ export default function SecurityProfile() {
                         </div>
 
                         {/* Form Actions */}
-                        <div className="mt-6 flex justify-end">
-                            <button
-                                type="submit"
-                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 w-full md:w-auto"
-                            >
-                                Preview Changes
-                            </button>
-                        </div>
+                        <motion.button
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                            type="submit"
+                            className="mt-6 w-full bg-green-600 text-white p-4 rounded-lg font-semibold flex items-center justify-center space-x-2 shadow-md hover:bg-green-700 transition-all"
+                        >
+                            <Edit size={18} />
+                            <span>Preview Changes</span>
+                        </motion.button>
                     </form>
-                </div>
+                </motion.div>
             </main>
 
             {/* Preview Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg shadow-lg p-4 md:p-6 w-full max-w-2xl">
-                        <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-4">Preview Changes</h2>
-                        <div className="space-y-4">
-                            <p><strong>Guard Name:</strong> {formData.guardName}</p>
-                            <p><strong>Primary Phone:</strong> {formData.guardPhone}</p>
-                            {formData.additionalNumbers && formData.additionalNumbers.map((number, index) => (
-                                <p key={index}>
-                                    <strong>Additional Phone {index + 1}:</strong> {number}
-                                </p>
-                            ))}
-                            <p><strong>Shift Start:</strong> {formData.shiftTimings.start}</p>
-                            <p><strong>Shift End:</strong> {formData.shiftTimings.end}</p>
-                            <p><strong>Society ID:</strong> {formData.societyId}</p>
-                            <p><strong>Society Name:</strong> {formData.societyName || ""}</p>
-                            <p><strong>Security ID:</strong> {formData.securityId}</p>
+            <AnimatePresence>
+                {showModal && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl"
+                        >
+                            <h2 className="text-xl font-semibold text-green-700 mb-4 flex items-center">
+                                <Edit size={20} className="mr-2" />
+                                Preview Changes
+                            </h2>
                             
-                            {/* Address section in preview */}
-                            <div className="mt-4">
-                                <p className="font-semibold">Address Information:</p>
-                                <p><strong>Street:</strong> {formData.address.street}</p>
-                                <p><strong>City:</strong> {formData.address.city}</p>
-                                <p><strong>State:</strong> {formData.address.state}</p>
-                                <p><strong>PIN Code:</strong> {formData.address.pinCode}</p>
+                            <div className="space-y-3 max-h-80 overflow-y-auto p-2">
+                                <div className="flex items-center p-2 bg-gray-50 rounded-lg">
+                                    <User size={18} className="text-green-600 mr-3" />
+                                    <div>
+                                        <p className="text-sm text-gray-500">Guard Name</p>
+                                        <p className="font-medium">{formData.guardName}</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center p-2 bg-gray-50 rounded-lg">
+                                    <Phone size={18} className="text-green-600 mr-3" />
+                                    <div>
+                                        <p className="text-sm text-gray-500">Primary Phone</p>
+                                        <p className="font-medium">{formData.guardPhone}</p>
+                                    </div>
+                                </div>
+                                
+                                {formData.additionalNumbers.map((number, index) => (
+                                    <div key={index} className="flex items-center p-2 bg-gray-50 rounded-lg">
+                                        <Phone size={18} className="text-green-600 mr-3" />
+                                        <div>
+                                            <p className="text-sm text-gray-500">Additional Phone {index + 1}</p>
+                                            <p className="font-medium">{number}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                
+                                <div className="flex items-center p-2 bg-gray-50 rounded-lg">
+                                    <Clock size={18} className="text-green-600 mr-3" />
+                                    <div>
+                                        <p className="text-sm text-gray-500">Shift Timings</p>
+                                        <p className="font-medium">{formData.shiftTimings.start} - {formData.shiftTimings.end}</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center p-2 bg-gray-50 rounded-lg">
+                                    <Building size={18} className="text-green-600 mr-3" />
+                                    <div>
+                                        <p className="text-sm text-gray-500">Society Details</p>
+                                        <p className="font-medium">{formData.societyName || formData.address.societyName} (ID: {formData.societyId})</p>
+                                        <p className="text-sm">Security ID: {formData.securityId}</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="p-2 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center">
+                                        <MapPin size={18} className="text-green-600 mr-3" />
+                                        <p className="text-sm text-gray-500">Address Information</p>
+                                    </div>
+                                    <div className="mt-2 ml-7">
+                                        <p>{formData.address.street}</p>
+                                        <p>{formData.address.city}, {formData.address.state}</p>
+                                        <p>PIN: {formData.address.pinCode}</p>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div className="mt-6 flex justify-end space-x-4">
-                            <button
-                                type="button"
-                                onClick={() => setShowModal(false)}
-                                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 w-full md:w-auto"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleFinalSubmit}
-                                disabled={isSubmitting}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 w-full md:w-auto"
-                            >
-                                {isSubmitting ? 'Submitting...' : 'Confirm Changes'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                            
+                            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="flex-1 bg-gray-200 text-gray-800 p-3 rounded-lg font-medium flex items-center justify-center"
+                                >
+                                    Cancel
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    type="button"
+                                    onClick={handleFinalSubmit}
+                                    disabled={isSubmitting}
+                                    className="flex-1 bg-green-600 text-white p-3 rounded-lg font-medium flex items-center justify-center space-x-2"
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            <span>Submitting...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save size={18} />
+                                            <span>Confirm Changes</span>
+                                        </>
+                                    )}
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-            {/* Submit state */}
-            {isSubmitting && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                    <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-                        <p className="text-lg font-semibold text-blue-600">Submitting...</p>
-                    </div>
-                </div>
-            )}
-        </div>
+            {/* Submit Loading Overlay */}
+            <AnimatePresence>
+                {isSubmitting && !showModal && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.9 }}
+                            animate={{ scale: 1 }}
+                            className="bg-white p-6 rounded-xl shadow-lg max-w-sm w-full flex flex-col items-center"
+                        >
+                            <div className="h-12 w-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                            <p className="text-lg font-semibold text-green-700">Updating your profile...</p>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
     );
 }

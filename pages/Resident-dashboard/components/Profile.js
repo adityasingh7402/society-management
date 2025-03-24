@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { FaArrowLeft } from "react-icons/fa";
+import { motion } from 'framer-motion';
+import { ChevronLeft, User, Phone, Mail, MapPin, Building, Copy, Plus, Trash2, Eye, Check } from 'lucide-react';
 
 export default function Profile() {
     const [formData, setFormData] = useState({
@@ -47,7 +48,7 @@ export default function Profile() {
                 setFormData({
                     ...data,
                     additionalNumbers: data.additionalNumbers || [],
-                    address: data.address || { street: "", city: "", state: "", pinCode: "" }, // Ensure address object exists
+                    address: data.address || { street: "", city: "", state: "", pinCode: "" },
                 });
             } catch (error) {
                 console.error("Error fetching profile:", error);
@@ -58,11 +59,11 @@ export default function Profile() {
         fetchProfile();
     }, [router]);
 
-
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
+    
     const handleAddressChange = (e) => {
         const { name, value } = e.target;
         setFormData({
@@ -75,12 +76,11 @@ export default function Profile() {
     };
 
     const handleAddNumber = () => {
-        // Add another number only if the first number is valid (starts with +91 and has 10 digits)
         if (formData.phone.length === 13 && formData.phone.startsWith("+91")) {
             if (formData.additionalNumbers.length < 3) {
                 setFormData({
                     ...formData,
-                    additionalNumbers: [...formData.additionalNumbers, "+91"], // Pre-fill with country code
+                    additionalNumbers: [...formData.additionalNumbers, "+91"],
                 });
             } else {
                 alert("You can add a maximum of 3 phone numbers.");
@@ -140,53 +140,135 @@ export default function Profile() {
         }
     };
 
+    // Animation variants
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: {
+            y: 0,
+            opacity: 1,
+            transition: { type: "spring", stiffness: 100 }
+        }
+    };
+
+    const modalVariants = {
+        hidden: { scale: 0.8, opacity: 0 },
+        visible: {
+            scale: 1,
+            opacity: 1,
+            transition: { type: "spring", damping: 25, stiffness: 300 }
+        },
+        exit: { scale: 0.8, opacity: 0 }
+    };
+
     return (
-        <div className="min-h-screen bg-gray-100">
-            <div className="classss">
-                <button onClick={() => router.back()} className="flex items-center p-4 md:p-6 space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors">
-                    <FaArrowLeft size={18} />
-                    <span className="text-base">Back</span>
-                </button>
-            </div>
-            <h1 className="text-2xl md:text-4xl font-bold text-blue-600 mb-4 md:mb-8 text-center">Resident Profile</h1>
+        <motion.div 
+            className="min-h-screen bg-white"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+        >
+            {/* Header */}
+            <motion.div 
+                className="bg-blue-600 text-white py-4 px-4 shadow-md"
+                initial={{ y: -50 }}
+                animate={{ y: 0 }}
+                transition={{ type: "spring", stiffness: 100 }}
+            >
+                <div className="max-w-7xl mx-auto flex justify-between items-center">
+                    <motion.button 
+                        onClick={() => router.back()} 
+                        className="flex items-center space-x-2 text-white"
+                        whileTap={{ scale: 0.95 }}
+                    >
+                        <ChevronLeft size={24} />
+                        <span className="text-base font-medium">Back</span>
+                    </motion.button>
+                    <motion.h1 
+                        className="text-xl font-bold"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                    >
+                        My Profile
+                    </motion.h1>
+                    <div className="w-10"></div> {/* Spacer for alignment */}
+                </div>
+            </motion.div>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 md:py-8">
+            <main className="max-w-7xl mx-auto px-4 py-6">
                 {/* Profile Form */}
-                <div className="bg-white rounded-lg shadow p-4 md:p-6">
-                    <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 md:mb-6">Edit Resident Profile</h2>
-                    <form onSubmit={handlePreviewSubmit}>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+                <motion.div 
+                    className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100"
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                >
+                    <div className="bg-blue-50 px-6 py-4 border-b border-blue-100">
+                        <h2 className="text-xl font-semibold text-blue-800 flex items-center">
+                            <User size={20} className="mr-2 text-blue-600" />
+                            Edit Resident Profile
+                        </h2>
+                    </div>
+                    
+                    <form onSubmit={handlePreviewSubmit} className="p-6">
+                        <motion.div 
+                            className="grid grid-cols-1 gap-6 md:grid-cols-2"
+                            variants={containerVariants}
+                        >
                             {/* Name */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Name</label>
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <User size={16} className="mr-2 text-blue-500" />
+                                    Name
+                                </label>
                                 <input
                                     type="text"
                                     name="name"
                                     value={formData.name}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all duration-200"
                                     required
                                 />
-                            </div>
+                            </motion.div>
 
                             {/* Primary Phone */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Primary Phone</label>
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <Phone size={16} className="mr-2 text-blue-500" />
+                                    Primary Phone
+                                </label>
                                 <input
                                     type="text"
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all duration-200"
                                     required
                                 />
-                            </div>
+                            </motion.div>
 
                             {/* Additional Phone Numbers */}
                             {formData.additionalNumbers.map((number, index) => (
-                                <div key={index}>
-                                    <label className="block text-sm font-medium text-gray-700">
+                                <motion.div 
+                                    key={index} 
+                                    variants={itemVariants}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.1 }}
+                                >
+                                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                        <Phone size={16} className="mr-2 text-blue-500" />
                                         Additional Phone {index + 1}
                                     </label>
                                     <div className="flex gap-2">
@@ -194,216 +276,289 @@ export default function Profile() {
                                             type="text"
                                             value={number}
                                             onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
-                                            className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all duration-200"
                                         />
-                                        <button
+                                        <motion.button
                                             type="button"
                                             onClick={() => handleRemoveNumber(index)}
-                                            className="mt-1 bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600"
+                                            className="bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 transition-colors flex items-center"
+                                            whileTap={{ scale: 0.95 }}
                                         >
-                                            Remove
-                                        </button>
+                                            <Trash2 size={18} />
+                                        </motion.button>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
 
                             {/* Add Another Number Button */}
-                            <div className="col-span-1 md:col-span-2">
-                                <button
+                            <motion.div 
+                                className="col-span-1 md:col-span-2"
+                                variants={itemVariants}
+                            >
+                                <motion.button
                                     type="button"
                                     onClick={handleAddNumber}
-                                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 w-full md:w-auto"
+                                    className="bg-blue-100 text-blue-800 px-4 py-3 rounded-lg hover:bg-blue-200 transition-colors flex items-center justify-center w-full md:w-auto"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
                                 >
+                                    <Plus size={18} className="mr-2" />
                                     Add Another Number
-                                </button>
-                            </div>
+                                </motion.button>
+                            </motion.div>
 
                             {/* Email */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Email</label>
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <Mail size={16} className="mr-2 text-blue-500" />
+                                    Email
+                                </label>
                                 <input
                                     type="email"
                                     name="email"
                                     value={formData.email}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all duration-200"
                                     required
                                 />
-                            </div>
+                            </motion.div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Street</label>
+                            {/* Address Fields */}
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <MapPin size={16} className="mr-2 text-blue-500" />
+                                    Street
+                                </label>
                                 <input
                                     type="text"
                                     name="street"
                                     value={formData.address.street}
                                     onChange={handleAddressChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                    required
+                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
                                     disabled
                                 />
-                            </div>
+                            </motion.div>
 
-                            {/* City */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">City</label>
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <MapPin size={16} className="mr-2 text-blue-500" />
+                                    City
+                                </label>
                                 <input
                                     type="text"
                                     name="city"
                                     value={formData.address.city}
                                     onChange={handleAddressChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                    required
+                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
                                     disabled
                                 />
-                            </div>
+                            </motion.div>
 
-                            {/* State */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">State</label>
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <MapPin size={16} className="mr-2 text-blue-500" />
+                                    State
+                                </label>
                                 <input
                                     type="text"
                                     name="state"
                                     value={formData.address.state}
                                     onChange={handleAddressChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                    required
+                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
                                     disabled
                                 />
-                            </div>
+                            </motion.div>
 
-                            {/* Pin Code */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Pin Code</label>
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <MapPin size={16} className="mr-2 text-blue-500" />
+                                    Pin Code
+                                </label>
                                 <input
                                     type="text"
                                     name="pinCode"
                                     value={formData.address.pinCode}
                                     onChange={handleAddressChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                    required
+                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
                                     disabled
                                 />
-                            </div>
+                            </motion.div>
 
-                            {/* Society Code */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Society Code</label>
+                            {/* Society Information */}
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <Building size={16} className="mr-2 text-blue-500" />
+                                    Society Code
+                                </label>
                                 <input
                                     type="text"
                                     name="societyCode"
                                     value={formData.societyCode}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all duration-200"
                                     required
                                 />
-                            </div>
+                            </motion.div>
 
-                            {/* Society ID */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Society ID</label>
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <Building size={16} className="mr-2 text-blue-500" />
+                                    Society ID
+                                </label>
                                 <input
                                     type="text"
                                     name="societyId"
                                     value={formData.societyId}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
                                     disabled
                                 />
-                            </div>
+                            </motion.div>
 
-                            {/* Society Name */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Society Name</label>
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <Building size={16} className="mr-2 text-blue-500" />
+                                    Society Name
+                                </label>
                                 <input
                                     type="text"
                                     name="societyName"
                                     value={formData.societyName}
                                     onChange={handleChange}
-                                    className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
                                     disabled
                                 />
-                            </div>
+                            </motion.div>
 
                             {/* Resident ID */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Resident ID</label>
+                            <motion.div variants={itemVariants}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                                    <User size={16} className="mr-2 text-blue-500" />
+                                    Resident ID
+                                </label>
                                 <div className="flex gap-2">
                                     <input
                                         type="text"
                                         name="residentId"
                                         value={formData.residentId}
                                         onChange={handleChange}
-                                        className="mt-1 block w-full outline-0 hover:border-b hover:border-blue-500 focus:border-b px-1 py-2 md:py-3 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                        className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
                                         disabled
                                     />
-                                    <button
+                                    <motion.button
                                         type="button"
                                         onClick={handleCopy}
-                                        className="mt-1 bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700"
+                                        className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
                                     >
-                                        {copySuccess ? "Copied!" : "Copy"}
-                                    </button>
+                                        {copySuccess ? <Check size={18} /> : <Copy size={18} />}
+                                    </motion.button>
                                 </div>
-                            </div>
-                        </div>
+                            </motion.div>
+                        </motion.div>
 
                         {/* Form Actions */}
-                        <div className="mt-6 flex justify-end">
-                            <button
+                        <motion.div 
+                            className="mt-8 flex justify-center md:justify-end"
+                            variants={itemVariants}
+                        >
+                            <motion.button
                                 type="submit"
-                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 w-full md:w-auto"
+                                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md flex items-center justify-center w-full md:w-auto"
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
                             >
+                                <Eye size={18} className="mr-2" />
                                 Preview Changes
-                            </button>
-                        </div>
+                            </motion.button>
+                        </motion.div>
                     </form>
-                </div>
+                </motion.div>
             </main>
 
             {/* Preview Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg shadow-lg p-4 md:p-6 w-full max-w-2xl">
-                        <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-4">Preview Changes</h2>
-                        <div className="space-y-4">
-                            <p><strong>Name:</strong> {formData.name}</p>
-                            <p><strong>Primary Phone:</strong> {formData.phone}</p>
-                            {formData.additionalNumbers.map((number, index) => (
-                                <p key={index}>
-                                    <strong>Additional Phone {index + 1}:</strong> {number}
-                                </p>
-                            ))}
-                            <p><strong>Email:</strong> {formData.email}</p>
-                            <p><strong>Street:</strong> {formData.street}</p>
-                            <p><strong>City:</strong> {formData.city}</p>
-                            <p><strong>State:</strong> {formData.state}</p>
-                            <p><strong>Pin Code:</strong> {formData.pinCode}</p>
-                            <p><strong>Society Code:</strong> {formData.societyCode}</p>
-                            <p><strong>Society ID:</strong> {formData.societyId}</p>
-                            <p><strong>Society Name:</strong> {formData.societyName}</p>
-                            <p><strong>Resident ID:</strong> {formData.residentId}</p>
+                <motion.div 
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                >
+                    <motion.div 
+                        className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl"
+                        variants={modalVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                    >
+                        <h2 className="text-xl font-semibold text-blue-800 mb-4 flex items-center">
+                            <Eye size={20} className="mr-2 text-blue-600" />
+                            Preview Changes
+                        </h2>
+                        
+                        <div className="space-y-4 bg-blue-50 p-4 rounded-lg">
+                            <motion.div 
+                                className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                                variants={containerVariants}
+                                initial="hidden"
+                                animate="visible"
+                            >
+                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-blue-700">Name:</span> {formData.name}
+                                </motion.p>
+                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-blue-700">Primary Phone:</span> {formData.phone}
+                                </motion.p>
+                                
+                                {formData.additionalNumbers.map((number, index) => (
+                                    <motion.p key={index} variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
+                                        <span className="font-semibold text-blue-700">Additional Phone {index + 1}:</span> {number}
+                                    </motion.p>
+                                ))}
+                                
+                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-blue-700">Email:</span> {formData.email}
+                                </motion.p>
+                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-blue-700">Address:</span> {formData.address.street}, {formData.address.city}, {formData.address.state}, {formData.address.pinCode}
+                                </motion.p>
+                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-blue-700">Society Code:</span> {formData.societyCode}
+                                </motion.p>
+                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-blue-700">Society Name:</span> {formData.societyName}
+                                </motion.p>
+                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm md:col-span-2">
+                                    <span className="font-semibold text-blue-700">Resident ID:</span> {formData.residentId}
+                                </motion.p>
+                            </motion.div>
                         </div>
-                        <div className="mt-6 flex justify-end space-x-4">
-                            <button
+                        
+                        <div className="mt-6 flex flex-col md:flex-row gap-3 justify-end">
+                            <motion.button
                                 type="button"
                                 onClick={() => setShowModal(false)}
-                                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 w-full md:w-auto"
+                                className="bg-gray-200 text-gray-800 px-5 py-3 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
                                 type="button"
                                 onClick={handleFinalSubmit}
                                 disabled={isSubmitting}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 w-full md:w-auto"
+                                className={`bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center ${isSubmitting ? 'opacity-70' : ''}`}
+                                whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+                                whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
                             >
                                 {isSubmitting ? 'Submitting...' : 'Confirm Changes'}
-                            </button>
+                            </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
-        </div>
+        </motion.div>
     );
 }
