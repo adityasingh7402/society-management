@@ -394,6 +394,25 @@ export default function PollsSurveys() {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
+  const getPollStats = () => {
+    return {
+      total: polls.length,
+      active: polls.filter(p => p.status === 'active').length,
+      ended: polls.filter(p => p.status !== 'active').length,
+      responses: polls.reduce((acc, poll) => acc + (poll.totalVotes || 0), 0),
+      avgParticipation: polls.length ? Math.round(polls.reduce((acc, poll) => acc + (poll.totalVotes || 0), 0) / polls.length) : 0
+    };
+  };
+
+  const getSurveyStats = () => {
+    return {
+      total: surveys.length,
+      active: surveys.filter(s => s.status === 'active').length,
+      ended: surveys.filter(s => s.status !== 'active').length,
+      responses: surveys.reduce((acc, survey) => acc + (survey.responses || 0), 0),
+      avgParticipation: surveys.length ? Math.round(surveys.reduce((acc, survey) => acc + (survey.responses || 0), 0) / surveys.length) : 0
+    };
+  };
 
   return (<div className="min-h-screen bg-gray-50">
     {/* Header */}
@@ -448,6 +467,29 @@ export default function PollsSurveys() {
       )}
 
       {/* Polls Tab */}
+      {!isLoading && activeTab !== 'create' && (
+        <div className="mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {Object.entries(activeTab === 'polls' ? getPollStats() : getSurveyStats()).map(([key, value]) => (
+              <div key={key} className="bg-white rounded-lg shadow-md p-4 transform hover:scale-105 transition-transform duration-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {key === 'total' && <BarChart className="h-5 w-5 text-blue-500" />}
+                    {key === 'active' && <CheckCircle className="h-5 w-5 text-green-500" />}
+                    {key === 'ended' && <AlertCircle className="h-5 w-5 text-red-500" />}
+                    {key === 'responses' && <Users className="h-5 w-5 text-purple-500" />}
+                    {key === 'avgParticipation' && <PieChart className="h-5 w-5 text-orange-500" />}
+                  </div>
+                  <span className="text-2xl font-bold text-gray-700">{value}</span>
+                </div>
+                <p className="mt-2 text-sm text-gray-600 capitalize">
+                  {key === 'avgParticipation' ? 'Avg. Responses' : `${key} ${activeTab}`}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {!isLoading && activeTab === 'polls' && !selectedPoll && (
         <>
           {polls.length === 0 ? (

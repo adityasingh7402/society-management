@@ -182,7 +182,7 @@ export default function Home() {
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Notices / Polls & Surveys</li>
                             <Link href={"./Resident-dashboard/components/Announcements"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaBullhorn className="mr-2" /> Announcements</li></Link>
-                            <Link href={"./Resident-dashboard/components/Polls"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaChartBar className="mr-2" /> Polls</li></Link>
+                            <Link href={"./Resident-dashboard/components/PollsSurveys"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaChartBar className="mr-2" /> Polls & Surveys</li></Link>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Visitor Pre-Approvals</li>
                             <Link href={"./Resident-dashboard/components/VisitorEntry"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-red-600"><FaIdBadge className="mr-2" /> Visitor Entry</li></Link>

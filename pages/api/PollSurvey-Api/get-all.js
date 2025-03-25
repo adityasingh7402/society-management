@@ -11,6 +11,7 @@ export default async function handler(req, res) {
     await connectDB();
     
     const { type, societyId } = req.query;
+    console.log('Query parameters:', { type, societyId });
 
     let query = {};
     if (societyId) {

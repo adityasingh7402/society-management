@@ -39,7 +39,7 @@ export default async function handler(req, res) {
           try {
             const result = await cloudinary.uploader.upload(file.filepath, {
               resource_type: 'auto',
-              folder: 'society_announcements',
+              folder: 'society_Images',
             });
             
             // Delete the temporary file after successful upload
