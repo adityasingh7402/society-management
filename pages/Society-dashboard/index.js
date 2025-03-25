@@ -16,6 +16,7 @@ import ApartmentStructureForm from "./components/ApartmentStructureForm";
 import VisitorEntry from "./components/VisitorEntry";
 import DeliveryManagement from "./components/DeliveryManagement";
 import EmergencyAlerts from "./components/EmergencyAlerts";
+import SecurityProfile from "./components/SecurityProfile";
 import IncidentLogs from "./components/IncidentLogs";
 import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt } from "react-icons/fa";
 import { CiLogout } from "react-icons/ci";
@@ -88,6 +89,8 @@ export default function Home() {
                 return <TenantProfiles />;
             case "MaintenanceBills":
                 return <MaintenanceBills />;
+            case "SecurityProfile":
+                return <SecurityProfile />;
             case "UtilityBills":
                 return <UtilityBills />;
             case "PaymentTracking":
@@ -231,6 +234,13 @@ export default function Home() {
                             </li>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Security & Emergency</li>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "SecurityProfile" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("SecurityProfile", "SecurityProfile")}
+                            >
+                                <FaUserShield className="mr-3" />
+                                Security Profile
+                            </li>
                             <li
                                 className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "VisitorEntry" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
                                 onClick={() => handleComponent("VisitorEntry", "VisitorEntry")}
