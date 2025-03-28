@@ -1,32 +1,89 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function PaymentTracking() {
-  // Sample payment data
-  const payments = [
-    { id: 1, resident: "Rahul Sharma", flatNo: "A-201", utilityType: "Water Bill", amount: 2000, date: "2025-03-05", status: "Paid" },
-    { id: 2, resident: "Anita Patel", flatNo: "B-404", utilityType: "Electricity Bill", amount: 2500, date: "2025-03-10", status: "Paid" },
-    { id: 3, resident: "Vikram Kumar", flatNo: "C-102", utilityType: "Gas Bill", amount: 1500, date: "2025-02-15", status: "Unpaid" },
-    { id: 4, resident: "Priya Singh", flatNo: "A-305", utilityType: "Maintenance Bill", amount: 3000, date: "2025-03-07", status: "Paid" },
-    { id: 5, resident: "Suresh Gupta", flatNo: "B-202", utilityType: "Water Bill", amount: 2000, date: "2025-02-15", status: "Unpaid" },
-    { id: 6, resident: "Meera Joshi", flatNo: "D-101", utilityType: "Electricity Bill", amount: 2500, date: "2025-03-01", status: "Paid" },
-    { id: 7, resident: "Amit Verma", flatNo: "C-306", utilityType: "Gas Bill", amount: 1500, date: "2025-02-15", status: "Unpaid" },
-    { id: 8, resident: "Sanjay Kapoor", flatNo: "A-108", utilityType: "Maintenance Bill", amount: 3000, date: "2025-03-09", status: "Paid" }
-  ];
+  // States for data and filters
+  const [billHistory, setBillHistory] = useState([]);
+  const [filteredHistory, setFilteredHistory] = useState([]);
+  const [summaryData, setSummaryData] = useState({
+    totalBills: 0,
+    totalAmount: 0,
+    totalPaidAmount: 0,
+    totalDueAmount: 0,
+    totalPenalty: 0
+  });
 
-  // State for filters
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterUtilityType, setFilterUtilityType] = useState("all");
   const [filterDate, setFilterDate] = useState("");
 
-  // Filtered payments
-  const filteredPayments = payments.filter((payment) => {
-    return (
-      (filterStatus === "all" || payment.status.toLowerCase() === filterStatus) &&
-      (filterUtilityType === "all" || payment.utilityType === filterUtilityType) &&
-      (filterDate === "" || payment.date === filterDate)
-    );
-  });
+  // Fetch bill data
+  useEffect(() => {
+    const fetchBillData = async () => {
+      try {
+        const [utilityResponse, maintenanceResponse] = await Promise.all([
+          fetch('/api/UtilityBill-Api/getBills'),
+          fetch('/api/MaintenanceBill-Api/getBills')
+        ]);
 
+        const utilityData = await utilityResponse.json();
+        const maintenanceData = await maintenanceResponse.json();
+
+        // Combine and format bills
+        const combinedBills = [
+          ...utilityData.bills.map(bill => ({
+            ...bill,
+            billType: bill.utilityType,
+            totalAmount: bill.baseAmount +
+              (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+              (bill.penaltyAmount || 0)
+          })),
+          ...maintenanceData.bills.map(bill => ({
+            ...bill,
+            billType: bill.billType || bill.maintenanceType || bill.type || 'Maintenance', // Use dynamic maintenance type
+            totalAmount: bill.amount +
+              (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+              (bill.penaltyAmount || 0)
+          }))
+        ];
+
+        // Calculate summary
+        const summary = {
+          totalBills: combinedBills.length,
+          totalAmount: combinedBills.reduce((sum, bill) => sum + bill.totalAmount, 0),
+          totalPaidAmount: combinedBills.filter(bill => bill.status === 'Paid')
+            .reduce((sum, bill) => sum + bill.totalAmount, 0),
+          totalDueAmount: combinedBills.filter(bill => bill.status !== 'Paid')
+            .reduce((sum, bill) => sum + bill.totalAmount, 0),
+          totalPenalty: combinedBills.reduce((sum, bill) => sum + (bill.penaltyAmount || 0), 0)
+        };
+
+        setBillHistory(combinedBills);
+        setFilteredHistory(combinedBills);
+        setSummaryData(summary);
+      } catch (error) {
+        console.error('Error fetching bills:', error);
+      }
+    };
+
+    fetchBillData();
+  }, []);
+
+  // Filter effect
+  useEffect(() => {
+    const filtered = billHistory.filter((bill) => {
+      const dateMatch = filterDate === "" || bill.issueDate?.substring(0, 10) === filterDate;
+      const statusMatch = filterStatus === "all" || 
+        (filterStatus === "paid" && bill.status === "Paid") ||
+        (filterStatus === "unpaid" && (bill.status === "Pending" || bill.status === "Overdue"));
+      const typeMatch = filterUtilityType === "all" || bill.billType === filterUtilityType;
+
+      return dateMatch && statusMatch && typeMatch;
+    });
+
+    setFilteredHistory(filtered);
+  }, [filterStatus, filterUtilityType, filterDate, billHistory]);
+
+  // Update the table rendering
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
@@ -58,17 +115,26 @@ export default function PaymentTracking() {
 
             {/* Utility Type Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Utility Type</label>
+              <label className="block text-sm font-medium text-gray-700">Bill Type</label>
               <select
                 value={filterUtilityType}
                 onChange={(e) => setFilterUtilityType(e.target.value)}
                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               >
-                <option value="all">All</option>
-                <option value="Water Bill">Water Bill</option>
-                <option value="Electricity Bill">Electricity Bill</option>
-                <option value="Gas Bill">Gas Bill</option>
-                <option value="Maintenance Bill">Maintenance Bill</option>
+                <option value="all">All Types</option>
+                <optgroup label="Utility Bills">
+                  <option value="Electricity">Electricity</option>
+                  <option value="Water">Water</option>
+                  <option value="Gas">Gas</option>
+                  <option value="Internet">Internet</option>
+                  <option value="Other">Other Utility</option>
+                </optgroup>
+                <optgroup label="Maintenance Bills">
+                  <option value="Security">Security</option>
+                  <option value="Cleaning">Cleaning</option>
+                  <option value="Parking">Parking</option>
+                  <option value="Other Maintenance">Other Maintenance</option>
+                </optgroup>
               </select>
             </div>
 
@@ -101,22 +167,30 @@ export default function PaymentTracking() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPayments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.resident}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.flatNo}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.utilityType}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">₹{payment.amount.toLocaleString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.date}</td>
+                {filteredHistory.map((bill) => (
+                  <tr key={bill._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.ownerName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bill.flatNumber}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.billType}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      ₹{bill.totalAmount.toLocaleString()}
+                      {bill.penaltyAmount > 0 && (
+                        <span className="text-xs text-red-500 block">
+                          (includes ₹{bill.penaltyAmount.toLocaleString()} penalty)
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(bill.issueDate).toLocaleDateString()}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          payment.status === "Paid"
+                          bill.status === "Paid"
                             ? "bg-green-100 text-green-800"
                             : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {payment.status}
+                        }`}>
+                        {bill.status}
                       </span>
                     </td>
                   </tr>

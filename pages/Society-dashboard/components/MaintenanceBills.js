@@ -5,6 +5,7 @@ export default function MaintenanceBills() {
   // States for UI
   const [activeTab, setActiveTab] = useState('generate');
   const [loading, setLoading] = useState(false);
+  const [billTypeFilter, setBillTypeFilter] = useState('');
   const [summaryData, setSummaryData] = useState({
     totalBills: 0,
     totalAmount: 0,
@@ -67,12 +68,32 @@ export default function MaintenanceBills() {
 
   // Fetch bill summary
   useEffect(() => {
+    // Update the fetchBillSummary function
     const fetchBillSummary = async () => {
       try {
         const response = await fetch('/api/MaintenanceBill-Api/getBills');
         if (response.ok) {
           const data = await response.json();
-          setSummaryData(data.summary);
+          // Calculate correct totals including penalties
+          const summary = {
+            totalBills: data.bills.length,
+            totalAmount: data.bills.reduce((sum, bill) => sum +
+              bill.amount +
+              (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+              (bill.penaltyAmount || 0), 0),
+            totalPaidAmount: data.bills.filter(bill => bill.status === 'Paid')
+              .reduce((sum, bill) => sum +
+                bill.amount +
+                (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+                (bill.penaltyAmount || 0), 0),
+            totalDueAmount: data.bills.filter(bill => bill.status !== 'Paid')
+              .reduce((sum, bill) => sum +
+                bill.amount +
+                (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+                (bill.penaltyAmount || 0), 0),
+            totalPenalty: data.bills.reduce((sum, bill) => sum + (bill.penaltyAmount || 0), 0)
+          };
+          setSummaryData(summary);
           setBillHistory(data.bills);
           setFilteredHistory(data.bills);
         }
@@ -101,9 +122,13 @@ export default function MaintenanceBills() {
         filtered = filtered.filter(bill => bill.flatNumber === `${historyBlock}-${historyFlat}`);
       }
 
+      if (billTypeFilter) {
+        filtered = filtered.filter(bill => bill.billType === billTypeFilter);
+      }
+
       setFilteredHistory(filtered);
     }
-  }, [historyBlock, historyFloor, historyFlat, billHistory]);
+  }, [historyBlock, historyFloor, historyFlat, billTypeFilter, billHistory]);
 
   // Organize residents by block, floor and flat
   const organizeResidentsByStructure = (residents) => {
@@ -653,17 +678,17 @@ export default function MaintenanceBills() {
           <div className="bg-white rounded-lg shadow">
             <div className="p-6 border-b">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Bill History</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Block</label>
+                  <label className="block capitalize text-sm font-medium text-gray-700 mb-1">{structureType}</label>
                   <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
+                    className="w-full border capitalize border-gray-300 rounded-md px-3 py-2"
                     value={historyBlock}
                     onChange={(e) => selectHistoryStructure(e.target.value, historyFloor, historyFlat)}
                   >
-                    <option value="">All Blocks</option>
+                    <option value="">All {structureType}s</option>
                     {Object.keys(structuredResidents).sort().map((block) => (
-                      <option key={block} value={block}>Block {block}</option>
+                      <option key={block} value={block}>{structureType} {block}</option>
                     ))}
                   </select>
                 </div>
@@ -697,6 +722,20 @@ export default function MaintenanceBills() {
                         <option key={flat} value={flat}>Flat {flat}</option>
                       ))
                     }
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-md px-3 py-2"
+                    value={billTypeFilter}
+                    onChange={(e) => setBillTypeFilter(e.target.value)}
+                  >
+                    <option value="">All Types</option>
+                    <option value="Security">Security</option>
+                    <option value="Cleaning">Cleaning</option>
+                    <option value="Parking">Parking</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
               </div>

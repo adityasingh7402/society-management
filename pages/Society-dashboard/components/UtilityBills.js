@@ -67,24 +67,42 @@ export default function UtilityBills() {
     fetchResidents();
   }, []);
 
-  // Fetch bill summary
   useEffect(() => {
-    const fetchBillSummary = async () => {
-      try {
-        const response = await fetch('/api/UtilityBill-Api/getBills');
-        if (response.ok) {
-          const data = await response.json();
-          setSummaryData(data.summary);
-          setBillHistory(data.bills);
-          setFilteredHistory(data.bills);
-        }
-      } catch (error) {
-        console.error('Error fetching bill summary:', error);
-      }
-    };
-
     fetchBillSummary();
   }, []);
+  // Fetch bill summary
+  const fetchBillSummary = async () => {
+    try {
+      const response = await fetch('/api/UtilityBill-Api/getBills');
+      if (response.ok) {
+        const data = await response.json();
+        // Calculate correct totals including penalties
+        const summary = {
+          totalBills: data.bills.length,
+          totalAmount: data.bills.reduce((sum, bill) => sum +
+            bill.baseAmount +
+            (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+            (bill.penaltyAmount || 0), 0),
+          totalPaidAmount: data.bills.filter(bill => bill.status === 'Paid')
+            .reduce((sum, bill) => sum +
+              bill.baseAmount +
+              (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+              (bill.penaltyAmount || 0), 0),
+          totalDueAmount: data.bills.filter(bill => bill.status !== 'Paid')
+            .reduce((sum, bill) => sum +
+              bill.baseAmount +
+              (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+              (bill.penaltyAmount || 0), 0),
+          totalPenalty: data.bills.reduce((sum, bill) => sum + (bill.penaltyAmount || 0), 0)
+        };
+        setSummaryData(summary);
+        setBillHistory(data.bills);
+        setFilteredHistory(data.bills);
+      }
+    } catch (error) {
+      console.error('Error fetching bill summary:', error);
+    }
+  };
 
   // Filter history when history block/floor/flat or utilityType changes
   useEffect(() => {
@@ -297,6 +315,7 @@ export default function UtilityBills() {
       if (response.ok) {
         alert('Utility bill generated successfully');
         resetForm();
+        fetchBillSummary();
 
         // Refresh bill history
         const historyResponse = await fetch('/api/UtilityBill-Api/getBills');
@@ -304,7 +323,6 @@ export default function UtilityBills() {
           const data = await historyResponse.json();
           setBillHistory(data.bills);
           setFilteredHistory(data.bills);
-          setSummaryData(data.summary);
         }
       } else {
         alert('Failed to generate bill');
@@ -333,6 +351,7 @@ export default function UtilityBills() {
 
       if (response.ok) {
         alert('Bill marked as paid');
+        fetchBillSummary();
 
         // Refresh bill history
         const historyResponse = await fetch('/api/UtilityBill-Api/getBills');
@@ -563,7 +582,7 @@ export default function UtilityBills() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Utility Type *</label>
                       <select
@@ -766,52 +785,6 @@ export default function UtilityBills() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Utility Bill History</h2>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Block</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={historyBlock}
-                    onChange={(e) => selectHistoryStructure(e.target.value, historyFloor, historyFlat)}
-                  >
-                    <option value="">All Blocks</option>
-                    {Object.keys(structuredResidents).sort().map((block) => (
-                      <option key={block} value={block}>Block {block}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={historyFloor}
-                    onChange={(e) => selectHistoryStructure(historyBlock, e.target.value, historyFlat)}
-                    disabled={!historyBlock}
-                  >
-                    <option value="">All Floors</option>
-                    {historyBlock && Object.keys(structuredResidents[historyBlock] || {}).sort().map((floor) => (
-                      <option key={floor} value={floor}>Floor {floor}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Flat</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={historyFlat}
-                    onChange={(e) => selectHistoryStructure(historyBlock, historyFloor, e.target.value)}
-                    disabled={!historyFloor}
-                  >
-                    <option value="">All Flats</option>
-                    {historyBlock && historyFloor &&
-                      Object.keys(structuredResidents[historyBlock][historyFloor] || {}).sort().map((flat) => (
-                        <option key={flat} value={flat}>Flat {flat}</option>
-                      ))
-                    }
-                  </select>
-                </div>
-
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Utility Type</label>
                   <select
                     className="w-full border border-gray-300 rounded-md px-3 py-2"
@@ -841,7 +814,7 @@ export default function UtilityBills() {
                         Resident
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Flat
+                        {structureType} - Flat
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Utility Type
@@ -894,9 +867,15 @@ export default function UtilityBills() {
                           {new Date(bill.dueDate).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">₹{(bill.baseAmount + bill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)).toFixed(2)}</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            ₹{(
+                              bill.baseAmount +
+                              (bill.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0) +
+                              (bill.penaltyAmount || 0)
+                            ).toFixed(2)}
+                          </div>
                           {bill.penaltyAmount > 0 && (
-                            <div className="text-xs text-red-500">+₹{bill.penaltyAmount.toFixed(2)} penalty</div>
+                            <div className="text-xs text-red-500">(includes ₹{bill.penaltyAmount.toFixed(2)} penalty)</div>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

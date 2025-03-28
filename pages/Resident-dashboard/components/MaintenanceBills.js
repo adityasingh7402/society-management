@@ -58,13 +58,25 @@ export default function MaintenanceBills() {
 
     // Calculate maintenance stats
     const billStats = {
-        total: maintenanceBills.reduce((sum, bill) => sum + bill.amount, 0),
-        unpaid: maintenanceBills.filter(bill => bill.status === "Pending").reduce((sum, bill) => sum + bill.amount, 0),
-        paid: maintenanceBills.filter(bill => bill.status === "Paid").reduce((sum, bill) => sum + bill.amount, 0),
+        total: maintenanceBills.reduce((sum, bill) => sum + (
+            bill.amount +
+            (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+            (bill.penaltyAmount || 0)
+        ), 0),
+        unpaid: maintenanceBills.filter(bill => bill.status !== "Paid").reduce((sum, bill) => sum + (
+            bill.amount +
+            (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+            (bill.penaltyAmount || 0)
+        ), 0),
+        paid: maintenanceBills.filter(bill => bill.status === "Paid").reduce((sum, bill) => sum + (
+            bill.amount +
+            (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0)
+        ), 0),
         due: maintenanceBills.filter(bill =>
             bill.status !== "Paid" &&
             new Date(bill.dueDate) <= new Date(new Date().setDate(new Date().getDate() + 5))
-        ).length
+        ).length,
+        totalPenalty: maintenanceBills.reduce((sum, bill) => sum + (bill.penaltyAmount || 0), 0)
     };
 
     // Handler for opening payment modal
@@ -235,14 +247,23 @@ export default function MaintenanceBills() {
                                             <div className="p-4">
                                                 <div className="flex justify-between mb-3">
                                                     <span className="text-sm text-gray-500">Due Date:</span>
-                                                    <span className={`text-sm font-medium ${new Date(bill.dueDate) <= new Date() && bill.status !== 'Paid' ? 'text-red-600' : ''
-                                                        }`}>
+                                                    <span className={`text-sm font-medium ${new Date(bill.dueDate) <= new Date() && bill.status !== 'Paid' ? 'text-red-600' : ''}`}>
                                                         {new Date(bill.dueDate).toLocaleDateString()}
                                                     </span>
                                                 </div>
-                                                <div className="flex justify-between mb-4">
-                                                    <span className="text-sm text-gray-500">Amount:</span>
+                                                <div className="flex justify-between mb-2">
+                                                    <span className="text-sm text-gray-500">Base Amount:</span>
                                                     <span className="text-lg font-bold">₹{bill.amount.toFixed(2)}</span>
+                                                </div>
+                                                {bill.penaltyAmount > 0 && (
+                                                    <div className="flex justify-between mb-2">
+                                                        <span className="text-sm text-red-500">Penalty Amount:</span>
+                                                        <span className="text-sm font-bold text-red-500">₹{bill.penaltyAmount.toFixed(2)}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between mb-4">
+                                                    <span className="text-sm text-gray-500">Total Amount:</span>
+                                                    <span className="text-lg font-bold">₹{(bill.amount + (bill.penaltyAmount || 0)).toFixed(2)}</span>
                                                 </div>
                                                 {bill.status === 'Paid' ? (
                                                     <div className="text-center text-green-600 text-sm font-medium">
@@ -285,32 +306,71 @@ export default function MaintenanceBills() {
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue Date</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penalty Amount</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Details</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Details</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Details</th>
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {paymentHistory.map((payment) => (
-                                                <tr key={payment.transactionId}>
+                                                <tr key={payment._id || payment.transactionId}>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center">
                                                             <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center">
                                                                 <FaBuilding className="text-blue-600" />
                                                             </div>
                                                             <div className="ml-4">
-                                                                <div className="text-sm font-medium text-gray-900">{payment.type}</div>
+                                                                <div className="text-sm font-medium text-gray-900">{payment.billType}</div>
+                                                                <div className="text-sm text-gray-500">
+                                                                    Issue Date: {new Date(payment.issueDate).toLocaleDateString()}
+                                                                </div>
+                                                                <div className="text-sm text-gray-500">
+                                                                    Due Date: {new Date(payment.dueDate).toLocaleDateString()}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">₹{payment.amount}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(payment.dueDate).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(payment.issueDate).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.penaltyAmount}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.status}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="text-sm text-gray-900">Base Amount: ₹{payment.amount.toFixed(2)}</div>
+                                                        {payment.additionalCharges && payment.additionalCharges.length > 0 && (
+                                                            <div className="text-sm text-gray-500">
+                                                                Additional: ₹{payment.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0).toFixed(2)}
+                                                            </div>
+                                                        )}
+                                                        {payment.penaltyAmount > 0 && (
+                                                            <div className="text-sm text-red-600">
+                                                                Penalty: ₹{payment.penaltyAmount.toFixed(2)}
+                                                            </div>
+                                                        )}
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            Total: ₹{(payment.amount + (payment.penaltyAmount || 0) +
+                                                                (payment.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0)).toFixed(2)}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {payment.status === 'Paid' && (
+                                                            <>
+                                                                <div className="text-sm text-gray-900">
+                                                                    Paid on: {new Date(payment.updatedAt).toLocaleDateString()}
+                                                                </div>
+                                                                <div className="text-sm text-gray-500">
+                                                                    Method: {payment.paymentMethod}
+                                                                </div>
+                                                                <div className="text-sm text-gray-500">
+                                                                    Transaction ID: {payment.transactionId}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                            ${payment.status === 'Paid'
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : 'bg-red-100 text-red-800'}`}>
+                                                            {payment.status}
+                                                        </span>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -339,8 +399,18 @@ export default function MaintenanceBills() {
                                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Pay {selectedBill.billType} Bill</h2>
                                 <div className="bg-blue-50 p-4 rounded-lg mb-4">
                                     <div className="flex justify-between mb-2">
-                                        <span className="text-sm text-gray-600">Amount:</span>
+                                        <span className="text-sm text-gray-600">Base Amount:</span>
                                         <span className="text-lg font-bold">₹{selectedBill.amount.toFixed(2)}</span>
+                                    </div>
+                                    {selectedBill.penaltyAmount > 0 && (
+                                        <div className="flex justify-between mb-2">
+                                            <span className="text-sm text-red-600">Penalty Amount:</span>
+                                            <span className="text-lg font-bold text-red-600">₹{selectedBill.penaltyAmount.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between mb-2">
+                                        <span className="text-sm text-gray-600">Total Amount:</span>
+                                        <span className="text-lg font-bold">₹{(selectedBill.amount + (selectedBill.penaltyAmount || 0)).toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between mb-2">
                                         <span className="text-sm text-gray-600">Due Date:</span>

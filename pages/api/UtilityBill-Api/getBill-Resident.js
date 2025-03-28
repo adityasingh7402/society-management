@@ -22,20 +22,39 @@ export default async function handler(req, res) {
     // Find all bills by residentId
     const bills = await UtilityBill.find({ residentId }).sort({ issueDate: -1 });
     
-    // Calculate summary data
-    const totalAmount = bills.reduce((sum, bill) => sum + bill.amount, 0);
-    const totalAdditionalCharges = bills.reduce((sum, bill) => {
-      return sum + bill.additionalCharges.reduce((chargeSum, charge) => chargeSum + charge.amount, 0);
+    // Update penalty amounts for overdue bills
+    const updatedBills = await Promise.all(bills.map(async (bill) => {
+      // Check if bill is overdue but not paid
+      if (bill.status !== 'Paid' && new Date(bill.dueDate) < new Date()) {
+        // Calculate penalty using the model's method
+        const penalty = bill.calculatePenalty();
+        
+        // If penalty has changed, update the bill
+        if (penalty !== bill.penaltyAmount) {
+          bill.penaltyAmount = penalty;
+          bill.status = 'Overdue';
+          await bill.save();
+        }
+      }
+      return bill;
+    }));
+    
+    // Calculate summary data with updated values
+    const totalAmount = updatedBills.reduce((sum, bill) => sum + (bill.baseAmount || 0), 0);
+    const totalAdditionalCharges = updatedBills.reduce((sum, bill) => {
+      return sum + (bill.additionalCharges?.reduce((chargeSum, charge) => chargeSum + (charge.amount || 0), 0) || 0);
     }, 0);
-    const totalPaidAmount = bills.reduce((sum, bill) => sum + bill.amountPaid, 0);
-    const totalDueAmount = bills.reduce((sum, bill) => {
-      const extraCharges = bill.additionalCharges.reduce((chargeSum, charge) => chargeSum + charge.amount, 0);
-      return sum + (bill.amount + extraCharges + bill.penaltyAmount + bill.currentPenalty - bill.amountPaid);
+    const totalPaidAmount = updatedBills.reduce((sum, bill) => {
+      return bill.status === 'Paid' ? sum + (bill.baseAmount || 0) : sum;
     }, 0);
-    const totalPenalty = bills.reduce((sum, bill) => sum + bill.penaltyAmount + bill.currentPenalty, 0);
+    const totalDueAmount = updatedBills.reduce((sum, bill) => {
+      if (bill.status === 'Paid') return sum;
+      return sum + (bill.remainingAmount || 0);
+    }, 0);
+    const totalPenalty = updatedBills.reduce((sum, bill) => sum + (bill.penaltyAmount || 0), 0);
     
     const summary = {
-      totalBills: bills.length,
+      totalBills: updatedBills.length,
       totalAmount,
       totalAdditionalCharges,
       totalPaidAmount,
@@ -43,7 +62,7 @@ export default async function handler(req, res) {
       totalPenalty
     };
     
-    res.status(200).json({ success: true, bills, summary });
+    res.status(200).json({ success: true, bills: updatedBills, summary });
   } catch (error) {
     console.error('Error fetching bills:', error);
     res.status(500).json({ message: 'Failed to fetch bills', error: error.message });

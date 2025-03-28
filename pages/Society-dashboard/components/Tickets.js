@@ -12,6 +12,8 @@ export default function Tickets() {
   const [filterComplaintType, setFilterComplaintType] = useState("all");
   const [filterDate, setFilterDate] = useState("");
   const [societyId, setSocietyId] = useState("");
+  const [expandedRow, setExpandedRow] = useState(null);
+  const [expandedImage, setExpandedImage] = useState(null);
 
   useEffect(() => {
     fetchTickets();
@@ -159,8 +161,8 @@ export default function Tickets() {
         <div className="flex border-b border-gray-200 mb-6">
           <button
             className={`px-6 py-3 text-sm font-medium ${activeTab === 'dashboard'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
               }`}
             onClick={() => setActiveTab('dashboard')}
           >
@@ -168,14 +170,14 @@ export default function Tickets() {
           </button>
           <button
             className={`px-6 py-3 text-sm font-medium ${activeTab === 'tickets'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
               }`}
             onClick={() => setActiveTab('tickets')}
           >
             All Tickets
           </button>
-          <button
+          {/* <button
             className={`px-6 py-3 text-sm font-medium ${activeTab === 'analytics'
                 ? 'text-blue-600 border-b-2 border-blue-600'
                 : 'text-gray-500 hover:text-gray-700'
@@ -183,7 +185,7 @@ export default function Tickets() {
             onClick={() => setActiveTab('analytics')}
           >
             Analytics
-          </button>
+          </button> */}
         </div>
 
         {isLoading ? (
@@ -223,7 +225,7 @@ export default function Tickets() {
                 </div>
 
                 {/* Complaint Type Breakdown */}
-                <div className="bg-white rounded-lg shadow p-6 mb-6">
+                {/* <div className="bg-white rounded-lg shadow p-6 mb-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-6">Complaint Type Breakdown</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {Object.entries(complaintTypeBreakdown).map(([type, data]) => (
@@ -233,7 +235,6 @@ export default function Tickets() {
                           <span className="text-2xl font-bold text-blue-600">{data.total}</span>
                         </div>
                         <div className="space-y-3">
-                          {/* Progress bars */}
                           <div>
                             <div className="flex justify-between text-sm mb-1">
                               <span className="text-green-600 font-medium">Completed</span>
@@ -274,7 +275,7 @@ export default function Tickets() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </div> */}
 
                 {/* Filters */}
                 <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -376,10 +377,10 @@ export default function Tickets() {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span
                                   className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${ticket.status === "Completed"
-                                      ? "bg-green-100 text-green-800"
-                                      : ticket.status === "Pending"
-                                        ? "bg-red-100 text-red-800"
-                                        : "bg-blue-100 text-blue-800"
+                                    ? "bg-green-100 text-green-800"
+                                    : ticket.status === "Pending"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-blue-100 text-blue-800"
                                     }`}
                                 >
                                   {ticket.status}
@@ -523,10 +524,10 @@ export default function Tickets() {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span
                                   className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${ticket.status === "Completed"
-                                      ? "bg-green-100 text-green-800"
-                                      : ticket.status === "Pending"
-                                        ? "bg-red-100 text-red-800"
-                                        : "bg-blue-100 text-blue-800"
+                                    ? "bg-green-100 text-green-800"
+                                    : ticket.status === "Pending"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-blue-100 text-blue-800"
                                     }`}
                                 >
                                   {ticket.status}
@@ -568,22 +569,19 @@ export default function Tickets() {
             )}
 
             {/* Analytics Tab */}
-            {activeTab === 'analytics' && (
+            {/* {activeTab === 'analytics' && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Ticket Analytics</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Add your analytics content here */}
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h3 className="text-lg font-medium mb-4">Resolution Time</h3>
-                    {/* Add charts or stats */}
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h3 className="text-lg font-medium mb-4">Category Distribution</h3>
-                    {/* Add charts or stats */}
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
           </>
         )}
       </main>

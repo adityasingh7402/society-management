@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       // Check if bill is overdue but not paid
       if (bill.status !== 'Paid' && new Date(bill.dueDate) < new Date()) {
         // Calculate penalty
-        const penalty = bill.calculatePenalty();
+        const penalty = bill.calculatePenalty(); 
 
         // If penalty has changed, update the bill
         if (penalty !== bill.penaltyAmount) {

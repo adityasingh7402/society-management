@@ -59,10 +59,85 @@ const MaintenanceBillSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
+// Calculate penalty based on days overdue and fine per day
+MaintenanceBillSchema.methods.calculatePenalty = function() {
+  // If bill is already paid, no penalty
+  if (this.status === 'Paid') {
+    return 0;
+  }
+  
+  // Calculate days overdue
+  const today = new Date();
+  const dueDate = new Date(this.dueDate);
+  
+  // If not yet due, no penalty
+  if (today <= dueDate) {
+    return 0;
+  }
+  
+  // Calculate days difference
+  const diffTime = Math.abs(today - dueDate);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  // Calculate penalty amount
+  const finePerDay = this.finePerDay || 50; // Default to 50 if not specified
+  const penalty = diffDays * finePerDay;
+  
+  return penalty;
+};
+
+// Calculate total amount including base amount, additional charges, and penalty
+MaintenanceBillSchema.methods.calculateTotalAmount = function() {
+  const baseAmount = this.amount || 0;
+  
+  // Sum additional charges
+  const additionalChargesTotal = this.additionalCharges.reduce((sum, charge) => {
+    return sum + (charge.amount || 0);
+  }, 0);
+  
+  // Add penalties
+  const fixedPenalty = this.penaltyAmount || 0;
+  const currentPenalty = this.currentPenalty || 0;
+  
+  return baseAmount + additionalChargesTotal + fixedPenalty + currentPenalty;
+};
+
+// Calculate remaining amount
+MaintenanceBillSchema.methods.calculateRemainingAmount = function() {
+  if (this.status === 'Paid') {
+    return 0;
+  }
+  
+  const totalAmount = this.calculateTotalAmount();
+  return totalAmount - (this.amountPaid || 0);
+};
+
+// Pre-save hook to update remaining amount and penalty
+MaintenanceBillSchema.pre('save', function(next) {
+  // Update current penalty amount
+  if (this.status !== 'Paid') {
+    this.currentPenalty = this.calculatePenalty();
+    
+    // Update status to Overdue if past due date
+    if (new Date() > new Date(this.dueDate)) {
+      this.status = 'Overdue';
+    }
+    
+    // If partially paid, ensure status reflects that
+    if (this.amountPaid > 0 && this.amountPaid < this.calculateTotalAmount()) {
+      this.status = 'Partially Paid';
+    }
+  }
+  
+  // Update remaining amount
+  this.remainingAmount = this.calculateRemainingAmount();
+  
+  next();
+});
+
 // Virtual field to calculate total due amount (bill + additional charges + penalties - paid amount)
 MaintenanceBillSchema.virtual('totalDue').get(function () {
-  const extraCharges = this.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
-  return this.amount + extraCharges + this.penaltyAmount + this.currentPenalty - this.amountPaid;
+  return this.calculateRemainingAmount();
 });
 
 const MaintenanceBill = mongoose.models.MaintenanceBill || mongoose.model('MaintenanceBill', MaintenanceBillSchema);

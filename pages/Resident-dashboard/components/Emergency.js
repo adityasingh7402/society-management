@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaExclamationTriangle, FaSearch, FaFilter, FaSort, FaBell, FaPlus, FaCheck, FaTimes } from 'react-icons/fa';
-import { ArrowLeft, AlertTriangle, Bell, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Bell, Calendar, Clock, Loader2 } from "lucide-react";
 import { useRouter } from 'next/router';
+import { toast } from 'react-hot-toast';
 
 export default function EmergencyManagement() {
     const [activeTab, setActiveTab] = useState('active');
@@ -14,157 +15,174 @@ export default function EmergencyManagement() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const router = useRouter();
 
+    // Add new state variables
+    const [residentDetails, setResidentDetails] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [activeEmergencies, setActiveEmergencies] = useState([]);
+    const [resolvedEmergencies, setResolvedEmergencies] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     // Form state for creating new emergency
     const [newEmergency, setNewEmergency] = useState({
         title: '',
         description: '',
         location: '',
-        type: 'Fire',
+        type: 'Rule Violation', // Updated default value
         severity: 'High',
         affectedAreas: ''
     });
 
-    // Sample data for active emergencies
-    const [activeEmergencies, setActiveEmergencies] = useState([
-        {
-            id: 1,
-            title: "Fire in Server Room",
-            description: "Electrical fire detected in the main server room. Fire suppression system activated. All personnel evacuated.",
-            location: "Building A, 3rd Floor, Room 304",
-            type: "Fire",
-            severity: "High",
-            createdAt: "2025-03-20T08:45:00",
-            updatedAt: "2025-03-20T09:15:00",
-            reportedBy: "Amit Kumar",
-            department: "IT Infrastructure",
-            affectedAreas: "IT Services, Network Connectivity",
-            status: "Active"
-        },
-        {
-            id: 2,
-            title: "Water Leak in Laboratory",
-            description: "Major water leak from ceiling pipes. Equipment potentially damaged. Area cordoned off.",
-            location: "Building B, 2nd Floor, Lab 205",
-            type: "Infrastructure",
-            severity: "Medium",
-            createdAt: "2025-03-20T10:30:00",
-            updatedAt: "2025-03-20T10:45:00",
-            reportedBy: "Priya Sharma",
-            department: "Research & Development",
-            affectedAreas: "Laboratory Operations, Research Projects",
-            status: "Active"
-        },
-        {
-            id: 3,
-            title: "Unauthorized Access Alert",
-            description: "Security system detected multiple failed login attempts at secure area. Security team dispatched.",
-            location: "Building C, Basement, Server Hub",
-            type: "Security",
-            severity: "High",
-            createdAt: "2025-03-20T07:20:00",
-            updatedAt: "2025-03-20T07:35:00",
-            reportedBy: "Rajiv Singh",
-            department: "Security",
-            affectedAreas: "Data Center, Network Infrastructure",
-            status: "Active"
-        }
-    ]);
+    // Fetch resident details and emergencies on component mount
+    useEffect(() => {
+        fetchResidentDetails();
+    }, []);
 
-    // Sample data for resolved emergencies
-    const [resolvedEmergencies, setResolvedEmergencies] = useState([
-        {
-            id: 101,
-            title: "Power Outage",
-            description: "Complete power failure in the east wing. Backup generators activated successfully.",
-            location: "Building A, East Wing",
-            type: "Power",
-            severity: "High",
-            createdAt: "2025-03-19T14:15:00",
-            updatedAt: "2025-03-19T16:30:00",
-            resolvedAt: "2025-03-19T16:30:00",
-            reportedBy: "Vikram Malhotra",
-            department: "Facilities",
-            affectedAreas: "All East Wing Operations",
-            status: "Resolved"
-        },
-        {
-            id: 102,
-            title: "Chemical Spill",
-            description: "Minor chemical spill in the research lab. Contained within the spill tray. No injuries reported.",
-            location: "Building B, 1st Floor, Lab 102",
-            type: "Hazardous Material",
-            severity: "Medium",
-            createdAt: "2025-03-18T09:40:00",
-            updatedAt: "2025-03-18T10:55:00",
-            resolvedAt: "2025-03-18T10:55:00",
-            reportedBy: "Meera Patel",
-            department: "Chemical Research",
-            affectedAreas: "Research Lab Operations",
-            status: "Resolved"
-        },
-        {
-            id: 103,
-            title: "Network Outage",
-            description: "Core network switch failure causing widespread connectivity issues. Backup systems engaged.",
-            location: "Main Data Center",
-            type: "IT",
-            severity: "High",
-            createdAt: "2025-03-17T16:10:00",
-            updatedAt: "2025-03-17T18:45:00",
-            resolvedAt: "2025-03-17T18:45:00",
-            reportedBy: "Arjun Mehta",
-            department: "Network Operations",
-            affectedAreas: "All Internet Services, Internal Applications",
-            status: "Resolved"
-        }
-    ]);
+    // Fetch resident details
+    const fetchResidentDetails = async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('Resident');
+            if (!token) {
+                router.push('/Login');
+                return;
+            }
 
-    // Handle resolving an emergency
-    const handleResolve = (emergencyId) => {
-        // Find the emergency in active list
-        const emergency = activeEmergencies.find(e => e.id === emergencyId);
-        if (emergency) {
-            const now = new Date().toISOString();
-            // Add to resolved with resolved status
-            setResolvedEmergencies([
-                {
-                    ...emergency,
-                    status: 'Resolved',
-                    resolvedAt: now,
-                    updatedAt: now
+            const response = await fetch('/api/Resident-Api/get-resident-details', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
                 },
-                ...resolvedEmergencies
-            ]);
-            // Remove from active list
-            setActiveEmergencies(activeEmergencies.filter(e => e.id !== emergencyId));
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch resident details');
+            }
+
+            const data = await response.json();
+            setResidentDetails(data);
+
+            // After getting resident details, fetch emergencies
+            if (data.societyCode) {
+                await fetchEmergencies(data.societyCode);
+            } else {
+                toast.error('Society ID not found in resident details');
+                setLoading(false);
+            }
+        } catch (error) {
+            console.error('Error fetching resident details:', error);
+            toast.error('Failed to load resident details');
+            setLoading(false);
+        }
+    };
+
+    // Fetch emergencies based on societyId
+    const fetchEmergencies = async (societyCode) => {
+        try {
+            const response = await fetch(`/api/Notice-Api/getNotices?societyId=${societyCode}&noticeType=emergency`);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch emergencies');
+            }
+
+            const data = await response.json();
+
+            // Map notice data to emergency structure and separate by status
+            const emergencies = data.data.map(notice => ({
+                _id: notice._id,
+                title: notice.title,
+                description: notice.description,
+                type: notice.category || 'Other',
+                severity: notice.priorityLevel || 'Medium',
+                status: notice.status === 'approved' ? 'Active' : (notice.status === 'resolved' ? 'Resolved' : 'Pending'),
+                createdAt: notice.createdAt,
+                updatedAt: notice.updatedAt,
+                resolvedAt: notice.resolvedAt || notice.updatedAt,
+                reportedBy: notice.createdBy || {
+                    name: "Unknown",
+                    role: "N/A",
+                    userId: null
+                }
+            }));
+
+            // Filter emergencies based on status and creator
+            const active = emergencies.filter(emergency => 
+                emergency.status === 'Active' || 
+                (emergency.status === 'Pending' && 
+                 emergency.reportedBy?.userId && 
+                 residentDetails?._id && 
+                 emergency.reportedBy.userId === residentDetails._id)
+            );
+            const resolved = emergencies.filter(emergency => emergency.status === 'Resolved');
+
+            setActiveEmergencies(active);
+            setResolvedEmergencies(resolved);
+        } catch (error) {
+            console.error('Error fetching emergencies:', error);
+            toast.error('Failed to load emergencies');
+        } finally {
+            setLoading(false);
         }
     };
 
     // Handle creating a new emergency
-    const handleCreateEmergency = () => {
-        const now = new Date().toISOString();
-        const newEmergencyEntry = {
-            id: Date.now(),
-            ...newEmergency,
-            createdAt: now,
-            updatedAt: now,
-            reportedBy: "Current User", // In a real app, this would be the authenticated user
-            department: "Current Department", // In a real app, this would be the user's department
-            status: "Active"
-        };
+    const handleCreateEmergency = async () => {
+        if (!newEmergency.title || !newEmergency.description) {
+            toast.error('Please fill all required fields');
+            return;
+        }
 
-        setActiveEmergencies([newEmergencyEntry, ...activeEmergencies]);
-        setShowCreateModal(false);
+        try {
+            setIsSubmitting(true);
 
-        // Reset form
-        setNewEmergency({
-            title: '',
-            description: '',
-            location: '',
-            type: 'Fire',
-            severity: 'High',
-            affectedAreas: ''
-        });
+            // Only include fields that exist in the Notice model
+            const emergencyData = {
+                title: newEmergency.title,
+                description: newEmergency.description,
+                noticeType: 'Emergency',
+                category: newEmergency.type,
+                priorityLevel: newEmergency.severity,
+                societyId: residentDetails.societyCode,
+                createdBy: {
+                    userId: residentDetails._id,
+                    name: residentDetails.name,
+                    role: 'resident'
+                },
+                attachments: []
+            };
+
+            const response = await fetch('/api/Notice-Api/createNotice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(emergencyData),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to create emergency');
+            }
+
+            const data = await response.json();
+
+            // Add the new emergency to active emergencies
+            setActiveEmergencies([data.data, ...activeEmergencies]);
+
+            // Reset form and close modal
+            setNewEmergency({
+                title: '',
+                description: '',
+                location: '',
+                type: 'Rule Violation',
+                severity: 'High',
+                affectedAreas: ''
+            });
+            setShowCreateModal(false);
+            toast.success('Emergency reported successfully');
+        } catch (error) {
+            console.error('Error creating emergency:', error);
+            toast.error('Failed to report emergency');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     // Filter and sort functions
@@ -177,7 +195,7 @@ export default function EmergencyManagement() {
                     emergency.title.toLowerCase().includes(searchLower) ||
                     emergency.description.toLowerCase().includes(searchLower) ||
                     emergency.location.toLowerCase().includes(searchLower) ||
-                    emergency.reportedBy.toLowerCase().includes(searchLower);
+                    (emergency.reportedBy?.name && emergency.reportedBy.name.toLowerCase().includes(searchLower));
 
                 // Date range filter
                 const createdDate = new Date(emergency.createdAt);
@@ -249,18 +267,18 @@ export default function EmergencyManagement() {
     // Get emergency type icon
     const getEmergencyTypeIcon = (type) => {
         switch (type) {
-            case 'Fire':
+            case 'Rule Violation':
+                return "📜";
+            case 'Noise Complaint':
+                return "🔊";
+            case 'Parking Issue':
+                return "🚗";
+            case 'Fire Hazard':
                 return "🔥";
-            case 'Security':
-                return "🔒";
-            case 'Infrastructure':
-                return "🏗️";
-            case 'Power':
+            case 'Power Outage':
                 return "⚡";
-            case 'Hazardous Material':
-                return "☣️";
-            case 'IT':
-                return "💻";
+            case 'Security Threat':
+                return "🔒";
             default:
                 return "⚠️";
         }
@@ -275,7 +293,7 @@ export default function EmergencyManagement() {
                 <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
                     <div className="p-6 border-b border-gray-200">
                         <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-medium text-gray-900">Create Emergency Warning</h3>
+                            <h3 className="text-lg font-medium text-gray-900">Report Emergency</h3>
                             <button
                                 onClick={() => setShowCreateModal(false)}
                                 className="text-gray-400 hover:text-gray-500"
@@ -311,18 +329,6 @@ export default function EmergencyManagement() {
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Location*</label>
-                                <input
-                                    type="text"
-                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Specific location of the emergency"
-                                    value={newEmergency.location}
-                                    onChange={(e) => setNewEmergency({ ...newEmergency, location: e.target.value })}
-                                    required
-                                />
-                            </div>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Type</label>
@@ -331,18 +337,18 @@ export default function EmergencyManagement() {
                                         value={newEmergency.type}
                                         onChange={(e) => setNewEmergency({ ...newEmergency, type: e.target.value })}
                                     >
-                                        <option value="Fire">Fire</option>
-                                        <option value="Security">Security</option>
-                                        <option value="Infrastructure">Infrastructure</option>
-                                        <option value="Power">Power</option>
-                                        <option value="Hazardous Material">Hazardous Material</option>
-                                        <option value="IT">IT</option>
+                                        <option value="Rule Violation">Rule Violation</option>
+                                        <option value="Noise Complaint">Noise Complaint</option>
+                                        <option value="Parking Issue">Parking Issue</option>
+                                        <option value="Fire Hazard">Fire Hazard</option>
+                                        <option value="Power Outage">Power Outage</option>
+                                        <option value="Security Threat">Security Threat</option>
                                         <option value="Other">Other</option>
                                     </select>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Priority Level</label>
                                     <select
                                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                                         value={newEmergency.severity}
@@ -354,17 +360,6 @@ export default function EmergencyManagement() {
                                     </select>
                                 </div>
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Affected Areas/Services</label>
-                                <input
-                                    type="text"
-                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Areas or services affected by this emergency"
-                                    value={newEmergency.affectedAreas}
-                                    onChange={(e) => setNewEmergency({ ...newEmergency, affectedAreas: e.target.value })}
-                                />
-                            </div>
                         </div>
                     </div>
 
@@ -372,18 +367,21 @@ export default function EmergencyManagement() {
                         <button
                             onClick={() => setShowCreateModal(false)}
                             className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                            disabled={isSubmitting}
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleCreateEmergency}
-                            disabled={!newEmergency.title || !newEmergency.description || !newEmergency.location}
-                            className={`px-4 py-2 rounded-md text-sm font-medium text-white ${!newEmergency.title || !newEmergency.description || !newEmergency.location
+                            disabled={isSubmitting || !newEmergency.title || !newEmergency.description}
+                            className={`px-4 py-2 rounded-md text-sm font-medium text-white flex items-center ${
+                                isSubmitting || !newEmergency.title || !newEmergency.description
                                     ? 'bg-blue-400 cursor-not-allowed'
                                     : 'bg-blue-600 hover:bg-blue-700'
-                                }`}
+                            }`}
                         >
-                            Create Warning
+                            {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            Report Emergency
                         </button>
                     </div>
                 </div>
@@ -400,7 +398,7 @@ export default function EmergencyManagement() {
                     <span className="text-base">Back</span>
                 </button>
             </div>
-            <h1 className="text-2xl md:text-4xl font-bold text-red-600 mb-4 md:mb-8 text-center">Emergency Management</h1>
+            <h1 className="text-2xl md:text-4xl font-bold text-red-600 mb-4 md:mb-8 text-center">Emergency Alerts</h1>
 
             {/* Create Emergency Button */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
@@ -409,7 +407,7 @@ export default function EmergencyManagement() {
                     className="mb-6 px-6 py-3 bg-red-600 text-white rounded-md font-medium flex items-center justify-center hover:bg-red-700 transition-colors shadow-md"
                 >
                     <FaPlus className="mr-2" />
-                    Create Emergency Warning
+                    Report Emergency
                 </button>
             </div>
 
@@ -535,12 +533,12 @@ export default function EmergencyManagement() {
                                         onChange={(e) => setEmergencyType(e.target.value)}
                                     >
                                         <option value="all">All Emergency Types</option>
-                                        <option value="Fire">Fire</option>
-                                        <option value="Security">Security</option>
-                                        <option value="Infrastructure">Infrastructure</option>
-                                        <option value="Power">Power</option>
-                                        <option value="Hazardous Material">Hazardous Material</option>
-                                        <option value="IT">IT</option>
+                                        <option value="Rule Violation">Rule Violation</option>
+                                        <option value="Noise Complaint">Noise Complaint</option>
+                                        <option value="Parking Issue">Parking Issue</option>
+                                        <option value="Fire Hazard">Fire Hazard</option>
+                                        <option value="Power Outage">Power Outage</option>
+                                        <option value="Security Threat">Security Threat</option>
                                         <option value="Other">Other</option>
                                     </select>
                                 </div>
@@ -557,163 +555,165 @@ export default function EmergencyManagement() {
                     )}
                 </div>
 
-                {/* Emergency Cards - Active */}
-                {activeTab === 'active' && (
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Active Emergency Situations</h2>
+                {/* Loading State */}
+                {loading ? (
+                    <div className="flex justify-center items-center h-64">
+                        <Loader2 className="h-12 w-12 animate-spin text-red-600" />
+                    </div>
+                ) : (
+                    <>
+                        {/* Emergency Cards - Active */}
+                        {activeTab === 'active' && (
+                            <div>
+                                <h2 className="text-xl font-semibold text-gray-900 mb-4">Active Emergency Situations</h2>
 
-                        {filteredActiveEmergencies.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {filteredActiveEmergencies.map(emergency => (
-                                    <div key={emergency.id} className="bg-white rounded-lg shadow overflow-hidden border-l-4 border-red-500">
-                                        <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                                            <div className="flex-grow">
-                                                <div className="flex items-center">
-                                                    <span className="text-2xl mr-2">{getEmergencyTypeIcon(emergency.type)}</span>
-                                                    <h3 className="text-lg font-medium text-gray-900 truncate">{emergency.title}</h3>
+                                {filteredActiveEmergencies.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {filteredActiveEmergencies.map(emergency => (
+                                            <div key={emergency._id} className="bg-white rounded-lg shadow overflow-hidden border-l-4 border-red-500">
+                                                <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                                    <div className="flex-grow">
+                                                        <div className="flex items-center">
+                                                            <span className="text-2xl mr-2">{getEmergencyTypeIcon(emergency.type)}</span>
+                                                            <h3 className="text-lg font-medium text-gray-900 truncate">{emergency.title}</h3>
+                                                        </div>
+                                                        <p className="text-sm text-gray-500 mt-1">{emergency.location}</p>
+                                                    </div>
+                                                    <span className={`${getSeverityColor(emergency.severity)} text-xs px-2 py-1 rounded-full uppercase font-medium`}>
+                                                        {emergency.severity}
+                                                    </span>
                                                 </div>
-                                                <p className="text-sm text-gray-500 mt-1">{emergency.location}</p>
-                                            </div>
-                                            <span className={`${getSeverityColor(emergency.severity)} text-xs px-2 py-1 rounded-full uppercase font-medium`}>
-                                                {emergency.severity}
-                                            </span>
-                                        </div>
 
-                                        <div className="p-4">
-                                            <div className="mb-3">
-                                                <h4 className="text-sm font-medium text-gray-500">Description</h4>
-                                                <p className="text-sm text-gray-900">{emergency.description}</p>
-                                            </div>
+                                                <div className="p-4">
+                                                    <div className="mb-3">
+                                                        <h4 className="text-sm font-medium text-gray-500">Description</h4>
+                                                        <p className="text-sm text-gray-900">{emergency.description}</p>
+                                                    </div>
 
-                                            <div className="grid grid-cols-2 gap-3 mb-3">
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-500">Reported By</h4>
-                                                    <p className="text-sm text-gray-900">{emergency.reportedBy}</p>
-                                                    <p className="text-xs text-gray-500">{emergency.department}</p>
+                                                    <div className="grid grid-cols-2 gap-3 mb-3">
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-gray-500">Reported By</h4>
+                                                            <p className="text-sm text-gray-900">{emergency.reportedBy?.name || "Unknown"}</p>
+                                                            <p className="text-xs capitalize text-gray-500">Unit: {emergency.reportedBy?.role || "N/A"}</p>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-gray-500">Time Reported</h4>
+                                                            <p className="text-sm text-gray-900">{formatDateTime(emergency.createdAt)}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {emergency.affectedAreas && (
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-gray-500">Affected Areas/Services</h4>
+                                                            <p className="text-sm text-gray-900">{emergency.affectedAreas}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-500">Time Reported</h4>
-                                                    <p className="text-sm text-gray-900">{formatDateTime(emergency.createdAt)}</p>
+
+                                                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                                                    <div className="flex items-center text-xs text-gray-500">
+                                                        <Clock size={14} className="mr-1" />
+                                                        Last updated: {formatDateTime(emergency.updatedAt || emergency.createdAt)}
+                                                    </div>
                                                 </div>
                                             </div>
-
-                                            {emergency.affectedAreas && (
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-500">Affected Areas/Services</h4>
-                                                    <p className="text-sm text-gray-900">{emergency.affectedAreas}</p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-                                            <div className="flex items-center text-xs text-gray-500">
-                                                <Clock size={14} className="mr-1" />
-                                                Last updated: {formatDateTime(emergency.updatedAt)}
-                                            </div>
-                                            {/* <button
-                                                onClick={() => handleResolve(emergency.id)}
-                                                className="flex items-center px-3 py-1 border border-green-600 rounded text-sm font-medium text-green-700 bg-white hover:bg-green-50"
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="bg-white rounded-lg shadow p-8 text-center">
+                                        <AlertTriangle size={48} className="mx-auto text-gray-400 mb-4" />
+                                        <p className="text-gray-500 mb-4">No active emergencies match your filters.</p>
+                                        {(searchTerm || dateRange.from || dateRange.to || emergencyType !== 'all') && (
+                                            <button
+                                                onClick={resetFilters}
+                                                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                                             >
-                                                <FaCheck className="mr-1" />
-                                                Mark as Resolved
-                                            </button> */}
-                                        </div>
+                                                Reset Filters
+                                            </button>
+                                        )}
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="bg-white rounded-lg shadow p-8 text-center">
-                                <AlertTriangle size={48} className="mx-auto text-gray-400 mb-4" />
-                                <p className="text-gray-500 mb-4">No active emergencies match your filters.</p>
-                                {(searchTerm || dateRange.from || dateRange.to || emergencyType !== 'all') && (
-                                    <button
-                                        onClick={resetFilters}
-                                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                                    >
-                                        Reset Filters
-                                    </button>
                                 )}
                             </div>
                         )}
-                    </div>
-                )}
 
-                {/* Emergency History */}
-                {activeTab === 'resolved' && (
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Resolved Emergencies History</h2>
+                        {/* Emergency History */}
+                        {activeTab === 'resolved' && (
+                            <div>
+                                <h2 className="text-xl font-semibold text-gray-900 mb-4">Resolved Emergencies History</h2>
 
-                        {filteredResolvedEmergencies.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {filteredResolvedEmergencies.map(emergency => (
-                                    <div key={emergency.id} className="bg-white rounded-lg shadow overflow-hidden border-l-4 border-green-500">
-                                        <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                                            <div className="flex-grow">
-                                                <div className="flex items-center">
-                                                    <span className="text-2xl mr-2">{getEmergencyTypeIcon(emergency.type)}</span>
-                                                    <h3 className="text-lg font-medium text-gray-900 truncate">{emergency.title}</h3>
+                                {filteredResolvedEmergencies.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {filteredResolvedEmergencies.map(emergency => (
+                                            <div key={emergency._id} className="bg-white rounded-lg shadow overflow-hidden border-l-4 border-green-500">
+                                                <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                                    <div className="flex-grow">
+                                                        <div className="flex items-center">
+                                                            <span className="text-2xl mr-2">{getEmergencyTypeIcon(emergency.type)}</span>
+                                                            <h3 className="text-lg font-medium text-gray-900 truncate">{emergency.title}</h3>
+                                                        </div>
+                                                        <p className="text-sm text-gray-500 mt-1">{emergency.location}</p>
+                                                    </div>
+                                                    <span className={`${getSeverityColor(emergency.severity)} text-xs px-2 py-1 rounded-full uppercase font-medium`}>
+                                                        {emergency.severity}
+                                                    </span>
                                                 </div>
-                                                <p className="text-sm text-gray-500 mt-1">{emergency.location}</p>
-                                            </div>
-                                            <span className={`${getSeverityColor(emergency.severity)} text-xs px-2 py-1 rounded-full uppercase font-medium`}>
-                                                {emergency.severity}
-                                            </span>
-                                        </div>
 
-                                        <div className="p-4">
-                                            <div className="mb-3">
-                                                <h4 className="text-sm font-medium text-gray-500">Description</h4>
-                                                <p className="text-sm text-gray-900">{emergency.description}</p>
-                                            </div>
+                                                <div className="p-4">
+                                                    <div className="mb-3">
+                                                        <h4 className="text-sm font-medium text-gray-500">Description</h4>
+                                                        <p className="text-sm text-gray-900">{emergency.description}</p>
+                                                    </div>
 
-                                            <div className="grid grid-cols-2 gap-3 mb-3">
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-500">Reported By</h4>
-                                                    <p className="text-sm text-gray-900">{emergency.reportedBy}</p>
-                                                    <p className="text-xs text-gray-500">{emergency.department}</p>
+                                                    <div className="grid grid-cols-2 gap-3 mb-3">
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-gray-500">Reported By</h4>
+                                                            <p className="text-sm text-gray-900">{emergency.reportedBy?.name || "Unknown"}</p>
+                                                            <p className="text-xs text-gray-500">Unit: {emergency.reportedBy?.unit || "N/A"}</p>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-gray-500">Time Reported</h4>
+                                                            <p className="text-sm text-gray-900">{formatDateTime(emergency.createdAt)}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {emergency.affectedAreas && (
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-gray-500">Affected Areas/Services</h4>
+                                                            <p className="text-sm text-gray-900">{emergency.affectedAreas}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-500">Time Reported</h4>
-                                                    <p className="text-sm text-gray-900">{formatDateTime(emergency.createdAt)}</p>
+
+                                                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                                                    <div className="flex items-center text-xs text-gray-500">
+                                                        <Clock size={14} className="mr-1" />
+                                                        Resolved: {formatDateTime(emergency.resolvedAt)}
+                                                    </div>
                                                 </div>
                                             </div>
-
-                                            {emergency.affectedAreas && (
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-gray-500">Affected Areas/Services</h4>
-                                                    <p className="text-sm text-gray-900">{emergency.affectedAreas}</p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-                                            <div className="flex items-center text-xs text-gray-500">
-                                                <Clock size={14} className="mr-1" />
-                                                Resolved at: {formatDateTime(emergency.resolvedAt)}
-                                            </div>
-                                        </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="bg-white rounded-lg shadow p-8 text-center">
-                                <AlertTriangle size={48} className="mx-auto text-gray-400 mb-4" />
-                                <p className="text-gray-500 mb-4">No resolved emergencies match your filters.</p>
-                                {(searchTerm || dateRange.from || dateRange.to || emergencyType !== 'all') && (
-                                    <button
-                                        onClick={resetFilters}
-                                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                                    >
-                                        Reset Filters
-                                    </button>
+                                ) : (
+                                    <div className="bg-white rounded-lg shadow p-8 text-center">
+                                        <AlertTriangle size={48} className="mx-auto text-gray-400 mb-4" />
+                                        <p className="text-gray-500 mb-4">No resolved emergencies match your filters.</p>
+                                        {(searchTerm || dateRange.from || dateRange.to || emergencyType !== 'all') && (
+                                            <button
+                                                onClick={resetFilters}
+                                                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                                            >
+                                                Reset Filters
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}
-                    </div>
+                    </>
                 )}
             </div>
 
-            {/* Render Create Emergency Modal */}
+            {/* Create Emergency Modal */}
             {renderCreateEmergencyModal()}
         </div>
     );
