@@ -1,5 +1,6 @@
 // pages/maintenance-bills.js
 import React, { useState, useEffect } from 'react';
+import Preloader from '../../components/Preloader';
 
 export default function MaintenanceBills() {
   // States for UI
@@ -69,6 +70,7 @@ export default function MaintenanceBills() {
   // Fetch bill summary
   useEffect(() => {
     // Update the fetchBillSummary function
+    setLoading(true);
     const fetchBillSummary = async () => {
       try {
         const response = await fetch('/api/MaintenanceBill-Api/getBills');
@@ -99,6 +101,8 @@ export default function MaintenanceBills() {
         }
       } catch (error) {
         console.error('Error fetching bill summary:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -341,6 +345,10 @@ export default function MaintenanceBills() {
     const additionalTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
     return baseAmount + additionalTotal;
   };
+
+  if (loading) {
+    return <Preloader />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">

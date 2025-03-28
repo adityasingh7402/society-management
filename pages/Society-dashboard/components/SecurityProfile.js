@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
+import Preloader from '@/pages/components/Preloader';
 import {
     Eye,
     CheckCircle2,
@@ -17,12 +18,14 @@ import {
     Plus,
     Trash2
 } from 'lucide-react';
+import { set } from 'mongoose';
 
 export default function SecurityProfile() {
     const [securityGuards, setSecurityGuards] = useState([]);
     const [selectedGuard, setSelectedGuard] = useState(null);
     const [editingGuard, setEditingGuard] = useState(null);
     const [verificationFilter, setVerificationFilter] = useState('all');
+    const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const router = useRouter();
 
@@ -49,6 +52,7 @@ export default function SecurityProfile() {
 
     // Fetch security guards on component mount
     useEffect(() => {
+        setLoading(true);
         const fetchSecurityGuards = async () => {
             try {
                 const token = localStorage.getItem('Society');
@@ -73,6 +77,8 @@ export default function SecurityProfile() {
                 setSecurityGuards(response.data.securityGuards);
             } catch (error) {
                 console.error('Error fetching security guards:', error);
+            } finally {
+                setLoading(false);
             }
         };
 
@@ -165,11 +171,11 @@ export default function SecurityProfile() {
                 }
             );
 
-            setSecurityGuards(prevGuards => 
-                prevGuards.map(guard => 
-                    guard._id === guardId 
-                    ? { ...guard, societyVerification: status } 
-                    : guard
+            setSecurityGuards(prevGuards =>
+                prevGuards.map(guard =>
+                    guard._id === guardId
+                        ? { ...guard, societyVerification: status }
+                        : guard
                 )
             );
         } catch (error) {
@@ -192,11 +198,11 @@ export default function SecurityProfile() {
             );
 
             // Update local state with the updated guard information
-            setSecurityGuards(prevGuards => 
-                prevGuards.map(guard => 
-                    guard.securityId === formData.securityId 
-                    ? { ...guard, ...formData } 
-                    : guard
+            setSecurityGuards(prevGuards =>
+                prevGuards.map(guard =>
+                    guard.securityId === formData.securityId
+                        ? { ...guard, ...formData }
+                        : guard
                 )
             );
 
@@ -216,6 +222,9 @@ export default function SecurityProfile() {
             default: return 'bg-yellow-100 text-yellow-800';
         }
     };
+    if (loading) {
+        return <Preloader />;
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 p-4 md:p-8">
@@ -366,7 +375,7 @@ export default function SecurityProfile() {
                             >
                                 <XCircle size={24} />
                             </button>
-                            
+
                             <h2 className="text-2xl font-bold mb-4 flex items-center text-blue-700 border-b pb-3">
                                 <User className="mr-3 text-blue-600" size={28} />
                                 Guard Details
@@ -433,12 +442,12 @@ export default function SecurityProfile() {
                             >
                                 <XCircle size={24} />
                             </button>
-                            
+
                             <h2 className="text-2xl font-bold mb-4 flex items-center text-blue-700 border-b pb-3">
                                 <Edit className="mr-3 text-blue-600" size={28} />
                                 Edit Guard Details
                             </h2>
-                            
+
                             <form onSubmit={handleGuardUpdate} className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {/* Basic Information */}
@@ -455,7 +464,7 @@ export default function SecurityProfile() {
                                                 required
                                             />
                                         </div>
-                                        
+
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Primary Phone</label>
                                             <input
@@ -467,7 +476,7 @@ export default function SecurityProfile() {
                                                 required
                                             />
                                         </div>
-                                        
+
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Additional Phone Numbers</label>
                                             <div className="space-y-2">
@@ -500,7 +509,7 @@ export default function SecurityProfile() {
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     {/* Shift Timings */}
                                     <div className="space-y-3 bg-blue-50 p-4 rounded-lg">
                                         <h3 className="font-medium text-blue-700">Shift Information</h3>
@@ -515,7 +524,7 @@ export default function SecurityProfile() {
                                                 required
                                             />
                                         </div>
-                                        
+
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Shift End Time</label>
                                             <input
@@ -529,14 +538,14 @@ export default function SecurityProfile() {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 {/* Address Section */}
                                 <div className="bg-blue-50 p-4 rounded-lg mt-4">
                                     <h3 className="text-lg font-medium text-blue-700 mb-3 flex items-center">
                                         <MapPin className="mr-2 text-blue-500" size={20} />
                                         Address Information
                                     </h3>
-                                    
+
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Society Name</label>
@@ -549,7 +558,7 @@ export default function SecurityProfile() {
                                                 required
                                             />
                                         </div>
-                                        
+
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Street</label>
                                             <input
@@ -561,7 +570,7 @@ export default function SecurityProfile() {
                                                 required
                                             />
                                         </div>
-                                        
+
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                                             <input
@@ -573,7 +582,7 @@ export default function SecurityProfile() {
                                                 required
                                             />
                                         </div>
-                                        
+
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
                                             <input
@@ -585,7 +594,7 @@ export default function SecurityProfile() {
                                                 required
                                             />
                                         </div>
-                                        
+
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code</label>
                                             <input
@@ -599,7 +608,7 @@ export default function SecurityProfile() {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex justify-between pt-4">
                                     <button
                                         type="button"

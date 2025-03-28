@@ -1,6 +1,7 @@
 // pages/Society-dashboard/components/PollsSurveys.js
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Preloader from '../../components/Preloader';
 import {
   BarChart,
   PieChart,
@@ -34,6 +35,7 @@ export default function PollsSurveys() {
   const [selectedSurvey, setSelectedSurvey] = useState(null);
   const [userVote, setUserVote] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [surveyResponses, setSurveyResponses] = useState({});
   const [userId, setUserId] = useState("user123"); // Replace with actual user ID from auth
@@ -54,6 +56,7 @@ export default function PollsSurveys() {
   }, []);
 
   const fetchPollsAndSurveys = async () => {
+    setLoading(true);
     setIsLoading(true);
     try {
       const token = localStorage.getItem('Society');
@@ -131,6 +134,7 @@ export default function PollsSurveys() {
       }
     } finally {
       setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -413,6 +417,10 @@ export default function PollsSurveys() {
       avgParticipation: surveys.length ? Math.round(surveys.reduce((acc, survey) => acc + (survey.responses || 0), 0) / surveys.length) : 0
     };
   };
+
+  if (loading) {
+    return <Preloader />;
+  }
 
   return (<div className="min-h-screen bg-gray-50">
     {/* Header */}

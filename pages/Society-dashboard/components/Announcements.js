@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import { Megaphone, Calendar, Clock, Trash2, Upload, Edit, AlertCircle, X, Save, Plus, Loader2 } from 'lucide-react';
-import Image from 'next/image';
+import Preloader from '../../components/Preloader';
 
 export default function Announcements() {
   const router = useRouter();
@@ -35,6 +35,7 @@ export default function Announcements() {
 
   // Add fetchAnnouncements function
   const fetchAnnouncements = async () => {
+    setLoading(true);
     try {
       const token = localStorage.getItem('Society');
       if (!token) {
@@ -57,6 +58,7 @@ export default function Announcements() {
       setError('Failed to fetch announcements');
     } finally {
       setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -274,6 +276,10 @@ export default function Announcements() {
       setLoading(false);
     }
   };
+
+  if (loading) {
+    return <Preloader />;
+  }
 
   // Update the image preview section in the form
   // Fix the JSX syntax errors in the return statement

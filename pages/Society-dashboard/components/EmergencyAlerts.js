@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import Webcam from 'react-webcam';
+import Preloader from '@/pages/components/Preloader';
+import { set } from 'mongoose';
 
 export default function EmergencyAlerts() {
   // State for alerts
@@ -89,6 +91,7 @@ export default function EmergencyAlerts() {
   
   // In fetchNotices
   const fetchNotices = async (societyId) => {
+    setLoading(true);
     try {
       // Use the societyId parameter instead of profileData.societyId
       if (!societyId) {
@@ -111,6 +114,7 @@ export default function EmergencyAlerts() {
       setError('Failed to load alerts. Please try again later.');
     } finally {
       setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -149,6 +153,7 @@ export default function EmergencyAlerts() {
     if (!newAlert.title.trim() || !newAlert.description.trim()) return;
 
     try {
+      setLoading(true);
       let attachments = [];
 
       // Upload images if any
@@ -221,6 +226,8 @@ export default function EmergencyAlerts() {
     } catch (error) {
       console.error('Error creating notice:', error);
       alert('Failed to create alert: ' + error.message);
+    }finally {
+      setLoading(false); 
     }
   };
 
@@ -517,6 +524,10 @@ export default function EmergencyAlerts() {
       )}
     </div>
   );
+
+  if (loading) {
+    return <Preloader />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
