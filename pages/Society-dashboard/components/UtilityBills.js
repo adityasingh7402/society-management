@@ -378,7 +378,7 @@ export default function UtilityBills() {
       const response = await fetch(`/api/UtilityBill-Api/getBill/${billId}`);
       if (response.ok) {
         const data = await response.json();
-        setViewBillData(data);
+        setViewBillData(data.bill);
       } else {
         alert('Failed to fetch bill details');
       }
@@ -389,6 +389,7 @@ export default function UtilityBills() {
       setLoading(false);
     }
   };
+  console.log('viewBillData:', viewBillData);
 
   // Reset form
   const resetForm = () => {
@@ -1033,7 +1034,7 @@ export default function UtilityBills() {
                 </div>
               </div>
 
-              {viewBillData.additionalCharges.length > 0 && (
+              {/* {viewBillData.additionalCharges.length > 0 && (
                 <div className="mb-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Charges</h3>
                   <div className="bg-gray-50 p-4 rounded-md">
@@ -1055,7 +1056,7 @@ export default function UtilityBills() {
                     </table>
                   </div>
                 </div>
-              )}
+              )} */}
 
               <div className="mb-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Summary</h3>
@@ -1063,13 +1064,13 @@ export default function UtilityBills() {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <p className="text-sm text-gray-600">Base Amount</p>
-                      <p className="font-medium">₹{viewBillData.baseAmount.toFixed(2)}</p>
+                      <p className="font-medium">₹{viewBillData?.baseAmount?.toFixed(2) || '0.00'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Additional Charges</p>
-                      <p className="font-medium">₹{viewBillData.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0).toFixed(2)}</p>
+                      <p className="font-medium">₹{(viewBillData?.additionalCharges?.reduce((sum, charge) => sum + (charge?.amount || 0), 0) || 0).toFixed(2)}</p>
                     </div>
-                    {viewBillData.penaltyAmount > 0 && (
+                    {viewBillData?.penaltyAmount > 0 && (
                       <div>
                         <p className="text-sm text-gray-600">Penalty Amount</p>
                         <p className="font-medium text-red-600">₹{viewBillData.penaltyAmount.toFixed(2)}</p>
@@ -1078,7 +1079,9 @@ export default function UtilityBills() {
                     <div className="md:col-span-2 pt-2 mt-2 border-t border-blue-200">
                       <div className="flex justify-between text-lg font-medium">
                         <span>Total Amount:</span>
-                        <span>₹{(viewBillData.baseAmount + viewBillData.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0) + viewBillData.penaltyAmount).toFixed(2)}</span>
+                        <span>₹{((viewBillData?.baseAmount || 0) +
+                          (viewBillData?.additionalCharges?.reduce((sum, charge) => sum + (charge?.amount || 0), 0) || 0) +
+                          (viewBillData?.penaltyAmount || 0)).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
