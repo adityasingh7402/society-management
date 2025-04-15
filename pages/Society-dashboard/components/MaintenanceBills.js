@@ -15,6 +15,17 @@ export default function MaintenanceBills() {
     totalPenalty: 0
   });
 
+  // Add states for bulk bill generation
+  const [bulkBillType, setBulkBillType] = useState('');
+  const [bulkDescription, setBulkDescription] = useState('');
+  const [bulkAmount, setBulkAmount] = useState('');
+  const [bulkIssueDate, setBulkIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [bulkDueDate, setBulkDueDate] = useState('');
+  const [bulkFinePerDay, setBulkFinePerDay] = useState('50');
+  const [selectedResidents, setSelectedResidents] = useState([]);
+  const [bulkFilter, setBulkFilter] = useState({ block: '', floor: '' });
+  const [filteredResidents, setFilteredResidents] = useState([]);
+
   // States for structure selection
   const [structuredResidents, setStructuredResidents] = useState({});
   const [openBlocks, setOpenBlocks] = useState({});
@@ -109,6 +120,122 @@ export default function MaintenanceBills() {
     fetchBillSummary();
   }, []);
 
+    // Toggle resident selection for bulk generation
+    const toggleResidentSelection = (residentId) => {
+      if (selectedResidents.includes(residentId)) {
+        setSelectedResidents(selectedResidents.filter(id => id !== residentId));
+      } else {
+        setSelectedResidents([...selectedResidents, residentId]);
+      }
+    };
+    
+    // Select or deselect all residents
+    const toggleAllResidents = () => {
+      if (selectedResidents.length === filteredResidents.length) {
+        setSelectedResidents([]);
+      } else {
+        setSelectedResidents(filteredResidents.map(r => r._id));
+      }
+    };
+    
+    // Handle bulk bill generation
+      // Handle bulk bill generation
+  const handleBulkBillGeneration = async (e) => {
+    e.preventDefault();
+    
+    if (selectedResidents.length === 0) {
+      alert('Please select at least one resident');
+      return;
+    }
+    
+    if (!bulkBillType || !bulkAmount || !bulkDueDate) {
+      alert('Please fill all required fields');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const selectedResidentsData = residentList.filter(r => selectedResidents.includes(r._id));
+      
+      // Create a single request with all selected residents
+      const bulkBillData = {
+        societyId: selectedResidentsData[0]?.societyId,
+        residents: selectedResidentsData,
+        billType: bulkBillType,
+        description: bulkDescription,
+        amount: parseFloat(bulkAmount),
+        issueDate: bulkIssueDate,
+        dueDate: bulkDueDate,
+        finePerDay: parseFloat(bulkFinePerDay)
+      };
+      
+      const response = await fetch('/api/MaintenanceBill-Api/generateBillBulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bulkBillData),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Successfully generated ${result.totalCreated} bills out of ${selectedResidents.length} selected residents`);
+        
+        // Reset form
+        setBulkBillType('');
+        setBulkDescription('');
+        setBulkAmount('');
+        setBulkIssueDate(new Date().toISOString().split('T')[0]);
+        setBulkDueDate('');
+        
+        // Refresh bill history
+        const historyResponse = await fetch('/api/MaintenanceBill-Api/getBills');
+        if (historyResponse.ok) {
+          const data = await historyResponse.json();
+          setBillHistory(data.bills);
+          setFilteredHistory(data.bills);
+          setSummaryData(data.summary);
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('Error response:', errorData);
+        alert(`Error generating bulk bills: ${errorData.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error generating bulk bills:', error);
+      alert('Error generating bulk bills');
+    } finally {
+      setLoading(false);
+    }
+  };
+    // Filter residents for bulk generation
+    useEffect(() => {
+      if (residentList.length > 0) {
+        let filtered = [...residentList];
+        
+        if (bulkFilter.block) {
+          filtered = filtered.filter(resident => 
+            resident.flatDetails?.flatNumber?.startsWith(bulkFilter.block + '-')
+          );
+        }
+        
+        if (bulkFilter.floor) {
+          filtered = filtered.filter(resident => {
+            const flatNumber = resident.flatDetails?.flatNumber?.split('-')[1];
+            return flatNumber && flatNumber.startsWith(bulkFilter.floor);
+          });
+        }
+        
+        
+        setFilteredResidents(filtered);
+        
+        // Initialize selected residents if empty
+        if (selectedResidents.length === 0) {
+          setSelectedResidents(filtered.map(r => r._id));
+        }
+      }
+    }, [residentList, bulkFilter]);
   // Filter history when history block/floor/flat changes
   useEffect(() => {
     if (billHistory.length > 0) {
@@ -396,6 +523,12 @@ export default function MaintenanceBills() {
             Generate Bill
           </button>
           <button
+            className={`px-4 py-2 text-sm font-medium ${activeTab === 'bulk' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('bulk')}
+          >
+            Bulk Generation
+          </button>
+          <button
             className={`px-4 py-2 text-sm font-medium ${activeTab === 'history' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
             onClick={() => setActiveTab('history')}
           >
@@ -677,6 +810,201 @@ export default function MaintenanceBills() {
                   <p className="text-yellow-800">Please select a resident from the left panel to generate a bill.</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Bill Generation Tab */}
+        {activeTab === 'bulk' && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Bulk Bill Generation</h2>
+              
+              <form onSubmit={handleBulkBillGeneration}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bill Type *</label>
+                    <select
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      value={bulkBillType}
+                      onChange={(e) => setBulkBillType(e.target.value)}
+                      required
+                    >
+                      <option value="">Select Type</option>
+                      <option value="Security">Security</option>
+                      <option value="Cleaning">Cleaning</option>
+                      <option value="Parking">Parking</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹) *</label>
+                    <input
+                      type="number"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      value={bulkAmount}
+                      onChange={(e) => setBulkAmount(e.target.value)}
+                      min="0"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fine Per Day (₹)</label>
+                    <input
+                      type="number"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      value={bulkFinePerDay}
+                      onChange={(e) => setBulkFinePerDay(e.target.value)}
+                      min="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Issue Date</label>
+                    <input
+                      type="date"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      value={bulkIssueDate}
+                      onChange={(e) => setBulkIssueDate(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Date *</label>
+                    <input
+                      type="date"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      value={bulkDueDate}
+                      onChange={(e) => setBulkDueDate(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      value={bulkDescription}
+                      onChange={(e) => setBulkDescription(e.target.value)}
+                      rows="2"
+                    ></textarea>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end mb-6">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
+                    disabled={loading}
+                  >
+                    {loading ? 'Generating...' : 'Generate Bills for Selected Residents'}
+                  </button>
+                </div>
+              </form>
+              
+              <div className="mb-6">
+                <h3 className="text-md font-medium text-gray-900 mb-2">Filter Residents</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block capitalize text-sm font-medium text-gray-700 mb-1">{structureType}</label>
+                    <select
+                      className="w-full border capitalize border-gray-300 rounded-md px-3 py-2"
+                      value={bulkFilter.block}
+                      onChange={(e) => setBulkFilter({...bulkFilter, block: e.target.value})}
+                    >
+                      <option value="">All {structureType}s</option>
+                      {Object.keys(structuredResidents).sort().map((block) => (
+                        <option key={block} value={block}>{structureType} {block}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
+                    <select
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      value={bulkFilter.floor}
+                      onChange={(e) => setBulkFilter({...bulkFilter, floor: e.target.value})}
+                      disabled={!bulkFilter.block}
+                    >
+                      <option value="">All Floors</option>
+                      {bulkFilter.block && Object.keys(structuredResidents[bulkFilter.block] || {}).sort().map((floor) => (
+                        <option key={floor} value={floor}>Floor {floor}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-4 flex justify-between items-center">
+                <h3 className="text-md font-medium text-gray-900">Resident Selection</h3>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="selectAll"
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                    checked={selectedResidents.length === filteredResidents.length && filteredResidents.length > 0}
+                    onChange={toggleAllResidents}
+                  />
+                  <label htmlFor="selectAll" className="ml-2 text-sm text-gray-700">
+                    {selectedResidents.length === filteredResidents.length && filteredResidents.length > 0
+                      ? 'Deselect All'
+                      : 'Select All'}
+                  </label>
+                </div>
+              </div>
+              
+              <div className="border rounded-md overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Select</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flat</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredResidents.length > 0 ? (
+                      filteredResidents.map((resident) => (
+                        <tr key={resident._id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                              checked={selectedResidents.includes(resident._id)}
+                              onChange={() => toggleResidentSelection(resident._id)}
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{resident.name}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {resident.flatDetails?.flatNumber || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{resident.phone}</div>
+                            <div className="text-sm text-gray-500">{resident.email}</div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
+                          No residents found matching the selected filters.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div className="mt-4 text-sm text-gray-500">
+                {selectedResidents.length} of {filteredResidents.length} residents selected
+              </div>
             </div>
           </div>
         )}

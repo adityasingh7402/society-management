@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { Check, CheckCheck, X } from 'lucide-react';
+import { Check, CheckCheck, X, ArrowLeft, Send, MessageCircle } from 'lucide-react';
 
-export default function SocietyChat() {
+export default function ResidentChat() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -25,26 +25,30 @@ export default function SocietyChat() {
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const token = localStorage.getItem('Society');
+        const token = localStorage.getItem('Resident');
         if (!token) {
-          router.push('/societyLogin');
+          router.push('/residentLogin');
           return;
         }
 
-        const userResponse = await fetch('/api/Society-Api/get-society-details', {
+        const userResponse = await fetch('/api/Resident-Api/get-resident-details', {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         if (!userResponse.ok) throw new Error('Failed to fetch profile');
         const userData = await userResponse.json();
 
-        setCurrentUser({
-          id: userData.societyId,
-          name: userData.societyName,
-          isSociety: true
-        });
+        const userObj = {
+          id: userData.residentId,
+          name: userData.name,
+          societyCode: userData.societyCode,
+          isSociety: false
+        };
+        
+        setCurrentUser(userObj);
+        console.log("User Data:", userObj); // Log the actual data instead of the state
 
-        const messagesResponse = await fetch(`/api/Message-Api/getMessages?societyId=${userData.societyId}`, {
+        const messagesResponse = await fetch(`/api/Message-Api/getMessages?societyId=${userData.societyCode}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -73,6 +77,7 @@ export default function SocietyChat() {
     return () => clearInterval(interval);
   }, [router]);
 
+  // In your handleSendMessage function
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
   
@@ -84,7 +89,7 @@ export default function SocietyChat() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          societyId: currentUser.id,
+          societyCode: currentUser.societyCode, // Changed from societyId to societyCode
           senderId: currentUser.id,
           senderName: currentUser.name,
           content: newMessage,
@@ -96,7 +101,7 @@ export default function SocietyChat() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to send message');
       }
-      
+  
       const data = await response.json();
       setMessages([...messages, data.message]);
       setMessageStatus(prev => ({ ...prev, [data.message._id]: 'sent' }));
@@ -130,6 +135,7 @@ export default function SocietyChat() {
       console.error('Error deleting message:', err);
     }
   };
+
   const MessageStatus = ({ messageId, senderId }) => {
     if (senderId !== currentUser?.id) return null;
     
@@ -215,95 +221,117 @@ export default function SocietyChat() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      <div className="bg-white shadow-sm p-4 flex items-center sticky top-0 z-10">
-        <h1 className="text-xl font-semibold text-gray-800">Society Chat</h1>
-        <span className="ml-2 text-sm text-gray-500">({messages.length} messages)</span>
+    <div className="min-h-screen bg-gray-100">
+      {/* Header with Back Button */}
+      <div className="p-4 md:p-6">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-base">Back</span>
+        </button>
       </div>
 
-      <div
-        className="flex-1 overflow-y-auto p-4 space-y-4"
-        style={{
-          backgroundImage: 'url("/whatsapp-bg-light.png")',
-          backgroundRepeat: 'repeat'
-        }}
-      >
-        {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
-          <div key={date} className="space-y-2">
-            <div className="flex justify-center">
-              <span className="bg-gray-200 text-gray-600 text-xs px-4 py-1 rounded-full">
-                {formatDateHeader(date)}
-              </span>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <h1 className="text-2xl md:text-3xl text-center font-bold text-blue-600 mb-6 flex items-center justify-center">
+          <MessageCircle className="mr-2" size={24} />
+          Society Chat
+        </h1>
+
+        {/* Messages Container */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="p-6">
+            <div
+              className="flex-1 overflow-y-auto space-y-4 max-h-[600px]"
+              style={{
+                backgroundImage: 'url("/whatsapp-bg-light.png")',
+                backgroundRepeat: 'repeat'
+              }}
+            >
+              {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
+                <div key={date} className="space-y-2">
+                  <div className="flex justify-center">
+                    <span className="bg-gray-200 text-gray-600 text-xs px-4 py-1 rounded-full">
+                      {formatDateHeader(date)}
+                    </span>
+                  </div>
+
+                  {dateMessages.map((message) => (
+                    <div
+                      key={message._id}
+                      className={`flex ${message.senderId === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[70%] rounded-lg p-3 ${
+                          message.senderId === currentUser?.id
+                            ? 'bg-[#dcf8c6]'
+                            : 'bg-white'
+                        }`}
+                      >
+                        <div
+                          className="text-sm font-semibold mb-1"
+                          style={{
+                            color: message.isSociety ? '#1a73e8' :
+                              generateResidentColor(message.senderId)
+                          }}
+                        >
+                          {message.senderName}
+                        </div>
+
+                        <div className="text-gray-800">
+                          {message.isDeleted ? (
+                            <span className="italic text-gray-500">This message was deleted</span>
+                          ) : (
+                            message.content
+                          )}
+                        </div>
+
+                        <div className="flex justify-between items-center mt-1">
+                          <div className="flex items-center text-xs text-gray-500">
+                            {formatMessageTime(message.timestamp)}
+                            <MessageStatus messageId={message._id} senderId={message.senderId} />
+                          </div>
+                          {!message.isDeleted && message.senderId === currentUser?.id && (
+                            <button
+                              onClick={() => handleDeleteMessage(message._id)}
+                              className="text-gray-400 hover:text-red-500 text-xs"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
             </div>
 
-            {dateMessages.map((message) => (
-              <div
-                key={message._id}
-                className={`flex ${message.senderId === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[70%] rounded-lg p-3 ${message.senderId === currentUser?.id
-                    ? 'bg-[#dcf8c6]'
-                    : 'bg-white'
-                    }`}
+            {/* Message Input */}
+            <div className="bg-white p-4 border-t border-gray-200">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                  placeholder="Type a message..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                  className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
-                  <div
-                    className="text-sm font-semibold mb-1"
-                    style={{
-                      color: message.isSociety ? '#1a73e8' :
-                        generateResidentColor(message.senderId)
-                    }}
-                  >
-                    {message.senderName}
-                  </div>
-
-                  <div className="text-gray-800">
-                    {message.isDeleted ? (
-                      <span className="italic text-gray-500">This message was deleted</span>
-                    ) : (
-                      message.content
-                    )}
-                  </div>
-
-                  <div className="flex justify-between items-center mt-1">
-                    <div className="flex items-center text-xs text-gray-500">
-                      {formatMessageTime(message.timestamp)}
-                      <MessageStatus messageId={message._id} senderId={message.senderId} />
-                    </div>
-                    {!message.isDeleted && message.senderId === currentUser?.id && (
-                      <button
-                        onClick={() => handleDeleteMessage(message._id)}
-                        className="text-gray-400 hover:text-red-500 text-xs"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </div>
+                  <Send size={16} className="mr-2" />
+                  Send
+                </button>
               </div>
-            ))}
+            </div>
           </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div className="bg-white p-4 shadow-lg">
-        <div className="flex space-x-2">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-            placeholder="Type a message..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!newMessage.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Send
-          </button>
         </div>
       </div>
     </div>

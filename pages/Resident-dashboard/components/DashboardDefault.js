@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import React, { useState } from 'react';
 import {
-  UserCircle, Building2, Bell, Users, Wrench, PieChart, FileText, Home, ClipboardList, Package, Pencil, Lightbulb, History, Hammer, Search, Megaphone, BarChart, ShieldAlert, Siren
+  UserCircle, Building2, Bell, Users, Wrench, MessageCircleMore, PieChart, FileText, Home, ClipboardList, Package, Pencil, Lightbulb, History, Hammer, Search, Megaphone, BarChart, ShieldAlert, Siren
 } from 'lucide-react';
 
 const DashboardDefault = () => {
@@ -12,7 +12,7 @@ const DashboardDefault = () => {
   };
   const menuItems = [
     { icon: UserCircle, label: 'Profile', href: '/Resident-dashboard/components/Profile' },
-    { icon: Building2, label: 'Property', href: '/Resident-dashboard/components/SellProperty' },
+    { icon: MessageCircleMore, label: 'Chat', href: '/Resident-dashboard/components/ResidentChat' },
     { icon: Bell, label: 'Announcements', href: '/Resident-dashboard/components/Announcements' },
     { icon: Siren, label: 'Emergency', href: '/Resident-dashboard/components/Emergency' },
     { icon: Wrench, label: 'Maintenance', href: '/Resident-dashboard/components/MaintenanceBills' },
@@ -58,6 +58,7 @@ const DashboardDefault = () => {
     {
       title: 'Notices / Polls & Surveys',
       items: [
+        { icon: MessageCircleMore, label: 'Chat', href: '/Resident-dashboard/components/ResidentChat' },
         { icon: Megaphone, label: 'Announcements', href: '/Resident-dashboard/components/Announcements' },
         { icon: BarChart, label: 'Polls', href: '/Resident-dashboard/components/Polls' }
       ]
