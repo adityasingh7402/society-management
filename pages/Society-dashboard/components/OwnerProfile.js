@@ -184,84 +184,84 @@ export default function OwnerProfile() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
-      <h1 className="text-3xl font-bold mb-6 text-black text-center">Society Resident Profiles</h1>
-      
+      <header className="bg-white shadow mb-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <h1 className="text-3xl font-bold text-gray-900">Society Resident Profiles</h1>
+          <p className="mt-2 text-sm text-gray-600">Manage and monitor all resident profiles in your society</p>
+        </div>
+      </header>
+
       {Object.keys(structuredResidents).length > 0 ? (
-        <div className="space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
           {Object.keys(structuredResidents).sort().map(blockName => (
-            <div key={blockName} className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div key={blockName} className="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-200 hover:shadow-xl">
               {/* Block Header */}
               <div 
-                className="bg-gradient-to-r from-blue-500 to-blue-700 p-4 flex justify-between items-center cursor-pointer"
+                className="bg-gradient-to-r from-blue-600 to-blue-800 p-5 flex justify-between items-center cursor-pointer hover:from-blue-700 hover:to-blue-900 transition-all duration-200"
                 onClick={() => toggleBlock(blockName)}
               >
                 <div className="flex items-center text-white font-bold text-xl">
                   <Home className="mr-3" size={24} />
                   Block {blockName}
                 </div>
-                <div>
+                <div className="flex items-center text-white text-sm">
+                  <span className="mr-3">{Object.keys(structuredResidents[blockName]).length} Floors</span>
                   {openBlocks[blockName] ? (
-                    <ChevronUp className="text-white" size={24} />
+                    <ChevronUp size={24} />
                   ) : (
-                    <ChevronDown className="text-white" size={24} />
+                    <ChevronDown size={24} />
                   )}
                 </div>
               </div>
-              
+
               {/* Block Content */}
               {openBlocks[blockName] && (
-                <div className="p-4">
+                <div className="p-4 bg-gray-50">
                   {Object.keys(structuredResidents[blockName]).sort().map(floorNumber => (
-                    <div key={`${blockName}-${floorNumber}`} className="mb-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                    <div key={`${blockName}-${floorNumber}`} className="mb-4 bg-white rounded-lg shadow-md overflow-hidden">
                       {/* Floor Header */}
                       <div 
-                        className="bg-gradient-to-r from-purple-400 to-purple-600 p-3 flex justify-between items-center cursor-pointer"
+                        className="bg-gradient-to-r from-indigo-500 to-indigo-700 p-4 flex justify-between items-center cursor-pointer hover:from-indigo-600 hover:to-indigo-800 transition-all duration-200"
                         onClick={() => toggleFloor(`${blockName}-${floorNumber}`)}
                       >
                         <div className="flex items-center text-white font-medium">
                           <Layers className="mr-2" size={20} />
                           Floor {floorNumber}
                         </div>
-                        <div>
-                          {openFloors[`${blockName}-${floorNumber}`] ? (
-                            <ChevronUp className="text-white" size={20} />
-                          ) : (
-                            <ChevronDown className="text-white" size={20} />
-                          )}
-                        </div>
+                        {openFloors[`${blockName}-${floorNumber}`] ? (
+                          <ChevronUp className="text-white" size={20} />
+                        ) : (
+                          <ChevronDown className="text-white" size={20} />
+                        )}
                       </div>
-                      
-                      {/* Floor Content */}
+
+                      {/* Flat Cards Grid */}
                       {openFloors[`${blockName}-${floorNumber}`] && (
                         <div className="p-4 grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                           {Object.keys(structuredResidents[blockName][floorNumber]).sort().map(flatNumber => (
-                            <div key={`${blockName}-${flatNumber}`} className="bg-white shadow rounded-lg overflow-hidden border border-gray-200">
-                              {/* Flat Header */}
+                            <div key={`${blockName}-${flatNumber}`} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                               <div 
-                                className="bg-gradient-to-r from-green-400 to-green-600 p-3 flex justify-between items-center cursor-pointer"
+                                className="bg-gradient-to-r from-teal-500 to-teal-700 p-3 flex justify-between items-center cursor-pointer"
                                 onClick={() => toggleFlat(`${blockName}-${flatNumber}`)}
                               >
                                 <div className="flex items-center text-white font-medium">
                                   <Grid className="mr-2" size={18} />
                                   Flat {flatNumber}
                                 </div>
-                                <div>
-                                  {openFlats[`${blockName}-${flatNumber}`] ? (
-                                    <ChevronUp className="text-white" size={18} />
-                                  ) : (
-                                    <ChevronDown className="text-white" size={18} />
-                                  )}
-                                </div>
+                                {openFlats[`${blockName}-${flatNumber}`] ? (
+                                  <ChevronUp className="text-white" size={18} />
+                                ) : (
+                                  <ChevronDown className="text-white" size={18} />
+                                )}
                               </div>
-                              
-                              {/* Flat Content - Residents */}
+
+                              {/* Resident Cards */}
                               {openFlats[`${blockName}-${flatNumber}`] && (
-                                <div className="divide-y divide-gray-200">
+                                <div className="divide-y divide-gray-100">
                                   {structuredResidents[blockName][floorNumber][flatNumber].map(resident => (
-                                    <div key={resident._id} className="p-4">
+                                    <div key={resident._id} className="p-4 hover:bg-gray-50 transition-colors duration-150">
                                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                                        {/* Resident Image */}
-                                        <div className="flex-shrink-0 w-20 h-20 bg-gray-200 rounded-full overflow-hidden flex items-center justify-center">
+                                        <div className="flex-shrink-0 w-20 h-20 rounded-full overflow-hidden ring-2 ring-offset-2 ring-blue-500">
                                           <img 
                                             className="w-full h-full object-cover" 
                                             src={resident.userImage || "/profile.png"} 
@@ -269,58 +269,49 @@ export default function OwnerProfile() {
                                           />
                                         </div>
                                         
-                                        {/* Resident Details */}
                                         <div className="flex-grow">
-                                          <h3 className="text-lg font-semibold flex items-center gap-2">
-                                            <User size={16} className="text-gray-500" />
+                                          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                             {resident.name}
                                           </h3>
-                                          <p className="text-sm text-gray-600">
-                                            <span className="font-semibold">Email:</span> {resident.email}
-                                          </p>
-                                          <p className="text-sm text-gray-600">
-                                            <span className="font-semibold">Phone:</span> {resident.phone}
-                                          </p>
-                                          <p className="text-sm text-gray-600">
-                                            <span className="font-semibold">Address:</span> {resident.address.street}, {resident.address.city}, {resident.address.state} - {resident.address.pinCode}
-                                          </p>
+                                          <div className="mt-2 space-y-1 text-sm text-gray-600">
+                                            <p>{resident.email}</p>
+                                            <p>{resident.phone}</p>
+                                            <p className="text-xs">{resident.address.street}, {resident.address.city}</p>
+                                          </div>
                                         </div>
-                                        
-                                        {/* Status & Actions */}
-                                        <div className="sm:text-right flex flex-col items-start sm:items-end gap-2 mt-2 sm:mt-0">
+
+                                        <div className="sm:text-right flex flex-col items-start sm:items-end gap-2">
                                           {resident.societyVerification === 'Pending' ? (
-                                            <>
+                                            <div className="flex gap-2">
                                               <button
                                                 onClick={() => handleAction(resident._id, 'Approved')}
-                                                className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition duration-200 text-sm"
+                                                className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition duration-200 text-sm font-medium"
                                               >
                                                 Approve
                                               </button>
                                               <button
                                                 onClick={() => handleAction(resident._id, 'Rejected')}
-                                                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition duration-200 text-sm"
+                                                className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition duration-200 text-sm font-medium"
                                               >
                                                 Reject
                                               </button>
-                                            </>
+                                            </div>
                                           ) : (
-                                            <>
-                                              <span
-                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                  resident.societyVerification === 'Approved' 
-                                                  ? 'bg-green-100 text-green-800' 
-                                                  : 'bg-red-100 text-red-800'
-                                                }`}
-                                              >
-                                                {resident.societyVerification === 'Approved' ? 'Verified' : 'Rejected'}
+                                            <div className="flex flex-col items-end gap-2">
+                                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                                resident.societyVerification === 'Approved' 
+                                                ? 'bg-green-100 text-green-800' 
+                                                : 'bg-red-100 text-red-800'
+                                              }`}>
+                                                {resident.societyVerification}
                                               </span>
                                               <button
                                                 onClick={() => handleRemove(resident._id)}
-                                                className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition duration-200 text-sm mt-1"
+                                                className="text-gray-600 hover:text-red-600 transition duration-200 text-sm"
                                               >
                                                 Remove
                                               </button>
-                                            </>
+                                            </div>
                                           )}
                                         </div>
                                       </div>
@@ -340,8 +331,12 @@ export default function OwnerProfile() {
           ))}
         </div>
       ) : (
-        <div className="bg-white p-8 rounded-lg shadow-md text-center">
-          <p className="text-lg text-gray-600">No residents found or residents data not properly structured.</p>
+        <div className="max-w-7xl mx-auto bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="flex flex-col items-center gap-4">
+            <User size={48} className="text-gray-400" />
+            <p className="text-xl text-gray-600">No residents found</p>
+            <p className="text-sm text-gray-500">There are no residents registered in the system yet.</p>
+          </div>
         </div>
       )}
     </div>

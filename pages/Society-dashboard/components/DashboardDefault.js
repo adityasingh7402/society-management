@@ -1,49 +1,84 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+
+// Add these imports at the top
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Pagination, Autoplay } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+import Image from 'next/image';
 
 export default function Dashboard() {
-  // Sample society data
-  const societyStats = {
-    totalResidents: 450,
-    totalFlats: 200,
-    occupancyRate: 85,
-    maintenanceCollection: 92,
-    upcomingEvents: 3,
-    activeComplaints: 15
-  };
-
-  // Sample announcements
-  const announcements = [
-    { id: 1, title: "Annual General Meeting", date: "2025-04-15", description: "Annual meeting to discuss society matters and elect new committee members." },
-    { id: 2, title: "Diwali Celebration", date: "2025-10-20", description: "Society-wide Diwali celebration with cultural programs and activities." },
-    { id: 3, title: "Maintenance Notice", date: "2025-03-25", description: "Water supply will be interrupted from 10:00 AM to 2:00 PM for maintenance." }
-  ];
-
-  // Sample utility usage
-  const utilityData = [
-    { month: "January", water: 85000, electricity: 12000 },
-    { month: "February", water: 80000, electricity: 11500 },
-    { month: "March", water: 82000, electricity: 11800 }
-  ];
-
-  // Sample wing wise flat occupancy
-  const wingOccupancy = [
-    { wing: "A Wing", totalFlats: 50, occupied: 45 },
-    { wing: "B Wing", totalFlats: 50, occupied: 42 },
-    { wing: "C Wing", totalFlats: 50, occupied: 40 },
-    { wing: "D Wing", totalFlats: 50, occupied: 43 }
-  ];
-
-  // Sample recent activity
-  const recentActivity = [
-    { id: 1, activity: "New resident moved in", flatNo: "B-303", date: "2025-03-12" },
-    { id: 2, activity: "Maintenance payment received", flatNo: "A-101", date: "2025-03-14" },
-    { id: 3, activity: "Complaint resolved", flatNo: "C-205", date: "2025-03-15" },
-    { id: 4, activity: "New parking allocated", flatNo: "D-404", date: "2025-03-16" },
-    { id: 5, activity: "Guest approval request", flatNo: "B-107", date: "2025-03-16" }
-  ];
-
-  // Filter state for date range
   const [dateRange, setDateRange] = useState("month");
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const token = localStorage.getItem('Society');
+        if (!token) {
+          router.push('/societyLogin');
+          return;
+        }
+
+        // Get society details first
+        const userResponse = await fetch('/api/Society-Api/get-society-details', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!userResponse.ok) throw new Error('Failed to fetch profile');
+        const userData = await userResponse.json();
+
+        // Fetch dashboard data using society ID from user data
+        const response = await fetch(`/api/Society-Api/getDashboardStats?societyId=${userData.societyId}&userId=${userData._id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch dashboard data');
+        }
+
+        const data = await response.json();
+        setDashboardData(data.data);
+        setLoading(false);
+      } catch (err) {
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+    const interval = setInterval(fetchDashboardData, 300000);
+    return () => clearInterval(interval);
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-600">
+        Error: {error}
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return null;
+  }
+
+  const { societyStats, wingOccupancy, utilityData, announcements, recentActivity } = dashboardData;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -97,184 +132,134 @@ export default function Dashboard() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* Total Residents */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Total Residents</h2>
             <p className="text-3xl font-bold text-blue-600">{societyStats.totalResidents}</p>
             <p className="text-sm text-gray-500 mt-2">Across {societyStats.totalFlats} flats</p>
           </div>
 
-          {/* Occupancy Rate */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Occupancy Rate</h2>
             <p className="text-3xl font-bold text-green-600">{societyStats.occupancyRate}%</p>
-            <p className="text-sm text-gray-500 mt-2">Up 3% from last month</p>
+            <p className="text-sm text-gray-500 mt-2">Current occupancy status</p>
           </div>
 
-          {/* Maintenance Collection */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Maintenance Collection</h2>
             <p className="text-3xl font-bold text-purple-600">{societyStats.maintenanceCollection}%</p>
-            <p className="text-sm text-gray-500 mt-2">For current quarter</p>
+            <p className="text-sm text-gray-500 mt-2">₹{dashboardData.maintenanceStats.paidAmount} / ₹{dashboardData.maintenanceStats.totalAmount}</p>
           </div>
         </div>
 
-        {/* Secondary Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* Active Complaints */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Active Complaints</h2>
-            <p className="text-3xl font-bold text-red-600">{societyStats.activeComplaints}</p>
-            <button className="mt-4 bg-blue-50 text-blue-700 px-3 py-1 rounded-md text-sm font-medium">View Details</button>
-          </div>
-
-          {/* Upcoming Events */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Upcoming Events</h2>
-            <p className="text-3xl font-bold text-amber-600">{societyStats.upcomingEvents}</p>
-            <button className="mt-4 bg-blue-50 text-blue-700 px-3 py-1 rounded-md text-sm font-medium">View Calendar</button>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Quick Actions</h2>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <button className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium">New Notice</button>
-              <button className="bg-green-600 text-white px-3 py-2 rounded-md text-sm font-medium">Add Event</button>
-              <button className="bg-purple-600 text-white px-3 py-2 rounded-md text-sm font-medium">Raise Issue</button>
-              <button className="bg-amber-600 text-white px-3 py-2 rounded-md text-sm font-medium">Book Amenity</button>
-            </div>
-          </div>
-        </div>
-
-        {/* Wing Occupancy */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Wing Occupancy Status</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {wingOccupancy.map((wing) => (
-              <div key={wing.wing} className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium text-gray-900">{wing.wing}</h3>
-                <div className="mt-2">
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Occupied:</span>
-                    <span>{wing.occupied}/{wing.totalFlats}</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                    <div 
-                      className="bg-blue-600 h-2.5 rounded-full" 
-                      style={{ width: `${(wing.occupied / wing.totalFlats) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Two Column Layout for Announcements and Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Announcements */}
+        {/* Grid for Announcements and Recent Activity */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* Announcements section */}
           <div className="bg-white rounded-lg shadow">
-            <h2 className="text-xl font-semibold text-gray-900 p-6 border-b border-gray-200">Latest Announcements</h2>
+            <h2 className="text-xl font-semibold text-gray-900 p-6 border-b border-gray-200">
+              Latest Announcements
+            </h2>
             <div className="p-6">
-              {announcements.map((announcement) => (
-                <div key={announcement.id} className="mb-6 last:mb-0">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-lg font-medium text-gray-900">{announcement.title}</h3>
-                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">{announcement.date}</span>
-                  </div>
-                  <p className="mt-2 text-gray-600">{announcement.description}</p>
-                </div>
-              ))}
-              <button className="mt-4 text-blue-600 hover:text-blue-800 font-medium">View All Announcements</button>
+              <Swiper
+                modules={[Navigation, Pagination, Autoplay]}
+                spaceBetween={30}
+                slidesPerView={1}
+                navigation
+                pagination={{ clickable: true }}
+                autoplay={{ delay: 3000 }}
+                className="announcement-slider"
+              >
+                {announcements.map((announcement) => (
+                  <SwiperSlide key={announcement.id}>
+                    <div className="mb-6 last:mb-0">
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-lg font-medium text-gray-900">{announcement.title}</h3>
+                        <div className="text-right">
+                          <span className="block text-sm text-gray-500">{announcement.date}</span>
+                          <span className="block text-xs text-gray-400">{announcement.time}</span>
+                        </div>
+                      </div>
+                      {announcement.images?.length > 0 && (
+                        <div className="relative w-full h-48 mb-4 rounded-lg overflow-hidden">
+                          <Swiper
+                            modules={[Pagination]}
+                            pagination={{ clickable: true }}
+                            className="announcement-images-slider"
+                          >
+                            {announcement.images.map((image, index) => (
+                              <SwiperSlide key={index}>
+                                <Image
+                                  src={image}
+                                  alt={`${announcement.title} - Image ${index + 1}`}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </SwiperSlide>
+                            ))}
+                          </Swiper>
+                        </div>
+                      )}
+                      <p className="mt-2 text-gray-600">{announcement.description}</p>
+                    </div>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
             </div>
           </div>
 
-          {/* Recent Activity */}
+          {/* Recent Activity section */}
           <div className="bg-white rounded-lg shadow">
-            <h2 className="text-xl font-semibold text-gray-900 p-6 border-b border-gray-200">Recent Activity</h2>
+            <h2 className="text-xl font-semibold text-gray-900 p-6 border-b border-gray-200">
+              Recent Activity
+            </h2>
             <div className="overflow-hidden">
               <ul className="divide-y divide-gray-200">
                 {recentActivity.map((activity) => (
                   <li key={activity.id} className="px-6 py-4">
                     <div className="flex justify-between">
                       <p className="text-sm font-medium text-gray-900">{activity.activity}</p>
-                      <p className="text-sm text-gray-500">{activity.date}</p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(activity.date).toLocaleDateString()}
+                      </p>
                     </div>
                     <p className="text-sm text-gray-500 mt-1">Flat: {activity.flatNo}</p>
                   </li>
                 ))}
               </ul>
-              <div className="bg-gray-50 px-6 py-3">
-                <button className="text-blue-600 hover:text-blue-800 font-medium">View All Activity</button>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Utility Usage */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Utility Usage (in Liters/kWh)</h2>
+        {/* Utility Usage section */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Utility Usage</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Water</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Electricity</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Water (L)</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Electricity (kWh)</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gas (m³)</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Internet (GB)</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Other</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {utilityData.map((data, index) => {
-                  // Calculate change percentages
-                  const waterChange = index > 0 
-                    ? ((data.water - utilityData[index-1].water) / utilityData[index-1].water * 100).toFixed(1)
-                    : null;
-                  const electricityChange = index > 0 
-                    ? ((data.electricity - utilityData[index-1].electricity) / utilityData[index-1].electricity * 100).toFixed(1)
-                    : null;
-                  
-                  return (
-                    <tr key={data.month}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.month}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.water.toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {waterChange && (
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              parseFloat(waterChange) > 0
-                                ? "bg-red-100 text-red-800"
-                                : "bg-green-100 text-green-800"
-                            }`}
-                          >
-                            {parseFloat(waterChange) > 0 ? `+${waterChange}%` : `${waterChange}%`}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.electricity.toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {electricityChange && (
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              parseFloat(electricityChange) > 0
-                              ? "bg-red-100 text-red-800"
-                              : "bg-green-100 text-green-800"
-                          }`}
-                        >
-                          {parseFloat(electricityChange) > 0 ? `+${electricityChange}%` : `${electricityChange}%`}
-                        </span>
-                      )}
-                    </td>
+                {utilityData.map((data) => (
+                  <tr key={data.month}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.month}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.water?.toLocaleString() || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.electricity?.toLocaleString() || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.gas?.toLocaleString() || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.internet?.toLocaleString() || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.other?.toLocaleString() || '-'}</td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    </main>
-  </div>
-);
+      </main>
+    </div>
+  );
 }

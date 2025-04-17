@@ -66,3 +66,36 @@
   .fade-in {
     animation: fade-in 0.3s ease-out forwards;
   }
+
+  .announcement-slider {
+    padding-bottom: 40px !important;
+  }
+  
+  .announcement-slider .swiper-button-next,
+  .announcement-slider .swiper-button-prev {
+    color: #4B5563;
+    scale: 0.7;
+  }
+  
+  .announcement-slider .swiper-pagination-bullet {
+    background: #4B5563;
+  }
+  
+  .announcement-slider .swiper-pagination-bullet-active {
+    background: #3B82F6;
+  }
+
+  .announcement-images-slider {
+    height: 100%;
+    width: 100%;
+  }
+  
+  .announcement-images-slider .swiper-pagination-bullet {
+    background: white;
+    opacity: 0.6;
+  }
+  
+  .announcement-images-slider .swiper-pagination-bullet-active {
+    background: white;
+    opacity: 1;
+  }

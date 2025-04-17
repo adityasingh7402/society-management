@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { Check, CheckCheck, X } from 'lucide-react';
 
 export default function SocietyChat() {
   const [messages, setMessages] = useState([]);
@@ -132,19 +131,25 @@ export default function SocietyChat() {
   };
   const MessageStatus = ({ messageId, senderId }) => {
     if (senderId !== currentUser?.id) return null;
-    
+
     const status = messageStatus[messageId] || 'sent';
-    
+
     return (
       <span className="ml-2">
         {status === 'sending' && (
-          <CheckCheck className="w-4 h-4 text-gray-400" />
+          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
         )}
         {status === 'sent' && (
-          <CheckCheck className="w-4 h-4 text-blue-500" />
+          <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7M5 13l4 4L19 7" />
+          </svg>
         )}
         {status === 'failed' && (
-          <X className="w-4 h-4 text-red-500" />
+          <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
         )}
       </span>
     );
