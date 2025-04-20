@@ -4,7 +4,8 @@ import { useRouter } from 'next/router';
 import {
   Camera, User, Clock, LogOut, Home, Building,
   CheckCircle, XCircle, Layers, MessageSquare,
-  Calendar, Shield, Loader
+  Calendar, Shield, Loader, Package, Users, Tool,
+  Briefcase, Heart, Coffee, Truck, ShoppingBag
 } from 'lucide-react';
 import { FaArrowLeft } from "react-icons/fa";
 
@@ -14,7 +15,6 @@ const VisitorEntry = () => {
   const [visitorImage, setVisitorImage] = useState(null);
   const [visitorReason, setVisitorReason] = useState('');
   const [entryTime, setEntryTime] = useState(new Date().toISOString().split('.')[0]);
-  const [exitTime, setExitTime] = useState('');
   const [showCamera, setShowCamera] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState('pending');
   const [isCameraReady, setIsCameraReady] = useState(false);
@@ -36,7 +36,42 @@ const VisitorEntry = () => {
   const [selectedResident, setSelectedResident] = useState(null);
   const [activeStep, setActiveStep] = useState(1);
 
+  // New states for matrix selection
+  const [loadingBlock, setLoadingBlock] = useState(false);
+  const [loadingFloor, setLoadingFloor] = useState(false);
+  const [loadingFlat, setLoadingFlat] = useState(false);
+  const [selectedVisitPurpose, setSelectedVisitPurpose] = useState('');
+  const [selectedDeliveryBrand, setSelectedDeliveryBrand] = useState('');
+  const [showDeliveryBrands, setShowDeliveryBrands] = useState(false);
+
   const webcamRef = useRef(null);
+
+  // Visit purpose categories
+  const visitPurposes = [
+    { id: 'delivery', name: 'Delivery', icon: <Package size={24} /> },
+    { id: 'family', name: 'Family Visit', icon: <Users size={24} /> },
+    { id: 'maintenance', name: 'Maintenance', icon: <Tool size={24} /> },
+    { id: 'official', name: 'Official', icon: <Briefcase size={24} /> },
+    { id: 'medical', name: 'Medical', icon: <Heart size={24} /> },
+    { id: 'housekeeping', name: 'Housekeeping', icon: <Home size={24} /> },
+    { id: 'food', name: 'Food', icon: <Coffee size={24} /> },
+    { id: 'courier', name: 'Courier', icon: <Truck size={24} /> },
+    { id: 'shopping', name: 'Shopping', icon: <ShoppingBag size={24} /> }
+  ];
+
+  // Delivery brands
+  const deliveryBrands = [
+    { id: 'zomato', name: 'Zomato', logo: '/images/brands/zomato.png' },
+    { id: 'swiggy', name: 'Swiggy', logo: '/images/brands/swiggy.png' },
+    { id: 'dominos', name: 'Dominos', logo: '/images/brands/dominos.png' },
+    { id: 'zepto', name: 'Zepto', logo: '/images/brands/zepto.png' },
+    { id: 'blinkit', name: 'Blinkit', logo: '/images/brands/blinkit.png' },
+    { id: 'amazon', name: 'Amazon', logo: '/images/brands/amazon.png' },
+    { id: 'flipkart', name: 'Flipkart', logo: '/images/brands/flipkart.png' },
+    { id: 'bigbasket', name: 'BigBasket', logo: '/images/brands/bigbasket.png' },
+    { id: 'dunzo', name: 'Dunzo', logo: '/images/brands/dunzo.png' },
+    { id: 'other', name: 'Other', logo: '/images/brands/other.png' }
+  ];
 
   // Fetch security details on component mount
   useEffect(() => {
@@ -149,6 +184,68 @@ const VisitorEntry = () => {
     setStructuredResidents(structure);
   };
 
+  // Handle block selection with loading animation
+  const handleBlockSelect = (block) => {
+    setLoadingBlock(true);
+    setTimeout(() => {
+      setSelectedBlock(block);
+      setSelectedFloor('');
+      setSelectedFlat('');
+      setSelectedResident(null);
+      setLoadingBlock(false);
+    }, 500); // Simulate loading for 500ms
+  };
+
+  // Handle floor selection with loading animation
+  const handleFloorSelect = (floor) => {
+    setLoadingFloor(true);
+    setTimeout(() => {
+      setSelectedFloor(floor);
+      setSelectedFlat('');
+      setSelectedResident(null);
+      setLoadingFloor(false);
+    }, 500); // Simulate loading for 500ms
+  };
+
+  // Handle flat selection with loading animation
+  const handleFlatSelect = (flat) => {
+    setLoadingFlat(true);
+    setTimeout(() => {
+      setSelectedFlat(flat);
+
+      // Auto-select the first resident in the flat
+      if (selectedBlock && selectedFloor && flat) {
+        const residents = structuredResidents[selectedBlock][selectedFloor][flat];
+        if (residents && residents.length > 0) {
+          setSelectedResident(residents[0]);
+        } else {
+          setSelectedResident(null);
+        }
+      }
+      setLoadingFlat(false);
+    }, 500); // Simulate loading for 500ms
+  };
+
+  // Handle visit purpose selection
+  const handleVisitPurposeSelect = (purpose) => {
+    setSelectedVisitPurpose(purpose);
+    setVisitorReason(purpose.name);
+
+    // Show delivery brands if delivery is selected
+    if (purpose.id === 'delivery') {
+      setShowDeliveryBrands(true);
+    } else {
+      setShowDeliveryBrands(false);
+      setSelectedDeliveryBrand('');
+    }
+  };
+
+  // Handle delivery brand selection
+  const handleDeliveryBrandSelect = (brand) => {
+    setSelectedDeliveryBrand(brand);
+    setVisitorReason(`Delivery - ${brand.name}`);
+  };
+
   // Handle step navigation
   const goToStep = (step) => {
     if (step === 2 && !selectedFlat) {
@@ -162,39 +259,6 @@ const VisitorEntry = () => {
     }
 
     setActiveStep(step);
-  };
-
-  // Handle block selection
-  const handleBlockChange = (e) => {
-    const block = e.target.value;
-    setSelectedBlock(block);
-    setSelectedFloor('');
-    setSelectedFlat('');
-    setSelectedResident(null);
-  };
-
-  // Handle floor selection
-  const handleFloorChange = (e) => {
-    const floor = e.target.value;
-    setSelectedFloor(floor);
-    setSelectedFlat('');
-    setSelectedResident(null);
-  };
-
-  // Handle flat selection and auto-populate resident data
-  const handleFlatChange = (e) => {
-    const flat = e.target.value;
-    setSelectedFlat(flat);
-
-    // Auto-select the first resident in the flat
-    if (selectedBlock && selectedFloor && flat) {
-      const residents = structuredResidents[selectedBlock][selectedFloor][flat];
-      if (residents && residents.length > 0) {
-        setSelectedResident(residents[0]);
-      } else {
-        setSelectedResident(null);
-      }
-    }
   };
 
   // Camera and photo capture functions
@@ -293,7 +357,6 @@ const VisitorEntry = () => {
         visitorName,
         visitorReason,
         entryTime,
-        exitTime,
         CreatedBy: securityId,
         guardName: securityDetails.guardName,
         guardImage: securityDetails.guardImage,
@@ -342,8 +405,10 @@ const VisitorEntry = () => {
       setSelectedFlat('');
       setSelectedResident(null);
       setEntryTime(new Date().toISOString().split('.')[0]);
-      setExitTime('');
       setActiveStep(1);
+      setSelectedVisitPurpose('');
+      setSelectedDeliveryBrand('');
+      setShowDeliveryBrands(false);
 
     } catch (error) {
       console.error('Error creating visitor entry:', error);
@@ -399,16 +464,211 @@ const VisitorEntry = () => {
     );
   };
 
+  // Render block matrix
+  const renderBlockMatrix = () => {
+    const blocks = Object.keys(structuredResidents).sort();
+
+    return (
+      <div className="mb-6">
+        <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center">
+          <Building size={18} className="mr-2 text-blue-600" />
+          Select {structureType}
+        </h3>
+
+        {loadingBlock ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader size={30} className="animate-spin text-blue-600" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {blocks.map(block => (
+              <button
+                key={block}
+                onClick={() => handleBlockSelect(block)}
+                className={`
+                  p-4 rounded-lg shadow-md text-center transition-all duration-200
+                  ${selectedBlock === block
+                    ? 'bg-blue-600 text-white ring-2 ring-blue-300 ring-offset-2'
+                    : 'bg-white text-gray-800 hover:bg-blue-50 hover:shadow-lg'}
+                `}
+              >
+                <Building size={24} className={`mx-auto mb-2 ${selectedBlock === block ? 'text-white' : 'text-blue-600'}`} />
+                <span className="font-medium">{structureType} {block}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render floor matrix
+  const renderFloorMatrix = () => {
+    if (!selectedBlock) return null;
+
+    const floors = Object.keys(structuredResidents[selectedBlock] || {}).sort();
+
+    return (
+      <div className="mb-6">
+        <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center">
+          <Layers size={18} className="mr-2 text-blue-600" />
+          Select Floor
+        </h3>
+
+        {loadingFloor ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader size={30} className="animate-spin text-blue-600" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {floors.map(floor => (
+              <button
+                key={floor}
+                onClick={() => handleFloorSelect(floor)}
+                className={`
+                  p-4 rounded-lg shadow-md text-center transition-all duration-200
+                  ${selectedFloor === floor
+                    ? 'bg-indigo-600 text-white ring-2 ring-indigo-300 ring-offset-2'
+                    : 'bg-white text-gray-800 hover:bg-indigo-50 hover:shadow-lg'}
+                `}
+              >
+                <Layers size={24} className={`mx-auto mb-2 ${selectedFloor === floor ? 'text-white' : 'text-indigo-600'}`} />
+                <span className="font-medium">Floor {floor}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render flat matrix
+  const renderFlatMatrix = () => {
+    if (!selectedBlock || !selectedFloor) return null;
+
+    const flats = Object.keys(structuredResidents[selectedBlock][selectedFloor] || {}).sort();
+
+    return (
+      <div className="mb-6">
+        <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center">
+          <Home size={18} className="mr-2 text-blue-600" />
+          Select Flat
+        </h3>
+
+        {loadingFlat ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader size={30} className="animate-spin text-blue-600" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {flats.map(flat => (
+              <button
+                key={flat}
+                onClick={() => handleFlatSelect(flat)}
+                className={`
+                  p-4 rounded-lg shadow-md text-center transition-all duration-200
+                  ${selectedFlat === flat
+                    ? 'bg-teal-600 text-white ring-2 ring-teal-300 ring-offset-2'
+                    : 'bg-white text-gray-800 hover:bg-teal-50 hover:shadow-lg'}
+                `}
+              >
+                <Home size={24} className={`mx-auto mb-2 ${selectedFlat === flat ? 'text-white' : 'text-teal-600'}`} />
+                <span className="font-medium">Flat {flat}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render visit purpose matrix
+  const renderVisitPurposeMatrix = () => {
+    return (
+      <div className="mb-6">
+        <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center">
+          <MessageSquare size={18} className="mr-2 text-blue-600" />
+          Purpose of Visit
+        </h3>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {visitPurposes.map(purpose => (
+            <button
+              key={purpose.id}
+              onClick={() => handleVisitPurposeSelect(purpose)}
+              className={`
+                p-4 rounded-lg shadow-md text-center transition-all duration-200
+                ${selectedVisitPurpose.id === purpose.id
+                  ? 'bg-purple-600 text-white ring-2 ring-purple-300 ring-offset-2'
+                  : 'bg-white text-gray-800 hover:bg-purple-50 hover:shadow-lg'}
+              `}
+            >
+              <div className={`mx-auto mb-2 ${selectedVisitPurpose.id === purpose.id ? 'text-white' : 'text-purple-600'}`}>
+                {purpose.icon}
+              </div>
+              <span className="font-medium">{purpose.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Render delivery brands matrix
+  const renderDeliveryBrandsMatrix = () => {
+    if (!showDeliveryBrands) return null;
+
+    return (
+      <div className="mb-6 animate-fade-in">
+        <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center">
+          <Truck size={18} className="mr-2 text-blue-600" />
+          Select Delivery Service
+        </h3>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {deliveryBrands.map(brand => (
+            <button
+              key={brand.id}
+              onClick={() => handleDeliveryBrandSelect(brand)}
+              className={`
+                p-4 rounded-lg shadow-md text-center transition-all duration-200
+                ${selectedDeliveryBrand.id === brand.id
+                  ? 'bg-orange-50 ring-2 ring-orange-400 ring-offset-2'
+                  : 'bg-white hover:bg-orange-50 hover:shadow-lg'}
+              `}
+            >
+              <div className="h-12 w-12 mx-auto mb-2 relative">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  {/* Fallback icon if image fails to load */}
+                  <Package size={24} className="text-gray-400" />
+                </div>
+                <img
+                  src={brand.logo}
+                  alt={brand.name}
+                  className="h-full w-full object-contain relative z-10"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              </div>
+              <span className="font-medium text-gray-800">{brand.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       {/* Header with security details */}
-      <div className="classss">
+      <div className="mb-6">
         <button onClick={() => router.back()} className="flex items-center p-4 md:p-6 space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors">
           <FaArrowLeft size={18} />
           <span className="text-base">Back</span>
         </button>
       </div>
-      <h1 className="text-2xl md:text-4xl font-bold text-blue-600 mb-4 md:mb-8 text-center">Security Guard Profile</h1>
+      <h1 className="text-2xl md:text-4xl font-bold text-blue-600 mb-4 md:mb-8 text-center">Visitor Entry System</h1>
 
       {/* Notification Popup */}
       {showPopup && (
@@ -451,79 +711,14 @@ const VisitorEntry = () => {
             Select Apartment
           </h2>
 
-          {/* Block Selection */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">{structureType}</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Layers size={18} className="text-gray-500" />
-              </div>
-              <select
-                value={selectedBlock}
-                onChange={handleBlockChange}
-                className="block w-full capitalize pl-10 p-2.5 border border-gray-300 rounded-md bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                <option value="">Select {structureType}</option>
-                {Object.keys(structuredResidents).sort().map((block) => (
-                  <option key={block} value={block}>
-                    {structureType} {block}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          {/* Block Matrix */}
+          {renderBlockMatrix()}
 
-          {/* Floor Selection */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Layers size={18} className="text-gray-500" />
-              </div>
-              <select
-                value={selectedFloor}
-                onChange={handleFloorChange}
-                className="block w-full pl-10 p-2.5 border border-gray-300 rounded-md bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                disabled={!selectedBlock}
-                required
-              >
-                <option value="">Select Floor</option>
-                {selectedBlock &&
-                  Object.keys(structuredResidents[selectedBlock] || {}).sort().map((floor) => (
-                    <option key={floor} value={floor}>
-                      Floor {floor}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
+          {/* Floor Matrix - Only show if block is selected */}
+          {selectedBlock && renderFloorMatrix()}
 
-          {/* Flat Selection */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Flat Number</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Home size={18} className="text-gray-500" />
-              </div>
-              <select
-                value={selectedFlat}
-                onChange={handleFlatChange}
-                className="block w-full pl-10 p-2.5 border border-gray-300 rounded-md bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                disabled={!selectedFloor}
-                required
-              >
-                <option value="">Select Flat</option>
-                {selectedBlock &&
-                  selectedFloor &&
-                  Object.keys(structuredResidents[selectedBlock][selectedFloor] || {}).sort().map((flat) => (
-                    <option key={flat} value={flat}>
-                      Flat {flat}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
+          {/* Flat Matrix - Only show if floor is selected */}
+          {selectedBlock && selectedFloor && renderFlatMatrix()}
 
           {/* Navigation Button */}
           <div className="mt-6">
@@ -674,20 +869,120 @@ const VisitorEntry = () => {
             />
           </div>
 
-          {/* Visitor Reason */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+          {/* Visit Purpose Matrix */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
               <MessageSquare size={16} className="mr-1 text-gray-600" />
               Purpose of Visit
             </label>
-            <input
-              type="text"
-              value={visitorReason}
-              onChange={(e) => setVisitorReason(e.target.value)}
-              className="block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              required
-              placeholder="e.g., Delivery, Guest, Maintenance"
-            />
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
+              {[
+                { id: 'delivery', name: 'Delivery', icon: 'package' },
+                { id: 'family', name: 'Family Visit', icon: 'users' },
+                { id: 'maintenance', name: 'Maintenance', icon: 'tool' },
+                { id: 'official', name: 'Official', icon: 'briefcase' },
+                { id: 'medical', name: 'Medical', icon: 'heart' },
+                { id: 'housekeeping', name: 'Housekeeping', icon: 'home' },
+                { id: 'food', name: 'Food', icon: 'coffee' },
+                { id: 'courier', name: 'Courier', icon: 'truck' }
+              ].map(purpose => (
+                <button
+                  key={purpose.id}
+                  type="button"
+                  onClick={() => {
+                    setVisitorReason(purpose.name);
+                    // Show delivery brands if delivery is selected
+                    if (purpose.id === 'delivery') {
+                      setShowDeliveryBrands(true);
+                    } else {
+                      setShowDeliveryBrands(false);
+                    }
+                  }}
+                  className={`p-3 rounded-lg shadow-md text-center transition-all duration-200
+                    ${visitorReason === purpose.name
+                      ? 'bg-purple-600 text-white ring-2 ring-purple-300 ring-offset-2'
+                      : 'bg-white text-gray-800 hover:bg-purple-50 hover:shadow-lg'}`}
+                >
+                  <div className="flex flex-col items-center">
+                    <span className={`${visitorReason === purpose.name ? 'text-white' : 'text-purple-600'}`}>
+                      {purpose.icon === 'package' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>}
+                      {purpose.icon === 'users' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
+                      {purpose.icon === 'tool' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+                      {purpose.icon === 'briefcase' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
+                      {purpose.icon === 'heart' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>}
+                      {purpose.icon === 'home' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
+                      {purpose.icon === 'coffee' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                      {purpose.icon === 'truck' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>}
+                    </span>
+                    <span className={`mt-2 text-sm font-medium ${visitorReason === purpose.name ? 'text-white' : 'text-gray-800'}`}>
+                      {purpose.name}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Delivery Brands - Only show if delivery is selected */}
+            {visitorReason === 'Delivery' && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-fade-in">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Select Delivery Service</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                  {[
+                    { id: 'zomato', name: 'Zomato', logo: '/images/brands/zomato.png' },
+                    { id: 'swiggy', name: 'Swiggy', logo: '/images/brands/swiggy.png' },
+                    { id: 'dominos', name: 'Dominos', logo: '/images/brands/dominos.png' },
+                    { id: 'zepto', name: 'Zepto', logo: '/images/brands/zepto.png' },
+                    { id: 'blinkit', name: 'Blinkit', logo: '/images/brands/blinkit.png' },
+                    { id: 'amazon', name: 'Amazon', logo: '/images/brands/amazon.png' },
+                    { id: 'flipkart', name: 'Flipkart', logo: '/images/brands/flipkart.png' },
+                    { id: 'bigbasket', name: 'BigBasket', logo: '/images/brands/bigbasket.png' },
+                    { id: 'dunzo', name: 'Dunzo', logo: '/images/brands/dunzo.png' },
+                    { id: 'other', name: 'Other', logo: '/images/brands/other.png' }
+                  ].map(brand => (
+                    <button
+                      key={brand.id}
+                      type="button"
+                      onClick={() => setVisitorReason(`Delivery - ${brand.name}`)}
+                      className={`p-3 rounded-lg shadow-sm text-center transition-all duration-200
+                        ${visitorReason === `Delivery - ${brand.name}`
+                          ? 'bg-orange-50 ring-2 ring-orange-400 ring-offset-2'
+                          : 'bg-white hover:bg-orange-50'}`}
+                    >
+                      <div className="flex flex-col items-center">
+                        <div className="h-10 w-10 mx-auto mb-2 relative flex items-center justify-center">
+                          {/* Fallback icon if image fails to load */}
+                          <svg className="w-6 h-6 text-gray-400 absolute" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                          </svg>
+                          <img
+                            src={brand.logo}
+                            alt={brand.name}
+                            className="h-full w-full object-contain relative z-10"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-gray-800">{brand.name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Manual input option */}
+            <div className="mt-3">
+              <input
+                type="text"
+                value={visitorReason}
+                onChange={(e) => setVisitorReason(e.target.value)}
+                className="block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                required
+                placeholder="Or type purpose manually"
+              />
+            </div>
           </div>
 
           {/* Times Section */}
@@ -708,7 +1003,7 @@ const VisitorEntry = () => {
             </div>
 
             {/* Exit Time (Optional) */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
                 <LogOut size={16} className="mr-1 text-gray-600" />
                 Exit Time <span className="text-gray-500 text-xs ml-1">(Optional)</span>
@@ -719,7 +1014,7 @@ const VisitorEntry = () => {
                 onChange={(e) => setExitTime(e.target.value)}
                 className="block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               />
-            </div>
+            </div> */}
           </div>
 
           {/* Visitor Image (Camera Capture) */}
