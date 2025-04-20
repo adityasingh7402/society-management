@@ -8,7 +8,7 @@ const twilioPhone = process.env.TWILIO_PHONE;      // Twilio Phone Number
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
-    const { to, message, type, residentId, flatNumber, visitorId, guardName, guardPhone } = req.body;
+    const { to, message, type, residentId, flatNumber, guardName, guardPhone } = req.body;
 
     // Validate inputs
     if (!to || !message) {
@@ -39,7 +39,6 @@ export default async function handler(req, res) {
       await db.collection('securityMessages').insertOne({
         residentId: residentId ? new ObjectId(residentId) : null,
         flatNumber,
-        visitorId: visitorId ? new ObjectId(visitorId) : null,
         phoneNumber: to,
         message: formattedMessage,
         type: type || 'visitor',

@@ -394,7 +394,7 @@ const VisitorEntry = () => {
       }
 
       // Send notification to resident about the visitor
-      await sendVisitorNotification(selectedResident._id, visitorId);
+      await sendVisitorNotification(selectedResident._id);
       // Success!
       showNotification("Visitor entry created successfully!", "success");
 
@@ -421,7 +421,7 @@ const VisitorEntry = () => {
   };
 
     // Add this function to send notification to resident
-    const sendVisitorNotification = async (residentId, visitorId) => {
+    const sendVisitorNotification = async (residentId) => {
       try {
         if (!selectedResident || !selectedResident.phone) {
           showNotification("Resident phone number not available", "error");
@@ -431,7 +431,7 @@ const VisitorEntry = () => {
         setLoading(true);
         
         // Create the notification message with security guard details
-        const message = `Hello ${selectedResident.name}, you have a pending visitor approval request. Visitor: ${visitorName} (${visitorReason}). Security Guard: ${securityDetails.guardName} (${securityDetails.guardPhone}). You can approve/reject from your app > Visitor Entry section or click this link: ${process.env.NEXT_PUBLIC_APP_URL}/resident/visitor/${visitorId}`;
+        const message = `Hello ${selectedResident.name}, you have a pending visitor approval request. Visitor: ${visitorName} (${visitorReason}). Security Guard: ${securityDetails.guardName} (${securityDetails.guardPhone}). You can approve/reject from your app > Visitor Entry section or click this link: ${process.env.NEXT_PUBLIC_APP_URL}/Resident-dashboard/components/VisitorEntry`;
         
         // Send the message via API
         const response = await fetch('/api/VisitorApi/sendMessage', {
@@ -443,7 +443,6 @@ const VisitorEntry = () => {
             type: 'visitor',
             residentId: residentId,
             flatNumber: selectedResident.flatDetails?.flatNumber,
-            visitorId: visitorId,
             guardName: securityDetails.guardName,
             guardPhone: securityDetails.guardPhone
           }),
