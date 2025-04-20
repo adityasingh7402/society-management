@@ -114,10 +114,23 @@ export default function OwnerProfile() {
   };
 
   const toggleFlat = (flatKey) => {
-    setOpenFlats(prev => ({
-      ...prev,
-      [flatKey]: !prev[flatKey]
-    }));
+    // Extract block and floor from flatKey (e.g., "A-101" -> "A" and "1")
+    const blockName = flatKey.split('-')[0];
+    const flatNumber = flatKey.split('-')[1];
+    const floorNumber = flatNumber.substring(0, 1);
+    
+    // Create a new state object
+    const newOpenFlats = { ...openFlats };
+    
+    // Close all flats in the same floor
+    Object.keys(structuredResidents[blockName][floorNumber]).forEach(flat => {
+      newOpenFlats[`${blockName}-${flat}`] = false;
+    });
+    
+    // Toggle the selected flat
+    newOpenFlats[flatKey] = !openFlats[flatKey];
+    
+    setOpenFlats(newOpenFlats);
   };
 
   // Handle approval or rejection of a resident
@@ -239,7 +252,7 @@ export default function OwnerProfile() {
                       {openFloors[`${blockName}-${floorNumber}`] && (
                         <div className="p-4 grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                           {Object.keys(structuredResidents[blockName][floorNumber]).sort().map(flatNumber => (
-                            <div key={`${blockName}-${flatNumber}`} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                            <div key={`${blockName}-${flatNumber}`} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden h-auto">
                               <div 
                                 className="bg-gradient-to-r from-teal-500 to-teal-700 p-3 flex justify-between items-center cursor-pointer"
                                 onClick={() => toggleFlat(`${blockName}-${flatNumber}`)}
@@ -261,11 +274,12 @@ export default function OwnerProfile() {
                                   {structuredResidents[blockName][floorNumber][flatNumber].map(resident => (
                                     <div key={resident._id} className="p-4 hover:bg-gray-50 transition-colors duration-150">
                                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                                        <div className="flex-shrink-0 w-20 h-20 rounded-full overflow-hidden ring-2 ring-offset-2 ring-blue-500">
+                                        <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden ring-2 ring-offset-2 ring-blue-500">
                                           <img 
                                             className="w-full h-full object-cover" 
                                             src={resident.userImage || "/profile.png"} 
                                             alt={resident.name} 
+                                            onError={(e) => {e.target.src = "/profile.png"}}
                                           />
                                         </div>
                                         
@@ -280,24 +294,24 @@ export default function OwnerProfile() {
                                           </div>
                                         </div>
 
-                                        <div className="sm:text-right flex flex-col items-start sm:items-end gap-2">
+                                        <div className="sm:text-right flex flex-col items-start sm:items-end gap-2 mt-3 sm:mt-0">
                                           {resident.societyVerification === 'Pending' ? (
-                                            <div className="flex gap-2">
+                                            <div className="flex flex-wrap gap-2 w-full justify-start sm:justify-end">
                                               <button
                                                 onClick={() => handleAction(resident._id, 'Approved')}
-                                                className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition duration-200 text-sm font-medium"
+                                                className="bg-green-500 text-white px-3 py-1.5 rounded-md hover:bg-green-600 transition duration-200 text-xs sm:text-sm font-medium whitespace-nowrap"
                                               >
                                                 Approve
                                               </button>
                                               <button
                                                 onClick={() => handleAction(resident._id, 'Rejected')}
-                                                className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition duration-200 text-sm font-medium"
+                                                className="bg-red-500 text-white px-3 py-1.5 rounded-md hover:bg-red-600 transition duration-200 text-xs sm:text-sm font-medium whitespace-nowrap"
                                               >
                                                 Reject
                                               </button>
                                             </div>
                                           ) : (
-                                            <div className="flex flex-col items-end gap-2">
+                                            <div className="flex flex-col items-start sm:items-end gap-2">
                                               <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                                 resident.societyVerification === 'Approved' 
                                                 ? 'bg-green-100 text-green-800' 

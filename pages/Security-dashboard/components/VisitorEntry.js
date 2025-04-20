@@ -393,6 +393,8 @@ const VisitorEntry = () => {
         });
       }
 
+      // Send notification to resident about the visitor
+      await sendVisitorNotification(selectedResident._id, visitorId);
       // Success!
       showNotification("Visitor entry created successfully!", "success");
 
@@ -417,6 +419,49 @@ const VisitorEntry = () => {
       setLoading(false);
     }
   };
+
+    // Add this function to send notification to resident
+    const sendVisitorNotification = async (residentId, visitorId) => {
+      try {
+        if (!selectedResident || !selectedResident.phone) {
+          showNotification("Resident phone number not available", "error");
+          return;
+        }
+        
+        setLoading(true);
+        
+        // Create the notification message with security guard details
+        const message = `Hello ${selectedResident.name}, you have a pending visitor approval request. Visitor: ${visitorName} (${visitorReason}). Security Guard: ${securityDetails.guardName} (${securityDetails.guardPhone}). You can approve/reject from your app > Visitor Entry section or click this link: ${process.env.NEXT_PUBLIC_APP_URL}/resident/visitor/${visitorId}`;
+        
+        // Send the message via API
+        const response = await fetch('/api/VisitorApi/sendMessage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: selectedResident.phone,
+            message: message,
+            type: 'visitor',
+            residentId: residentId,
+            flatNumber: selectedResident.flatDetails?.flatNumber,
+            visitorId: visitorId,
+            guardName: securityDetails.guardName,
+            guardPhone: securityDetails.guardPhone
+          }),
+        });
+        
+        if (response.ok) {
+          showNotification("Notification sent to resident", "success");
+        } else {
+          const error = await response.json();
+          throw new Error(error.message || "Failed to send notification");
+        }
+      } catch (error) {
+        console.error("Error sending notification:", error);
+        showNotification(error.message || "Error sending notification", "error");
+      } finally {
+        setLoading(false);
+      }
+    };
 
   // Render progress steps
   const renderProgressSteps = () => {
