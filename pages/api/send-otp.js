@@ -5,9 +5,15 @@ export default async function handler(req, res) {
     const { phoneNumber } = req.body;
 
     try {
-      // Send OTP using Factor2
+      // Add headers to the axios request
       const response = await axios.get(
-        `https://2factor.in/API/V1/${process.env.FACTOR2_API_KEY}/SMS/${phoneNumber}/AUTOGEN`
+        `https://2factor.in/API/V1/${process.env.FACTOR2_API_KEY}/SMS/${phoneNumber}/AUTOGEN`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        }
       );
 
       if (response.data.Status === 'Success') {
