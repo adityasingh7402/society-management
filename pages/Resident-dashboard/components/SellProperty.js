@@ -435,6 +435,9 @@ export default function SellProperty() {
                                     >
                                         Submit Listing
                                     </button>
+                                    <a href="upi://pay?pa=7678458860@ybl&pn=aditya&am=1&cu=INR">
+                                        Pay ₹1 via PhonePe
+                                    </a>
                                 </div>
                             </form>
                         </div>
