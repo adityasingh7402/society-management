@@ -19,6 +19,8 @@ const VisitorEntry = () => {
     const [expandedVisitor, setExpandedVisitor] = useState(null);
     const [processingId, setProcessingId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    // Add state for full-screen image view
+    const [fullScreenImage, setFullScreenImage] = useState(null);
 
     // Fetch resident details on component mount
     useEffect(() => {
@@ -202,6 +204,25 @@ const VisitorEntry = () => {
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Visitor Approval</h1>
                 <p className="text-gray-600 mt-1">Manage visitor requests for your apartment</p>
             </div>
+            {/* Full Screen Image Modal */}
+            {fullScreenImage && (
+                <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4">
+                    <div className="relative max-w-4xl w-full">
+                        <button
+                            onClick={() => setFullScreenImage(null)}
+                            className="absolute top-3 right-7 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
+                            aria-label="Close full screen image"
+                        >
+                            <X size={24} />
+                        </button>
+                        <img
+                            src={fullScreenImage}
+                            alt="Full screen view"
+                            className="max-h-[90vh] max-w-full mx-auto object-contain rounded-lg"
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* Notification Popup */}
             {showPopup && (
@@ -342,15 +363,19 @@ const VisitorEntry = () => {
                                         <div className="p-4 border-b">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center">
-                                                    <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                                    {/* Updated visitor image display */}
+                                                    <div
+                                                        className="flex-shrink-0 h-12 w-12 bg-gray-200 rounded-full flex items-center justify-center cursor-pointer"
+                                                        onClick={() => visitor.visitorImage && setFullScreenImage(visitor.visitorImage)}
+                                                    >
                                                         {visitor.visitorImage ? (
                                                             <img
                                                                 src={visitor.visitorImage}
                                                                 alt={visitor.visitorName}
-                                                                className="h-10 w-10 rounded-full object-cover"
+                                                                className="h-12 w-12 rounded-full object-cover"
                                                             />
                                                         ) : (
-                                                            <User className="h-5 w-5 text-gray-500" />
+                                                            <User className="h-6 w-6 text-gray-500" />
                                                         )}
                                                     </div>
                                                     <div className="ml-3">
@@ -390,6 +415,21 @@ const VisitorEntry = () => {
 
                                             {expandedVisitor === visitor._id && (
                                                 <div className="mt-3 pt-3 border-t border-gray-200">
+                                                    {/* Add larger visitor image in expanded view */}
+                                                    {visitor.visitorImage && (
+                                                        <div className="mb-4 flex justify-center">
+                                                            <div
+                                                                className="cursor-pointer"
+                                                                onClick={() => setFullScreenImage(visitor.visitorImage)}
+                                                            >
+                                                                <img
+                                                                    src={visitor.visitorImage}
+                                                                    alt={visitor.visitorName}
+                                                                    className="h-40 w-40 object-cover rounded-lg border-2 border-gray-200"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     <div className="space-y-3">
                                                         <div>
                                                             <h4 className="font-medium text-gray-700 mb-2 flex items-center">

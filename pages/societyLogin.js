@@ -99,7 +99,7 @@ export default function SocietyLogin() {
       const response = await axios.post('/api/send-otp', { phoneNumber: fullPhoneNumber });
 
       if (response.data.success) {
-        setVerificationId(response.data.verificationId);
+        setVerificationId(response.data.sessionId); // Changed from verificationId to sessionId
         setOtpSent(true);
         showNotification('success', 'OTP sent successfully! Please check your phone.');
       } else {
@@ -123,7 +123,7 @@ export default function SocietyLogin() {
       const response = await axios.post('/api/verify-otp', {
         otp,
         phoneNumber: `+91${phoneNumber}`,
-        verificationId,
+        sessionId: verificationId, // Changed from verificationId to sessionId
       });
 
       if (response.data.success) {

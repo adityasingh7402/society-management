@@ -86,7 +86,7 @@ export default function SecurityLogin() {
       const response = await axios.post('/api/send-otp', { phoneNumber: fullPhoneNumber });
 
       if (response.data.success) {
-        setVerificationId(response.data.verificationId);
+        setVerificationId(response.data.sessionId); // Changed from verificationId to sessionId
         setOtpSent(true);
         setNotification({
           show: true,
@@ -125,7 +125,7 @@ export default function SecurityLogin() {
       const verifyResponse = await axios.post('/api/verify-otp', {
         otp,
         phoneNumber: `+91${phoneNumber}`,
-        verificationId,
+        sessionId: verificationId, // Changed from verificationId to sessionId
       });
 
       if (verifyResponse.data.success) {

@@ -16,6 +16,7 @@ const ApproveVisitor = () => {
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'pending', 'approve', 'reject'
+  const [fullScreenImage, setFullScreenImage] = useState(null); // Add this state for full-screen image
 
   // Fetch security details on component mount
   useEffect(() => {
@@ -172,6 +173,26 @@ const ApproveVisitor = () => {
         Today's Visitor Approval
       </h1>
 
+      {/* Full Screen Image Modal */}
+      {fullScreenImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+          <div className="relative max-w-4xl w-full">
+            <button 
+              onClick={() => setFullScreenImage(null)}
+              className="absolute top-4 right-4 bg-white bg-opacity-20 text-white p-2 rounded-full hover:bg-opacity-40 transition-all"
+              aria-label="Close full screen image"
+            >
+              <X size={28} />
+            </button>
+            <img 
+              src={fullScreenImage} 
+              alt="Visitor" 
+              className="max-h-[90vh] max-w-full mx-auto object-contain rounded-lg"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Notification Popup */}
       {showPopup && (
         <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-xs animate-fade-in ${
@@ -312,23 +333,45 @@ const ApproveVisitor = () => {
                     </div>
                   </div>
                   
-                  {/* Visitor image if available */}
-                  {visitor.visitorImage && (
-                    <div className="ml-4 w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
-                      <img 
-                        src={visitor.visitorImage} 
-                        alt={visitor.visitorName} 
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = '/profile.png'; // Fallback image
-                        }}
-                      />
+                  {/* Visitor image if available - updated to be clickable */}
+                  <div className="ml-4 flex flex-col items-center">
+                    {visitor.visitorImage ? (
+                      <div 
+                        className="w-20 h-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 cursor-pointer"
+                        onClick={() => setFullScreenImage(visitor.visitorImage)}
+                      >
+                        <img 
+                          src={visitor.visitorImage} 
+                          alt={visitor.visitorName} 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = '/profile.png'; // Fallback image
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-20 h-20 rounded-md bg-gray-100 flex items-center justify-center">
+                        <User size={32} className="text-gray-400" />
+                      </div>
+                    )}
+                    
+                    {/* Large status icon */}
+                    <div className="mt-2">
+                      {visitor.status === 'approve' && (
+                        <CheckCircle size={28} className="text-green-500" />
+                      )}
+                      {visitor.status === 'reject' && (
+                        <XCircle size={28} className="text-red-500" />
+                      )}
+                      {visitor.status === 'pending' && (
+                        <Clock size={28} className="text-yellow-500" />
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
                 
-                {/* Approval actions - updated for 'approve'/'reject' */}
+                {/* Approval actions - uncomment if needed */}
                 {/* {visitor.status === 'pending' && (
                   <div className="mt-4 flex space-x-2">
                     <button
