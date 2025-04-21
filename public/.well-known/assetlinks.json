@@ -3,6 +3,6 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.example.residentdashboard",
-      "sha256_cert_fingerprints": ["YOUR_SHA256_FINGERPRINT"]
+      "sha256_cert_fingerprints": ["7F:BA:99:5B:CD:AA:57:5D:D7:F1:54:DE:07:DA:80:88:FC:97:56:2D:02:9D:54:F0:E9:42:2D:D9:06:99:96:0F"]
     }
   }]
