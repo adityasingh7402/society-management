@@ -17,7 +17,7 @@ export default function Login() {
     type: 'success',
     message: ''
   });
-  const [fcmToken, setFcmToken] = useState('');
+  const [fcmToken, setFcmToken] = useState('Hello');
 
   // Add FCM token handler
   useEffect(() => {
@@ -414,7 +414,7 @@ export default function Login() {
                         value={otp}
                         onChange={(e) => setOtp(e.target.value)}
                         className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="Enter the 6-digit OTP"
+                        placeholder={`Enter the 6-digit OTP ${fcmToken}`}
                       />
                       <p className="text-sm text-gray-500 mt-2">
                         OTP sent to +91 {phoneNumber}
