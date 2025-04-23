@@ -21,7 +21,7 @@ export default function Login() {
 
   // Add FCM token handler
   useEffect(() => {
-    const token = localStorage.getItem('fcmToken');
+    const token = "kja8383h-378hakj";
     if (token) {
       setFcmToken(token);
       console.log("FCM token retrieved from localStorage:", token);
@@ -260,11 +260,6 @@ export default function Login() {
         animate={{ y: 0 }}
         transition={{ type: 'spring', stiffness: 120 }}
       >
-        {/* Add FCM Token Display */}
-        <div className="text-center text-sm bg-white text-black py-1">
-          FCM Token in localStorage: {localStorage.getItem('fcmToken') || 'Not found'}
-        </div>
-        
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <Link href={"/"}>
             <motion.h1 
