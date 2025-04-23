@@ -12,8 +12,7 @@ export default async function handler(req, res) {
       street, 
       city, 
       state, 
-      pinCode,
-      fcmToken  // Add FCM token to the request body
+      pinCode
     } = req.body;
 
     // Step 1: Input Validation
@@ -35,23 +34,6 @@ export default async function handler(req, res) {
       });
 
       if (existingResident) {
-        // If resident exists but is just logging in from a new device,
-        // we can update their FCM token and return success
-        if (fcmToken) {
-          // Update with the new token (using addToSet to avoid duplicates)
-          await Resident.findByIdAndUpdate(
-            existingResident._id,
-            { 
-              $addToSet: { fcmTokens: fcmToken },
-              lastTokenUpdate: new Date()
-            }
-          );
-          return res.status(200).json({ 
-            message: 'Device registered successfully',
-            residentId: existingResident._id
-          });
-        }
-        
         const duplicateField = existingResident.phone === phone ? 'Mobile' : 'Email';
         return res.status(400).json({ message: `Resident with this ${duplicateField} already exists` });
       }
@@ -69,10 +51,7 @@ export default async function handler(req, res) {
           city: city || '',
           state: state || '',
           pinCode: pinCode || ''
-        },
-        // Add FCM token(s) as an array to support multiple devices
-        fcmTokens: fcmToken ? [fcmToken] : [],
-        lastTokenUpdate: fcmToken ? new Date() : null
+        }
       });
 
       const savedResident = await newResident.save();

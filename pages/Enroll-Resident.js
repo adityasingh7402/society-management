@@ -27,22 +27,13 @@ export default function ResidentSignup() {
     const [loadingOtp, setLoadingOtp] = useState(false);
     const [societies, setSocieties] = useState([]);
     const [filteredSocieties, setFilteredSocieties] = useState([]);
-    const [fcmToken, setFcmToken] = useState(''); // Add this line
     const [notification, setNotification] = useState({
         show: false,
         type: 'success',
         message: ''
     });
 
-    // Add the new useEffect for FCM token
-    useEffect(() => {
-        // Try to get FCM token from localStorage (set by the Android WebView)
-        const token = localStorage.getItem('fcmToken');
-        if (token) {
-            setFcmToken(token);
-            console.log("FCM token retrieved from localStorage:", token);
-        }
-    }, []);
+    // Remove FCM token related code
 
     // Notification variants for animation
     const notificationVariants = {
@@ -183,14 +174,13 @@ export default function ResidentSignup() {
 
             if (otpData.success) {
                 setOtpError('');
-                // OTP is valid, now submit the resident data with FCM token
+                // OTP is valid, now submit the resident data without FCM token
                 const submitResponse = await fetch('/api/Resident-Api/resident', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         ...formData, 
-                        phone: phoneNumber,
-                        fcmToken: fcmToken // Include the FCM token
+                        phone: phoneNumber
                     }),
                 });
 

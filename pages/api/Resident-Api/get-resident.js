@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   await connectToDatabase();
 
   if (req.method === 'POST') {
-    const { phoneNumber } = req.body;
+    const { phoneNumber, fcmToken } = req.body;
 
     console.log(phoneNumber);
     console.log("number is phoneNumber", phoneNumber)
@@ -16,6 +16,17 @@ export default async function handler(req, res) {
 
       if (!resident) {
         return res.status(404).json({ success: false, message: 'Resident not found' });
+      }
+
+      // Update FCM token if provided
+      if (fcmToken) {
+        await Resident.findByIdAndUpdate(
+          resident._id,
+          { 
+            $addToSet: { fcmTokens: fcmToken },
+            lastTokenUpdate: new Date()
+          }
+        );
       }
 
       // Generate JWT token

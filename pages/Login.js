@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -14,9 +14,19 @@ export default function Login() {
   const [userType, setUserType] = useState('resident'); // "resident" or "tenant"
   const [notification, setNotification] = useState({
     show: false,
-    type: 'success', // or 'error'
+    type: 'success',
     message: ''
   });
+  const [fcmToken, setFcmToken] = useState('');
+
+  // Add FCM token handler
+  useEffect(() => {
+    const token = localStorage.getItem('fcmToken');
+    if (token) {
+      setFcmToken(token);
+      console.log("FCM token retrieved from localStorage:", token);
+    }
+  }, []);
 
   // Animation variants
   const containerVariants = {
@@ -142,6 +152,19 @@ export default function Login() {
         if (detailsResponse.data.success) {
           const { details, token } = detailsResponse.data;
           localStorage.setItem(userType === 'resident' ? 'Resident' : 'Tenant', token);
+          
+          // Update FCM token after successful login
+          if (fcmToken) {
+            try {
+              await axios.post(`/api/${userType === 'resident' ? 'Resident' : 'Tenant'}-Api/update-fcm`, {
+                phoneNumber: `+91${phoneNumber}`,
+                fcmToken: fcmToken
+              });
+            } catch (error) {
+              console.error('Error updating FCM token:', error);
+            }
+          }
+
           setNotification({
             show: true,
             type: 'success',
