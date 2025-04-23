@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const residentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   phone: { type: String, required: true, unique: true },
-  userImage: {type: String},
+  userImage: { type: String },
   additionalNumbers: {
     type: [String],
     validate: {
@@ -21,6 +21,8 @@ const residentSchema = new mongoose.Schema({
     state: { type: String, required: true },
     pinCode: { type: String, required: true },
   },
+  fcmTokens: [String],
+  lastTokenUpdate: Date,
   societyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Society', required: true },
   societyCode: { type: String, required: true },
   societyName: { type: String, required: true },
