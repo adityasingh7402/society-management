@@ -147,23 +147,24 @@ export default function Login() {
 
         const detailsResponse = await axios.post(detailsEndpoint, {
           phoneNumber: `+91${phoneNumber}`,
+          fcmToken: fcmToken  // Add FCM token to the request
         });
 
         if (detailsResponse.data.success) {
           const { details, token } = detailsResponse.data;
           localStorage.setItem(userType === 'resident' ? 'Resident' : 'Tenant', token);
           
-          // Update FCM token after successful login
-          if (fcmToken) {
-            try {
-              await axios.post(`/api/${userType === 'resident' ? 'Resident' : 'Tenant'}-Api/update-fcm`, {
-                phoneNumber: `+91${phoneNumber}`,
-                fcmToken: fcmToken
-              });
-            } catch (error) {
-              console.error('Error updating FCM token:', error);
-            }
-          }
+          // Remove this section since we're now handling FCM token in the initial request
+          // if (fcmToken) {
+          //   try {
+          //     await axios.post(`/api/${userType === 'resident' ? 'Resident' : 'Tenant'}-Api/update-fcm`, {
+          //       phoneNumber: `+91${phoneNumber}`,
+          //       fcmToken: fcmToken
+          //     });
+          //   } catch (error) {
+          //     console.error('Error updating FCM token:', error);
+          //   }
+          // }
 
           setNotification({
             show: true,
