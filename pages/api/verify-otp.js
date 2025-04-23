@@ -6,18 +6,27 @@ export default async function handler(req, res) {
     console.log(otp, phoneNumber, sessionId);
 
     try {
-      // Verify OTP using Factor2 with CORS headers
-      const response = await axios.get(
-        `https://2factor.in/API/V1/${process.env.FACTOR2_API_KEY}/SMS/VERIFY/${sessionId}/${otp}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
-        }
-      );
+      // For testing: Always verify OTP without actual API call
+      // TODO: Replace with actual 2Factor.in API in production
+      // const response = await axios.get(
+      //   `https://2factor.in/API/V1/${process.env.FACTOR2_API_KEY}/SMS/VERIFY/${sessionId}/${otp}`,
+      //   {
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //       'Access-Control-Allow-Origin': '*'
+      //     }
+      //   }
+      // );
 
-      if (response.data.Status === 'Success') {
+      // Mock successful response for testing
+      const mockResponse = {
+        data: {
+          Status: 'Success',
+          Details: 'OTP Matched'
+        }
+      };
+
+      if (mockResponse.data.Status === 'Success') {
         res.status(200).json({ success: true, message: 'OTP verified successfully' });
       } else {
         res.status(400).json({ success: false, message: 'Invalid OTP' });

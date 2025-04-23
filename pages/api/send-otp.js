@@ -5,19 +5,28 @@ export default async function handler(req, res) {
     const { phoneNumber } = req.body;
 
     try {
-      // Add headers to the axios request
-      const response = await axios.get(
-        `https://2factor.in/API/V1/${process.env.FACTOR2_API_KEY}/SMS/${phoneNumber}/AUTOGEN`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
-        }
-      );
+      // For testing: Always return success without actual API call
+      // TODO: Replace with actual 2Factor.in API in production
+      // const response = await axios.get(
+      //   `https://2factor.in/API/V1/${process.env.FACTOR2_API_KEY}/SMS/${phoneNumber}/AUTOGEN`,
+      //   {
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //       'Access-Control-Allow-Origin': '*'
+      //     }
+      //   }
+      // );
 
-      if (response.data.Status === 'Success') {
-        res.status(200).json({ success: true, sessionId: response.data.Details });
+      // Mock successful response for testing
+      const mockResponse = {
+        data: {
+          Status: 'Success',
+          Details: 'test-session-id'
+        }
+      };
+
+      if (mockResponse.data.Status === 'Success') {
+        res.status(200).json({ success: true, sessionId: mockResponse.data.Details });
       } else {
         res.status(400).json({ success: false, message: 'Failed to send OTP' });
       }
