@@ -17,7 +17,7 @@ export default function Login() {
     type: 'success',
     message: ''
   });
-  const [fcmToken, setFcmToken] = useState('Hello');
+  const [fcmToken, setFcmToken] = useState('');
 
   // Add FCM token handler
   useEffect(() => {
@@ -260,6 +260,11 @@ export default function Login() {
         animate={{ y: 0 }}
         transition={{ type: 'spring', stiffness: 120 }}
       >
+        {/* Add FCM Token Display */}
+        <div className="text-center text-sm bg-white text-black py-1">
+          FCM Token in localStorage: {localStorage.getItem('fcmToken') || 'Not found'}
+        </div>
+        
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <Link href={"/"}>
             <motion.h1 
@@ -414,7 +419,7 @@ export default function Login() {
                         value={otp}
                         onChange={(e) => setOtp(e.target.value)}
                         className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder={`Enter the 6-digit OTP ${fcmToken}`}
+                        placeholder="Enter the 6-digit OTP"
                       />
                       <p className="text-sm text-gray-500 mt-2">
                         OTP sent to +91 {phoneNumber}
