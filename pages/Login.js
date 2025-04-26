@@ -21,12 +21,40 @@ export default function Login() {
 
   // Add FCM token handler
   useEffect(() => {
+    // First try to get from localStorage
     const token = localStorage.getItem('fcmToken');
     if (token) {
       setFcmToken(token);
       console.log("FCM token retrieved from localStorage:", token);
     } else {
       console.log("No FCM token found in localStorage");
+      
+      // Listen for the custom event from the WebView
+      const handleFcmTokenReady = (event) => {
+        const token = event.detail;
+        setFcmToken(token);
+        console.log("FCM token received from event:", token);
+      };
+      
+      document.addEventListener('fcmTokenReady', handleFcmTokenReady);
+      
+      // Try to access it through the Android bridge directly
+      try {
+        if (window.AndroidApp && typeof window.AndroidApp.getFcmToken === 'function') {
+          const androidToken = window.AndroidApp.getFcmToken();
+          if (androidToken) {
+            localStorage.setItem('fcmToken', androidToken);
+            setFcmToken(androidToken);
+            console.log("FCM token retrieved directly from Android bridge:", androidToken);
+          }
+        }
+      } catch (error) {
+        console.error("Error accessing Android bridge:", error);
+      }
+      
+      return () => {
+        document.removeEventListener('fcmTokenReady', handleFcmTokenReady);
+      };
     }
   }, []);
 
