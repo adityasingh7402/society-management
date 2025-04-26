@@ -21,44 +21,38 @@ export default function Login() {
 
   // Add FCM token handler
   useEffect(() => {
-    // First try to get from localStorage
-    const token = localStorage.getItem('fcmToken');
-    if (token) {
-      setFcmToken(token);
-      alert(`FCM Token: ${token}`); // Add alert to show FCM token
-      console.log("FCM token retrieved from localStorage:", token);
-    } else {
-      alert('No FCM token found in localStorage');
-      console.log("No FCM token found in localStorage");
-      
-      // Listen for the custom event from the WebView
-      const handleFcmTokenReady = (event) => {
-        const token = event.detail;
+    // Function to check FCM token
+    const checkFcmToken = () => {
+      const token = localStorage.getItem('fcmToken');
+      if (token) {
         setFcmToken(token);
-        alert(`FCM Token received: ${token}`); // Add alert for received token
-        console.log("FCM token received from event:", token);
-      };
-      
-      document.addEventListener('fcmTokenReady', handleFcmTokenReady);
-      
-      // Try to access it through the Android bridge directly
-      try {
-        if (window.AndroidApp && typeof window.AndroidApp.getFcmToken === 'function') {
-          const androidToken = window.AndroidApp.getFcmToken();
-          if (androidToken) {
-            localStorage.setItem('fcmToken', androidToken);
-            setFcmToken(androidToken);
-            console.log("FCM token retrieved directly from Android bridge:", androidToken);
-          }
-        }
-      } catch (error) {
-        console.error("Error accessing Android bridge:", error);
+        alert(`FCM Token found: ${token}`);
+        console.log("FCM token retrieved from localStorage:", token);
+      } else {
+        alert('No FCM token found in localStorage');
+        console.log("No FCM token found in localStorage");
       }
-      
-      return () => {
-        document.removeEventListener('fcmTokenReady', handleFcmTokenReady);
-      };
-    }
+    };
+    
+    // Check immediately
+    checkFcmToken();
+    
+    // Also check after a delay to ensure the WebView has had time to set it
+    setTimeout(checkFcmToken, 3000);
+    
+    // Listen for the custom event from the WebView
+    const handleFcmTokenReady = (event) => {
+      const token = event.detail;
+      setFcmToken(token);
+      alert(`FCM Token received from event: ${token}`);
+      console.log("FCM token received from event:", token);
+    };
+    
+    document.addEventListener('fcmTokenReady', handleFcmTokenReady);
+    
+    return () => {
+      document.removeEventListener('fcmTokenReady', handleFcmTokenReady);
+    };
   }, []);
 
   // Animation variants
