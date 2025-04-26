@@ -21,38 +21,13 @@ export default function Login() {
 
   // Add FCM token handler
   useEffect(() => {
-    // Function to check FCM token
-    const checkFcmToken = () => {
-      const token = localStorage.getItem('fcmToken');
-      if (token) {
-        setFcmToken(token);
-        alert(`FCM Token found: ${token}`);
-        console.log("FCM token retrieved from localStorage:", token);
-      } else {
-        alert('No FCM token found in localStorage');
-        console.log("No FCM token found in localStorage");
-      }
-    };
-    
-    // Check immediately
-    checkFcmToken();
-    
-    // Also check after a delay to ensure the WebView has had time to set it
-    setTimeout(checkFcmToken, 3000);
-    
-    // Listen for the custom event from the WebView
-    const handleFcmTokenReady = (event) => {
-      const token = event.detail;
+    const token = localStorage.getItem('fcmToken');
+    if (token) {
       setFcmToken(token);
-      alert(`FCM Token received from event: ${token}`);
-      console.log("FCM token received from event:", token);
-    };
-    
-    document.addEventListener('fcmTokenReady', handleFcmTokenReady);
-    
-    return () => {
-      document.removeEventListener('fcmTokenReady', handleFcmTokenReady);
-    };
+      console.log("FCM token retrieved from localStorage:", token);
+    } else {
+      console.log("No FCM token found in localStorage");
+    }
   }, []);
 
   // Animation variants
