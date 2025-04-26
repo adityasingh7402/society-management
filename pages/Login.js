@@ -25,14 +25,17 @@ export default function Login() {
     const token = localStorage.getItem('fcmToken');
     if (token) {
       setFcmToken(token);
+      alert(`FCM Token: ${token}`); // Add alert to show FCM token
       console.log("FCM token retrieved from localStorage:", token);
     } else {
+      alert('No FCM token found in localStorage');
       console.log("No FCM token found in localStorage");
       
       // Listen for the custom event from the WebView
       const handleFcmTokenReady = (event) => {
         const token = event.detail;
         setFcmToken(token);
+        alert(`FCM Token received: ${token}`); // Add alert for received token
         console.log("FCM token received from event:", token);
       };
       
