@@ -21,10 +21,12 @@ export default function Login() {
 
   // Add FCM token handler
   useEffect(() => {
-    const token = "kja8383h-378hakj";
+    const token = localStorage.getItem('fcmToken');
     if (token) {
       setFcmToken(token);
       console.log("FCM token retrieved from localStorage:", token);
+    } else {
+      console.log("No FCM token found in localStorage");
     }
   }, []);
 
