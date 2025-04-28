@@ -120,51 +120,30 @@ export default function Community() {
     // Get the token from localStorage
     const token = localStorage.getItem('Resident');
     
-    // Initialize socket.io connection
+    // Use socket.io-client instead of native WebSocket
     const socket = io('', {
       path: '/api/websocket',
       auth: {
         token: token
-      }
+      },
+      transports: ['polling', 'websocket']
     });
     
-    // Connection established
     socket.on('connect', () => {
-      console.log('WebSocket connected');
+      console.log('Connected to WebSocket server');
     });
-    
-    // Handle incoming messages
-    socket.on('chat_message', (data) => {
-      handleIncomingMessage(data);
+  
+    socket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
+      toast.error('Failed to connect to chat server');
     });
-    
-    // Handle call offers
-    socket.on('call_offer', (data) => {
-      handleCallOffer(data);
-    });
-    
-    // Handle call answers
-    socket.on('call_answer', (data) => {
-      handleCallAnswer(data);
-    });
-    
-    // Handle ICE candidates
-    socket.on('ice_candidate', (data) => {
-      handleIceCandidate(data);
-    });
-    
-    // Handle call end
-    socket.on('call_end', () => {
-      handleCallEnd();
-    });
-    
-    // Handle errors
+  
+    // Add more detailed error logging
     socket.on('error', (error) => {
-      console.error('WebSocket error:', error);
-      toast.error(error.message || 'Connection error. Please try again later.');
+      console.error('Socket error:', error);
+      toast.error(error.message || 'Chat error occurred');
     });
     
-    // Store socket reference
     socketRef.current = socket;
     
     // Clean up on component unmount

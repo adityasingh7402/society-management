@@ -54,7 +54,15 @@ const SocketHandler = (req, res) => {
   }
   
   console.log('Setting up socket server');
-  const io = new Server(res.socket.server);
+  const io = new Server(res.socket.server, {
+    // Add these options for better connection handling
+    path: '/api/websocket',
+    transports: ['polling', 'websocket'],
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST']
+    }
+  });
   res.socket.server.io = io;
   
   io.use(async (socket, next) => {
