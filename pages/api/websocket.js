@@ -42,8 +42,9 @@ try {
   ChatMessage = mongoose.model('ChatMessage', ChatMessageSchema);
 }
 
-// Map to store connected users
+// Maps to store connected users
 const connectedUsers = new Map();
+const societyUsers = new Map(); // Add this line to declare societyUsers
 
 const SocketHandler = (req, res) => {
   if (res.socket.server.io) {

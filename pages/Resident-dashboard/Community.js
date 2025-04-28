@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { FaArrowLeft } from 'react-icons/fa';
+import io from 'socket.io-client'; // Add this import
 
 export default function Community() {
   const router = useRouter();
@@ -116,55 +117,60 @@ export default function Community() {
   };
   
   const setupWebSocket = () => {
-    // Connect to WebSocket server
-    const socket = new WebSocket(`${process.env.NEXT_PUBLIC_WS_URL || 'wss://your-websocket-server.com'}`);
+    // Get the token from localStorage
+    const token = localStorage.getItem('Resident');
     
-    socket.onopen = () => {
-      console.log('WebSocket connected');
-      // Register the user with their ID
-      socket.send(JSON.stringify({
-        type: 'register',
-        userId: residentDetails._id
-      }));
-    };
-    
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      switch (data.type) {
-        case 'chat_message':
-          handleIncomingMessage(data);
-          break;
-        case 'call_offer':
-          handleCallOffer(data);
-          break;
-        case 'call_answer':
-          handleCallAnswer(data);
-          break;
-        case 'ice_candidate':
-          handleIceCandidate(data);
-          break;
-        case 'call_end':
-          handleCallEnd();
-          break;
+    // Initialize socket.io connection
+    const socket = io('', {
+      path: '/api/websocket',
+      auth: {
+        token: token
       }
-    };
+    });
     
-    socket.onerror = (error) => {
+    // Connection established
+    socket.on('connect', () => {
+      console.log('WebSocket connected');
+    });
+    
+    // Handle incoming messages
+    socket.on('chat_message', (data) => {
+      handleIncomingMessage(data);
+    });
+    
+    // Handle call offers
+    socket.on('call_offer', (data) => {
+      handleCallOffer(data);
+    });
+    
+    // Handle call answers
+    socket.on('call_answer', (data) => {
+      handleCallAnswer(data);
+    });
+    
+    // Handle ICE candidates
+    socket.on('ice_candidate', (data) => {
+      handleIceCandidate(data);
+    });
+    
+    // Handle call end
+    socket.on('call_end', () => {
+      handleCallEnd();
+    });
+    
+    // Handle errors
+    socket.on('error', (error) => {
       console.error('WebSocket error:', error);
-      toast.error('Connection error. Please try again later.');
-    };
+      toast.error(error.message || 'Connection error. Please try again later.');
+    });
     
-    socket.onclose = () => {
-      console.log('WebSocket disconnected');
-    };
-    
+    // Store socket reference
     socketRef.current = socket;
     
     // Clean up on component unmount
     return () => {
       if (socketRef.current) {
-        socketRef.current.close();
+        socketRef.current.disconnect();
       }
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => track.stop());
@@ -172,77 +178,14 @@ export default function Community() {
     };
   };
   
-  const handleIncomingMessage = (data) => {
-    const { from, message, timestamp } = data;
-    
-    setChatMessages(prevMessages => {
-      const conversationId = from;
-      const conversation = prevMessages[conversationId] || [];
-      
-      return {
-        ...prevMessages,
-        [conversationId]: [
-          ...conversation,
-          {
-            sender: from,
-            text: message,
-            timestamp,
-            isIncoming: true
-          }
-        ]
-      };
-    });
-    
-    // If chat is not open with this sender, show notification
-    if (!showChat || selectedResident?._id !== from) {
-      const sender = residents.find(r => r._id === from);
-      toast.custom((t) => (
-        <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex`}>
-          <div className="flex-1 p-4">
-            <div className="flex items-start">
-              <div className="ml-3 flex-1">
-                <p className="text-sm font-medium text-gray-900">
-                  New message from {sender?.name || 'Unknown'}
-                </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  {message.length > 30 ? message.substring(0, 30) + '...' : message}
-                </p>
-                <button 
-                  onClick={() => {
-                    setSelectedResident(sender);
-                    setShowChat(true);
-                    toast.dismiss(t.id);
-                  }}
-                  className="mt-2 text-xs text-blue-600 hover:text-blue-800"
-                >
-                  Open Chat
-                </button>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="w-10 h-10 flex items-center justify-center"
-          >
-            <X size={18} />
-          </button>
-        </div>
-      ));
-    }
-  };
-  
   const sendMessage = () => {
     if (!newMessage.trim() || !selectedResident) return;
     
-    const message = {
-      type: 'chat_message',
+    // Use socket.io emit instead of WebSocket send
+    socketRef.current.emit('chat_message', {
       to: selectedResident._id,
-      from: residentDetails._id,
-      message: newMessage.trim(),
-      timestamp: new Date().toISOString()
-    };
-    
-    socketRef.current.send(JSON.stringify(message));
+      message: newMessage.trim()
+    });
     
     // Add message to local state
     setChatMessages(prevMessages => {
@@ -266,6 +209,7 @@ export default function Community() {
     setNewMessage('');
   };
   
+  // Update startCall function to use socket.io
   const startCall = async (resident) => {
     try {
       // Get user media
@@ -329,13 +273,11 @@ export default function Community() {
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
       
-      // Send offer to remote peer
-      socketRef.current.send(JSON.stringify({
-        type: 'call_offer',
+      // Send offer to remote peer using socket.io
+      socketRef.current.emit('call_offer', {
         to: resident._id,
-        from: residentDetails._id,
         offer: peerConnection.localDescription
-      }));
+      });
       
       setInCall(true);
       setCallWith(resident);
@@ -496,22 +438,21 @@ export default function Community() {
     }
   };
   
+  // Update other WebSocket methods to use socket.io emit
   const endCall = () => {
     if (callWith) {
-      socketRef.current.send(JSON.stringify({
-        type: 'call_end',
+      socketRef.current.emit('call_end', {
         to: callWith._id
-      }));
+      });
     }
     
     handleCallEnd();
   };
   
   const rejectCall = (callerId) => {
-    socketRef.current.send(JSON.stringify({
-      type: 'call_end',
+    socketRef.current.emit('call_end', {
       to: callerId
-    }));
+    });
   };
   
   const handleCallEnd = () => {
