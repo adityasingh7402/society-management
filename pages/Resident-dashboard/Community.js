@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { 
-  Users, 
-  MessageSquare, 
-  Phone, 
-  X, 
-  Send, 
-  Mic, 
+import {
+  Users,
+  MessageSquare,
+  Phone,
+  X,
+  Send,
+  Mic,
   MicOff,
   User,
   Search
@@ -21,25 +21,25 @@ export default function Community() {
   const [isLoading, setIsLoading] = useState(true);
   const [residentDetails, setResidentDetails] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Chat state
   const [selectedResident, setSelectedResident] = useState(null);
   const [chatMessages, setChatMessages] = useState({});
   const [newMessage, setNewMessage] = useState('');
   const [showChat, setShowChat] = useState(false);
-  
+
   // Call state
   const [inCall, setInCall] = useState(false);
   const [callWith, setCallWith] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
-  
+
   // WebRTC refs
   const localStreamRef = useRef(null);
   const remoteStreamRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const dataChannelRef = useRef(null);
   const socketRef = useRef(null);
-  
+
   // Message container ref for auto-scrolling
   const messagesEndRef = useRef(null);
 
@@ -53,7 +53,7 @@ export default function Community() {
       setupWebSocket();
     }
   }, [residentDetails]);
-  
+
   // Auto-scroll chat to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -91,7 +91,7 @@ export default function Community() {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('Resident');
-      
+
       const response = await fetch(`/api/Resident-Api/get-society-residents?societyId=${residentDetails.societyCode}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -115,11 +115,43 @@ export default function Community() {
       setIsLoading(false);
     }
   };
-  
+
+  const fetchMessages = async (recipientId) => {
+    try {
+      const token = localStorage.getItem('Resident');
+      const response = await fetch(`/api/chat/get-messages?recipientId=${recipientId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch messages');
+      }
+
+      const data = await response.json();
+
+      // Update chat messages state with fetched messages
+      setChatMessages(prevMessages => ({
+        ...prevMessages,
+        [recipientId]: data.messages.map(msg => ({
+          sender: msg.senderId,
+          text: msg.message,
+          timestamp: msg.timestamp,
+          messageId: msg._id,
+          isIncoming: msg.senderId !== residentDetails._id
+        }))
+      }));
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      toast.error('Failed to load messages');
+    }
+  };
+
   const setupWebSocket = () => {
     // Get the token from localStorage
     const token = localStorage.getItem('Resident');
-    
+
     // Use socket.io-client instead of native WebSocket
     const socket = io('', {
       path: '/api/websocket',
@@ -128,24 +160,45 @@ export default function Community() {
       },
       transports: ['polling', 'websocket']
     });
-    
+
     socket.on('connect', () => {
       console.log('Connected to WebSocket server');
     });
-  
+
     socket.on('connect_error', (error) => {
       console.error('Connection error:', error);
       toast.error('Failed to connect to chat server');
     });
-  
+
     // Add more detailed error logging
     socket.on('error', (error) => {
       console.error('Socket error:', error);
       toast.error(error.message || 'Chat error occurred');
     });
-    
+
+    socket.on('chat_message', (data) => {
+      const { from, message, timestamp, messageId } = data;
+      setChatMessages(prevMessages => {
+        const conversationId = from;
+        const conversation = prevMessages[conversationId] || [];
+        
+        return {
+          ...prevMessages,
+          [conversationId]: [
+            ...conversation,
+            {
+              sender: from,
+              text: message,
+              timestamp: timestamp,
+              messageId: messageId,
+              isIncoming: true
+            }
+          ]
+        };
+      });
+    });
     socketRef.current = socket;
-    
+
     // Clean up on component unmount
     return () => {
       if (socketRef.current) {
@@ -156,21 +209,21 @@ export default function Community() {
       }
     };
   };
-  
+
   const sendMessage = () => {
     if (!newMessage.trim() || !selectedResident) return;
-    
+
     // Use socket.io emit instead of WebSocket send
     socketRef.current.emit('chat_message', {
       to: selectedResident._id,
       message: newMessage.trim()
     });
-    
+
     // Add message to local state
     setChatMessages(prevMessages => {
       const conversationId = selectedResident._id;
       const conversation = prevMessages[conversationId] || [];
-      
+
       return {
         ...prevMessages,
         [conversationId]: [
@@ -184,41 +237,41 @@ export default function Community() {
         ]
       };
     });
-    
+
     setNewMessage('');
   };
-  
+
   // Update startCall function to use socket.io
   const startCall = async (resident) => {
     try {
       // Get user media
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       localStreamRef.current = stream;
-      
+
       // Create peer connection
-      const configuration = { 
+      const configuration = {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' }
-        ] 
+        ]
       };
-      
+
       const peerConnection = new RTCPeerConnection(configuration);
       peerConnectionRef.current = peerConnection;
-      
+
       // Add local stream to peer connection
       stream.getTracks().forEach(track => {
         peerConnection.addTrack(track, stream);
       });
-      
+
       // Set up data channel for text chat
       const dataChannel = peerConnection.createDataChannel('chat');
       dataChannelRef.current = dataChannel;
-      
+
       dataChannel.onopen = () => {
         console.log('Data channel opened');
       };
-      
+
       dataChannel.onmessage = (event) => {
         const message = JSON.parse(event.data);
         handleIncomingMessage({
@@ -227,7 +280,7 @@ export default function Community() {
           timestamp: message.timestamp
         });
       };
-      
+
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
@@ -238,7 +291,7 @@ export default function Community() {
           }));
         }
       };
-      
+
       // Handle remote stream
       peerConnection.ontrack = (event) => {
         remoteStreamRef.current = event.streams[0];
@@ -247,30 +300,30 @@ export default function Community() {
           remoteAudio.srcObject = event.streams[0];
         }
       };
-      
+
       // Create offer
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
-      
+
       // Send offer to remote peer using socket.io
       socketRef.current.emit('call_offer', {
         to: resident._id,
         offer: peerConnection.localDescription
       });
-      
+
       setInCall(true);
       setCallWith(resident);
-      
+
     } catch (error) {
       console.error('Error starting call:', error);
       toast.error('Failed to start call. Please check your microphone permissions.');
     }
   };
-  
+
   const handleCallOffer = async (data) => {
     const { from, offer } = data;
     const caller = residents.find(r => r._id === from);
-    
+
     // Show incoming call notification
     toast.custom((t) => (
       <div className="max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto">
@@ -297,44 +350,53 @@ export default function Community() {
             </button>
             <button
               onClick={() => {
-                toast.dismiss(t.id);
-                rejectCall(from);
+                setSelectedResident(residents);
+                fetchMessages(residents._id);
+                setShowChat(true);
               }}
-              className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
+              className="flex-1 flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
             >
-              Decline
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Chat
+            </button>
+            <button
+              onClick={() => startCall(residents)}
+              className="flex-1 flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+            >
+              <Phone className="h-4 w-4 mr-2" />
+              Call
             </button>
           </div>
         </div>
       </div>
     ), { duration: 30000 });
   };
-  
+
   const answerCall = async (data) => {
     try {
       const { from, offer } = data;
       const caller = residents.find(r => r._id === from);
-      
+
       // Get user media
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       localStreamRef.current = stream;
-      
+
       // Create peer connection
-      const configuration = { 
+      const configuration = {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' }
-        ] 
+        ]
       };
-      
+
       const peerConnection = new RTCPeerConnection(configuration);
       peerConnectionRef.current = peerConnection;
-      
+
       // Add local stream to peer connection
       stream.getTracks().forEach(track => {
         peerConnection.addTrack(track, stream);
       });
-      
+
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
@@ -345,7 +407,7 @@ export default function Community() {
           }));
         }
       };
-      
+
       // Handle remote stream
       peerConnection.ontrack = (event) => {
         remoteStreamRef.current = event.streams[0];
@@ -354,11 +416,11 @@ export default function Community() {
           remoteAudio.srcObject = event.streams[0];
         }
       };
-      
+
       // Handle data channel
       peerConnection.ondatachannel = (event) => {
         dataChannelRef.current = event.channel;
-        
+
         event.channel.onmessage = (e) => {
           const message = JSON.parse(e.data);
           handleIncomingMessage({
@@ -368,33 +430,33 @@ export default function Community() {
           });
         };
       };
-      
+
       // Set remote description (the offer)
       await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-      
+
       // Create answer
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
-      
+
       // Send answer to caller
       socketRef.current.send(JSON.stringify({
         type: 'call_answer',
         to: from,
         answer: peerConnection.localDescription
       }));
-      
+
       setInCall(true);
       setCallWith(caller);
-      
+
     } catch (error) {
       console.error('Error answering call:', error);
       toast.error('Failed to answer call. Please check your microphone permissions.');
     }
   };
-  
+
   const handleCallAnswer = async (data) => {
     const { answer } = data;
-    
+
     try {
       await peerConnectionRef.current.setRemoteDescription(
         new RTCSessionDescription(answer)
@@ -403,7 +465,7 @@ export default function Community() {
       console.error('Error handling call answer:', error);
     }
   };
-  
+
   const handleIceCandidate = async (data) => {
     try {
       const { candidate } = data;
@@ -416,7 +478,7 @@ export default function Community() {
       console.error('Error adding ICE candidate:', error);
     }
   };
-  
+
   // Update other WebSocket methods to use socket.io emit
   const endCall = () => {
     if (callWith) {
@@ -424,35 +486,35 @@ export default function Community() {
         to: callWith._id
       });
     }
-    
+
     handleCallEnd();
   };
-  
+
   const rejectCall = (callerId) => {
     socketRef.current.emit('call_end', {
       to: callerId
     });
   };
-  
+
   const handleCallEnd = () => {
     // Stop all tracks in the local stream
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
-    
+
     // Close peer connection
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
-    
+
     // Reset call state
     setInCall(false);
     setCallWith(null);
     setIsMuted(false);
   };
-  
+
   const toggleMute = () => {
     if (localStreamRef.current) {
       const audioTracks = localStreamRef.current.getAudioTracks();
@@ -462,11 +524,11 @@ export default function Community() {
       setIsMuted(!isMuted);
     }
   };
-  
-  const filteredResidents = residents.filter(resident => 
+
+  const filteredResidents = residents.filter(resident =>
     resident.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  
+
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -536,6 +598,7 @@ export default function Community() {
                       <button
                         onClick={() => {
                           setSelectedResident(resident);
+                          fetchMessages(resident._id);
                           setShowChat(true);
                         }}
                         className="flex-1 flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
@@ -587,7 +650,7 @@ export default function Community() {
                 <X className="h-6 w-6" />
               </button>
             </div>
-            
+
             {/* Chat Messages */}
             <div className="flex-1 p-4 overflow-y-auto">
               {chatMessages[selectedResident._id]?.length > 0 ? (
@@ -597,11 +660,10 @@ export default function Community() {
                     className={`mb-4 flex ${msg.isIncoming ? 'justify-start' : 'justify-end'}`}
                   >
                     <div
-                      className={`max-w-xs px-4 py-2 rounded-lg ${
-                        msg.isIncoming
+                      className={`max-w-xs px-4 py-2 rounded-lg ${msg.isIncoming
                           ? 'bg-gray-100 text-gray-800'
                           : 'bg-blue-600 text-white'
-                      }`}
+                        }`}
                     >
                       <p>{msg.text}</p>
                       <p className={`text-xs mt-1 ${msg.isIncoming ? 'text-gray-500' : 'text-blue-200'}`}>
@@ -617,7 +679,7 @@ export default function Community() {
               )}
               <div ref={messagesEndRef} />
             </div>
-            
+
             {/* Chat Input */}
             <div className="p-4 border-t">
               <div className="flex space-x-2">
@@ -651,19 +713,18 @@ export default function Community() {
             <p className="text-gray-300 mb-8">
               {callWith.flatDetails?.flatNumber || 'No flat info'}
             </p>
-            
+
             <div className="h-24 w-24 rounded-full bg-blue-600 mx-auto flex items-center justify-center mb-8">
               <User className="h-12 w-12 text-white" />
             </div>
-            
+
             <audio id="remoteAudio" autoPlay></audio>
-            
+
             <div className="flex justify-center space-x-6">
               <button
                 onClick={toggleMute}
-                className={`h-14 w-14 rounded-full flex items-center justify-center ${
-                  isMuted ? 'bg-red-600' : 'bg-gray-700'
-                }`}
+                className={`h-14 w-14 rounded-full flex items-center justify-center ${isMuted ? 'bg-red-600' : 'bg-gray-700'
+                  }`}
               >
                 {isMuted ? (
                   <MicOff className="h-6 w-6 text-white" />
@@ -671,7 +732,7 @@ export default function Community() {
                   <Mic className="h-6 w-6 text-white" />
                 )}
               </button>
-              
+
               <button
                 onClick={endCall}
                 className="h-14 w-14 rounded-full bg-red-600 flex items-center justify-center"

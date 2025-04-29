@@ -3,44 +3,7 @@ import jwt from 'jsonwebtoken';
 import connectToDatabase from '../../lib/mongodb';
 import Resident from '../../models/Resident';
 import mongoose from 'mongoose';
-
-// Define Chat Message Schema if not already defined in models
-let ChatMessage;
-try {
-  ChatMessage = mongoose.model('ChatMessage');
-} catch (e) {
-  const ChatMessageSchema = new mongoose.Schema({
-    senderId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Resident',
-      required: true
-    },
-    receiverId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Resident',
-      required: true
-    },
-    societyId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Society',
-      required: true
-    },
-    message: {
-      type: String,
-      required: true
-    },
-    timestamp: {
-      type: Date,
-      default: Date.now
-    },
-    read: {
-      type: Boolean,
-      default: false
-    }
-  });
-  
-  ChatMessage = mongoose.model('ChatMessage', ChatMessageSchema);
-}
+import ChatMessage from '../../models/ChatMessage';
 
 // Maps to store connected users
 const connectedUsers = new Map();
