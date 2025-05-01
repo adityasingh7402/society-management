@@ -1,36 +1,43 @@
 import mongoose from 'mongoose';
+const { Schema } = mongoose;
 
-const messageSchema = new mongoose.Schema({
-  societyId: {
-    type: String,
-    required: true,
-    index: true
-  },
+const MessageSchema = new Schema({
   senderId: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref: 'Resident',
     required: true
   },
-  senderName: {
-    type: String,
+  recipientId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Resident',
     required: true
   },
-  content: {
+  message: {
     type: String,
     required: true
-  },
-  isSociety: {
-    type: Boolean,
-    default: false
-  },
-  isDeleted: {
-    type: Boolean,
-    default: false
   },
   timestamp: {
     type: Date,
     default: Date.now
+  },
+  status: {
+    type: String,
+    enum: ['sent', 'delivered', 'read'],
+    default: 'sent'
+  },
+  readAt: {
+    type: Date,
+    default: null
+  },
+  // For media messages - use Mixed type for flexible structure
+  media: {
+    type: Schema.Types.Mixed,
+    default: null
   }
-});
+}, { timestamps: true });
 
-const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
-export default Message;
+// Create indexes for faster queries
+MessageSchema.index({ senderId: 1, recipientId: 1 });
+MessageSchema.index({ recipientId: 1, status: 1 });
+
+export default mongoose.models.Message || mongoose.model('Message', MessageSchema);
