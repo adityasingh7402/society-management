@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from 'next/router';
-import { Clock, CheckCircle, AlertTriangle, Tool, Calendar, Phone, Mail, FileText, Filter, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, Wrench, Calendar, Phone, Mail, FileText, Filter, Search, ChevronRight, ChevronDown } from 'lucide-react';
 
 export default function TrackRequest() {
     const router = useRouter();
@@ -133,7 +133,7 @@ export default function TrackRequest() {
             case 'In Progress':
                 bgColor = 'bg-blue-100';
                 textColor = 'text-blue-800';
-                iconComponent = Tool ? <Tool size={14} className="mr-1" /> : null;
+                iconComponent = Wrench ? <Wrench size={14} className="mr-1" /> : null;
                 break;
             case 'Scheduled':
                 bgColor = 'bg-purple-100';

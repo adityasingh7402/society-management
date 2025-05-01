@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import {
   Camera, User, Clock, LogOut, Home, Building,
   CheckCircle, XCircle, Layers, MessageSquare,
-  Calendar, Shield, Loader, Package, Users, Tool,
+  Calendar, Shield, Loader, Package, Users, Wrench,
   Briefcase, Heart, Coffee, Truck, ShoppingBag
 } from 'lucide-react';
 import { FaArrowLeft } from "react-icons/fa";
@@ -50,7 +50,7 @@ const VisitorEntry = () => {
   const visitPurposes = [
     { id: 'delivery', name: 'Delivery', icon: <Package size={24} /> },
     { id: 'family', name: 'Family Visit', icon: <Users size={24} /> },
-    { id: 'maintenance', name: 'Maintenance', icon: <Tool size={24} /> },
+    { id: 'maintenance', name: 'Maintenance', icon: <Wrench size={24} /> },
     { id: 'official', name: 'Official', icon: <Briefcase size={24} /> },
     { id: 'medical', name: 'Medical', icon: <Heart size={24} /> },
     { id: 'housekeeping', name: 'Housekeeping', icon: <Home size={24} /> },

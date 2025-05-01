@@ -1,5 +1,5 @@
 import twilio from 'twilio';
-import { connectToDatabase } from '../../../lib/mongodb';
+import connectToDatabase from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID; // Twilio Account SID

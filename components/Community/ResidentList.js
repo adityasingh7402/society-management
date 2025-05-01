@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, MessageSquare, Phone, Search } from 'lucide-react';
+import { User, MessageSquare, Phone, Search, WifiOff } from 'lucide-react';
 
 export default function ResidentList({
   residents,
@@ -9,13 +9,14 @@ export default function ResidentList({
   setSearchQuery,
   onChatSelect,
   onCallStart,
-  inCall
+  inCall,
+  socketConnected
 }) {
   return (
     <div className="bg-white rounded-lg shadow">
       {/* Search Bar */}
-      <div className="p-4 border-b">
-        <div className="relative">
+      <div className="p-4 border-b flex justify-between items-center">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
             type="text"
@@ -25,6 +26,13 @@ export default function ResidentList({
             className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+        
+        {!socketConnected && (
+          <div className="ml-2 flex items-center text-yellow-600 text-sm">
+            <WifiOff className="w-4 h-4 mr-1" />
+            <span>Offline</span>
+          </div>
+        )}
       </div>
 
       {/* Residents List */}
@@ -66,8 +74,9 @@ export default function ResidentList({
                 </button>
                 <button
                   onClick={() => onCallStart(resident)}
-                  className="p-2 text-green-600 hover:bg-green-50 rounded-full"
-                  disabled={inCall}
+                  className={`p-2 ${socketConnected ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 cursor-not-allowed'} rounded-full`}
+                  disabled={inCall || !socketConnected}
+                  title={!socketConnected ? "Call functionality unavailable while offline" : "Start call"}
                 >
                   <Phone />
                 </button>

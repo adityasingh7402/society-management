@@ -3,11 +3,11 @@ import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import io from 'socket.io-client';
 
-import CommunityHeader from './CommunityHeader';
-import ResidentList from './ResidentList';
-import ChatModal from './ChatModal';
-import CallModal from './CallModal';
-import { setupWebSocket, fetchResidentDetails, fetchResidents, fetchUnreadCounts } from './CommunityService';
+import CommunityHeader from '../../../components/Community/CommunityHeader';
+import ResidentList from '../../../components/Community/ResidentList';
+import ChatModal from '../../../components/Community/ChatModal';
+import CallModal from '../../../components/Community/CallModal';
+import { setupWebSocket, fetchResidentDetails, fetchResidents, fetchUnreadCounts } from '../../../services/CommunityService';
 
 export default function Community() {
   const router = useRouter();
@@ -38,6 +38,10 @@ export default function Community() {
   const peerConnectionRef = useRef(null);
   const dataChannelRef = useRef(null);
   const socketRef = useRef(null);
+
+  // Add socket connection state
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [socketError, setSocketError] = useState(false);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -82,7 +86,41 @@ export default function Community() {
         handleIceCandidate
       );
       
-      socketRef.current = socket;
+      // Only set socket ref and add listeners if socket was created
+      if (socket) {
+        socketRef.current = socket;
+        
+        // Add socket connection state handlers
+        socket.on('connect', () => {
+          setSocketConnected(true);
+          setSocketError(false);
+        });
+        
+        socket.on('connect_error', () => {
+          setSocketConnected(false);
+          // Only set socket error after a few seconds to avoid showing errors during initial load
+          setTimeout(() => {
+            if (socket && !socket.connected) {
+              setSocketError(true);
+            }
+          }, 5000);
+        });
+        
+        socket.on('disconnect', () => {
+          setSocketConnected(false);
+        });
+        
+        socket.on('reconnect', () => {
+          setSocketConnected(true);
+          setSocketError(false);
+          // Re-fetch unread counts after reconnection
+          fetchUnreadCounts(residentDetails._id, setUnreadCounts);
+        });
+      } else {
+        // No socket was created, likely due to missing token
+        setSocketConnected(false);
+        setSocketError(true);
+      }
       
       // Fetch unread message counts
       fetchUnreadCounts(residentDetails._id, setUnreadCounts);
@@ -549,6 +587,30 @@ export default function Community() {
     <div className="min-h-screen bg-gray-100">
       <CommunityHeader router={router} />
       
+      {socketError && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-2 text-sm flex justify-between items-center">
+          <div>
+            <span>Connection to chat server is unavailable. Some features may be limited.</span>
+            <button 
+              onClick={() => {
+                if (socketRef.current) {
+                  socketRef.current.connect();
+                }
+              }}
+              className="ml-2 text-blue-600 underline"
+            >
+              Try again
+            </button>
+          </div>
+          <button 
+            onClick={() => setSocketError(false)} 
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      
       <div className="max-w-7xl mx-auto px-4 py-6">
         <ResidentList 
           residents={filteredResidents}
@@ -563,6 +625,7 @@ export default function Community() {
           }}
           onCallStart={startCall}
           inCall={inCall}
+          socketConnected={socketConnected}
         />
       </div>
 

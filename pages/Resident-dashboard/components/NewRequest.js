@@ -16,7 +16,6 @@ import {
     Loader2,
     FileText,
     Home,
-    Tool,
     AlertTriangle,
     Calendar,
     User
@@ -407,7 +406,7 @@ export default function NewRequest() {
             case 'Other':
                 return <FaQuestion className="text-gray-500" />;
             default:
-                return <Tool className="text-gray-500" />;
+                return <Wrench className="text-gray-500" />;
         }
     };
 
