@@ -93,20 +93,29 @@ export const setupWebSocket = (
   handleIceCandidate
 ) => {
   // Check for token before even trying to connect
-  const token = localStorage.getItem('Resident');
+  let token = localStorage.getItem('Resident');
   if (!token) {
     console.warn('No authentication token found for socket connection');
     return null; // Return null instead of a socket connection
   }
 
-  // Initialize socket connection
-  fetch('/api/socketio').catch(error => {
-    console.error('Error fetching socketio endpoint:', error);
-  });
-
+  // Clean up token format - remove Bearer prefix if present
+  if (token.startsWith('Bearer ')) {
+    token = token.slice(7).trim();
+  }
+  
+  // Debug token (show first few characters)
+  console.log('Using token for socket connection: ', token.substring(0, 10) + '...');
+  
   console.log('Setting up WebSocket connection');
   
-  // Create socket options with proper auth
+  // Make sure socket.io client is loaded
+  if (typeof io === 'undefined') {
+    console.error('Socket.io client not found');
+    return null;
+  }
+  
+  // Create socket options with proper auth - explicitly send token WITHOUT Bearer prefix
   const socketOptions = {
     path: '/api/socketio',
     auth: {
@@ -114,16 +123,17 @@ export const setupWebSocket = (
     },
     transports: ['polling', 'websocket'],
     reconnection: true,
-    reconnectionAttempts: 10,
+    reconnectionAttempts: 5,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
     timeout: 20000,
-    // Auto connect set to false so we can control connection
-    autoConnect: false
+    autoConnect: true
   };
 
+  // Create a new socket instance
   const socket = io('', socketOptions);
 
+  // Connect event handlers
   socket.on('connect', () => {
     console.log('Connected to WebSocket server');
     if (residentDetails && residentDetails._id) {
@@ -132,17 +142,30 @@ export const setupWebSocket = (
   });
 
   socket.on('connect_error', (error) => {
-    console.error('Connection error:', error);
-    // Stop reconnection attempts after 3 failures to prevent infinite loops
-    if (socket.io._reconnectionAttempts > 3) {
-      console.log('Too many reconnection attempts, stopping auto-reconnect');
-      socket.io.reconnection(false);
-      socket.disconnect();
+    console.error('Socket connection error:', error.message);
+    
+    // Check if error is related to authentication
+    if (error.message && (
+      error.message.includes('auth') || 
+      error.message.includes('token') || 
+      error.message.includes('unauthorized')
+    )) {
+      console.warn('Socket connection may have auth issues, checking token');
+      
+      // Try to get a fresh token - ensure it's clean
+      let freshToken = localStorage.getItem('Resident');
+      if (freshToken) {
+        if (freshToken.startsWith('Bearer ')) {
+          freshToken = freshToken.slice(7).trim();
+        }
+        socket.auth.token = freshToken;
+      }
     }
   });
 
   socket.on('reconnect', (attemptNumber) => {
     console.log(`Reconnected to socket server after ${attemptNumber} attempts`);
+    
     // Re-register user ID after reconnection
     if (residentDetails && residentDetails._id) {
       socket.emit('register', { userId: residentDetails._id });
@@ -151,48 +174,62 @@ export const setupWebSocket = (
 
   socket.on('reconnect_attempt', (attemptNumber) => {
     console.log(`Reconnection attempt ${attemptNumber}`);
+    
     // Update auth token on each reconnection attempt in case it changed
-    const freshToken = localStorage.getItem('Resident');
+    let freshToken = localStorage.getItem('Resident');
     if (freshToken) {
-      socket.auth = { token: freshToken };
-    } else if (attemptNumber > 2) {
-      // If no token is found after a couple attempts, stop trying
-      console.log('No auth token available, stopping reconnection');
-      socket.io.reconnection(false);
-      socket.disconnect();
+      if (freshToken.startsWith('Bearer ')) {
+        freshToken = freshToken.slice(7).trim();
+      }
+      socket.auth.token = freshToken;
     }
   });
 
   socket.on('disconnect', (reason) => {
     console.log('Disconnected from WebSocket server:', reason);
-    // If the server initiated the disconnect due to auth issues, don't reconnect
-    if (reason === 'io server disconnect' || reason === 'io client disconnect') {
-      console.log('Server or client initiated disconnect, not reconnecting automatically');
-      socket.io.reconnection(false);
+    
+    // If server initiated disconnect due to auth issues, don't reconnect automatically
+    if (reason === 'io server disconnect') {
+      console.log('Server initiated disconnect, not reconnecting automatically');
+      // Try to reconnect once with fresh token
+      let freshToken = localStorage.getItem('Resident');
+      if (freshToken) {
+        if (freshToken.startsWith('Bearer ')) {
+          freshToken = freshToken.slice(7).trim();
+        }
+        socket.auth.token = freshToken;
+        setTimeout(() => socket.connect(), 2000);
+      }
     }
   });
 
   socket.on('chat_message', (message) => {
+    console.log('Received chat message:', message);
     handleIncomingMessage(message);
   });
 
   socket.on('message_status', (data) => {
+    console.log('Received message status update:', data);
     updateMessageStatus(data);
   });
 
   socket.on('messages_read', (data) => {
+    console.log('Received messages read update:', data);
     markMessagesAsReadByRecipient(data);
   });
 
   socket.on('call', (data) => {
+    console.log('Received incoming call:', data);
     handleIncomingCall(data);
   });
 
   socket.on('call-answered', (data) => {
+    console.log('Call was answered:', data);
     handleCallAnswered(data);
   });
 
   socket.on('call-rejected', (data) => {
+    console.log('Call was rejected');
     handleCallRejected(data);
   });
 
@@ -200,26 +237,28 @@ export const setupWebSocket = (
     handleIceCandidate(data);
   });
 
-  // Add auth error and success handlers
+  // Auth handlers
   socket.on('auth_error', (data) => {
     console.error('Socket authentication error:', data.message);
-    // Stop reconnection on auth error
-    socket.io.reconnection(false);
-    socket.disconnect();
     
-    // If token is invalid, try to clear it from localStorage to force re-login
-    if (data.message === 'Invalid authentication token' || data.message === 'Token verification failed') {
-      console.log('Authentication token rejected by server, user may need to re-login');
-      // Don't clear token here - let the frontend handle this explicitly if needed
+    // Try to refresh the token from localStorage
+    let freshToken = localStorage.getItem('Resident');
+    if (freshToken) {
+      console.log('Trying with fresh token from localStorage');
+      if (freshToken.startsWith('Bearer ')) {
+        freshToken = freshToken.slice(7).trim();
+      }
+      socket.auth.token = freshToken;
+      setTimeout(() => socket.connect(), 1000);
+    } else {
+      // If token is invalid and no fresh token, show user a notification
+      console.warn('Authentication token rejected by server, user may need to re-login');
     }
   });
   
   socket.on('auth_success', (data) => {
-    console.log('Socket authentication successful for user:', data.userId);
+    console.log('Socket authentication successful for user:', data.id);
   });
-
-  // Manually connect after setting up all handlers
-  socket.connect();
 
   return socket;
 }; 

@@ -75,52 +75,109 @@ export default function Community() {
       loadResidents();
       
       // Setup socket connection
-      const socket = setupWebSocket(
-        residentDetails, 
-        handleIncomingMessage,
-        updateMessageStatus,
-        markMessagesAsReadByRecipient,
-        handleIncomingCall,
-        handleCallAnswered,
-        handleCallRejected,
-        handleIceCandidate
-      );
-      
-      // Only set socket ref and add listeners if socket was created
-      if (socket) {
-        socketRef.current = socket;
+      const setupSocket = () => {
+        // Clear previous socket if it exists
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        }
         
-        // Add socket connection state handlers
-        socket.on('connect', () => {
-          setSocketConnected(true);
-          setSocketError(false);
-        });
+        // Connect to socket.io endpoint
+        fetch('/api/socketio')
+          .then(() => {
+            // Socket.io endpoint is available
+          })
+          .catch(error => {
+            // Error pinging socket.io endpoint
+          })
+          .finally(() => {
+            createSocket();
+          });
+      };
+
+      const createSocket = () => {
+        const socket = setupWebSocket(
+          residentDetails, 
+          handleIncomingMessage,
+          updateMessageStatus,
+          markMessagesAsReadByRecipient,
+          handleIncomingCall,
+          handleCallAnswered,
+          handleCallRejected,
+          handleIceCandidate
+        );
         
-        socket.on('connect_error', () => {
-          setSocketConnected(false);
-          // Only set socket error after a few seconds to avoid showing errors during initial load
-          setTimeout(() => {
-            if (socket && !socket.connected) {
-              setSocketError(true);
+        // Only set socket ref and add listeners if socket was created
+        if (socket) {
+          socketRef.current = socket;
+          
+          // Add socket connection state handlers
+          socket.on('connect', () => {
+            setSocketConnected(true);
+            setSocketError(false);
+            
+            // Re-fetch unread counts after connection
+            fetchUnreadCounts(residentDetails._id, setUnreadCounts);
+          });
+          
+          socket.on('connect_error', (error) => {
+            setSocketConnected(false);
+            setSocketError(true);
+            
+            // Show error message to user
+            toast.error('Unable to connect to chat server. Please try refreshing the page.', {
+              duration: 5000,
+              id: 'socket-error',
+            });
+          });
+          
+          socket.on('disconnect', (reason) => {
+            setSocketConnected(false);
+            setSocketError(true);
+            
+            // Show appropriate message based on disconnect reason
+            if (reason === 'io server disconnect') {
+              // Auth error
+              toast.error('Your session has expired. Please log in again.', {
+                duration: 5000,
+                id: 'session-expired',
+              });
             }
-          }, 5000);
-        });
-        
-        socket.on('disconnect', () => {
+          });
+          
+          socket.on('reconnect', () => {
+            setSocketConnected(true);
+            setSocketError(false);
+            // Re-fetch unread counts after reconnection
+            fetchUnreadCounts(residentDetails._id, setUnreadCounts);
+          });
+          
+          socket.on('auth_error', (data) => {
+            setSocketConnected(false);
+            setSocketError(true);
+            
+            // Check if token issue and show appropriate message
+            if (data.message.includes('token') || data.message.includes('auth')) {
+              toast.error('Authentication error. Please refresh the page or log in again.', {
+                duration: 5000,
+                id: 'auth-error',
+              });
+            }
+          });
+        } else {
+          // No socket was created, likely due to missing token
           setSocketConnected(false);
-        });
-        
-        socket.on('reconnect', () => {
-          setSocketConnected(true);
-          setSocketError(false);
-          // Re-fetch unread counts after reconnection
-          fetchUnreadCounts(residentDetails._id, setUnreadCounts);
-        });
-      } else {
-        // No socket was created, likely due to missing token
-        setSocketConnected(false);
-        setSocketError(true);
-      }
+          setSocketError(true);
+          
+          // Show error message to user
+          toast.error('Failed to connect to chat. Please try refreshing the page.', {
+            duration: 5000,
+          });
+        }
+      };
+      
+      // Start the initial socket setup
+      setupSocket();
       
       // Fetch unread message counts
       fetchUnreadCounts(residentDetails._id, setUnreadCounts);
@@ -149,6 +206,26 @@ export default function Community() {
       markMessagesAsRead(selectedResident._id);
     }
   }, [selectedResident, unreadCounts]);
+
+  // Add a function to refresh unread counts periodically and on relevant events
+  useEffect(() => {
+    // Check if we have the resident's ID
+    if (residentDetails && residentDetails._id) {
+      // Initial fetch
+      fetchUnreadCounts(residentDetails._id, setUnreadCounts);
+      
+      // Set up periodic refresh
+      const refreshInterval = setInterval(() => {
+        if (socketConnected) {
+          fetchUnreadCounts(residentDetails._id, setUnreadCounts);
+        }
+      }, 10000); // Refresh every 10 seconds when connected
+      
+      return () => {
+        clearInterval(refreshInterval);
+      };
+    }
+  }, [residentDetails, socketConnected]);
 
   const fetchMessages = async (recipientId) => {
     try {
@@ -179,13 +256,16 @@ export default function Community() {
         }))
       }));
     } catch (error) {
-      console.error('Error fetching messages:', error);
       toast.error('Failed to load messages');
     }
   };
 
   const markMessagesAsRead = async (senderId) => {
     try {
+      if (!senderId) {
+        return;
+      }
+      
       const token = localStorage.getItem('Resident');
       const response = await fetch('/api/chat/mark-as-read', {
         method: 'POST',
@@ -194,11 +274,13 @@ export default function Community() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          senderId
+          senderId,
+          userId: residentDetails._id
         }),
       });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
         throw new Error('Failed to mark messages as read');
       }
 
@@ -208,37 +290,67 @@ export default function Community() {
         [senderId]: 0
       }));
 
-      // Notify sender that messages were read
+      // Notify sender that messages were read via socket
       if (socketRef.current) {
         socketRef.current.emit('messages_read', {
           to: senderId,
           from: residentDetails._id
         });
       }
+      
+      // Also update local chat state to show messages as read
+      setChatMessages(prevMessages => {
+        if (!prevMessages[senderId]) return prevMessages;
+        
+        return {
+          ...prevMessages,
+          [senderId]: prevMessages[senderId].map(msg => 
+            msg.isIncoming ? { ...msg, status: 'read' } : msg
+          )
+        };
+      });
     } catch (error) {
-      console.error('Error marking messages as read:', error);
+      // Error marking messages as read
     }
   };
 
   const handleIncomingMessage = (message) => {
     const { from, text, timestamp, id, media } = message;
     
-    // Update chat messages
-    setChatMessages(prevMessages => ({
-      ...prevMessages,
-      [from]: [
-        ...(prevMessages[from] || []),
-        {
-          id,
-          sender: from,
-          text,
-          timestamp,
-          status: 'delivered',
-          isIncoming: true,
-          media
+    // Update chat messages - ensure we don't add duplicates by checking message ID
+    setChatMessages(prevMessages => {
+      const existingMessages = prevMessages[from] || [];
+      const isMessageExists = existingMessages.some(msg => msg.id === id);
+      
+      // If message already exists, don't add it again
+      if (isMessageExists) return prevMessages;
+      
+      const updatedMessages = {
+        ...prevMessages,
+        [from]: [
+          ...existingMessages,
+          {
+            id,
+            sender: from,
+            text,
+            timestamp,
+            status: 'delivered',
+            isIncoming: true,
+            media
+          }
+        ]
+      };
+      
+      // Update UI immediately
+      setTimeout(() => {
+        const messageContainer = document.querySelector('.chat-messages');
+        if (messageContainer) {
+          messageContainer.scrollTop = messageContainer.scrollHeight;
         }
-      ]
-    }));
+      }, 50);
+      
+      return updatedMessages;
+    });
 
     // Update unread count if chat is not open with this sender
     if (!selectedResident || selectedResident._id !== from) {
@@ -246,14 +358,33 @@ export default function Community() {
         ...prev,
         [from]: (prev[from] || 0) + 1
       }));
+      
+      // Also refresh from server to ensure accuracy
+      setTimeout(() => {
+        fetchUnreadCounts(residentDetails._id, setUnreadCounts);
+      }, 500);
+      
+      // Acknowledge message receipt, but don't mark as read
+      if (socketRef.current) {
+        socketRef.current.emit('message_status', {
+          to: from,
+          messageId: id,
+          status: 'delivered'
+        });
+      }
     } else {
       // If chat is open, mark as read immediately
       markMessagesAsRead(from);
     }
 
     // Play notification sound
-    const audio = new Audio('/notification.mp3');
-    audio.play().catch(e => console.log('Audio play error:', e));
+    try {
+      const audio = new Audio('/notification.mp3');
+      audio.volume = 0.5; // Lower volume
+      audio.play().catch(e => {});
+    } catch (error) {
+      // Error playing notification sound
+    }
   };
 
   const updateMessageStatus = (data) => {
@@ -262,12 +393,19 @@ export default function Community() {
     // Update message status in all chats
     setChatMessages(prevMessages => {
       const newMessages = { ...prevMessages };
+      let updated = false;
       
       // Find the message in all conversations
       Object.keys(newMessages).forEach(recipientId => {
-        newMessages[recipientId] = newMessages[recipientId].map(msg => 
-          msg.id === messageId ? { ...msg, status } : msg
-        );
+        const updatedMessages = newMessages[recipientId].map(msg => {
+          if (msg.id === messageId) {
+            updated = true;
+            return { ...msg, status };
+          }
+          return msg;
+        });
+        
+        newMessages[recipientId] = updatedMessages;
       });
       
       return newMessages;
@@ -279,13 +417,17 @@ export default function Community() {
     
     // Update all messages sent to this recipient as read
     setChatMessages(prevMessages => {
-      if (!prevMessages[from]) return prevMessages;
+      if (!prevMessages[from]) {
+        return prevMessages;
+      }
+      
+      const updatedMessages = prevMessages[from].map(msg => 
+        !msg.isIncoming ? { ...msg, status: 'read' } : msg
+      );
       
       return {
         ...prevMessages,
-        [from]: prevMessages[from].map(msg => 
-          !msg.isIncoming ? { ...msg, status: 'read' } : msg
-        )
+        [from]: updatedMessages
       };
     });
   };
@@ -316,7 +458,6 @@ export default function Community() {
         setInCall(true);
         setCallWith(caller);
       } catch (error) {
-        console.error('Error handling incoming call:', error);
         toast.error('Failed to establish call connection');
       }
     } else {
@@ -332,7 +473,6 @@ export default function Community() {
     try {
       await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
     } catch (error) {
-      console.error('Error handling call answer:', error);
       toast.error('Failed to establish call connection');
       endCall();
     }
@@ -351,7 +491,7 @@ export default function Community() {
         await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       }
     } catch (error) {
-      console.error('Error adding ICE candidate:', error);
+      // Error adding ICE candidate
     }
   };
 
@@ -373,7 +513,6 @@ export default function Community() {
       setCallWith(recipient);
       toast.success(`Calling ${recipient.name}...`);
     } catch (error) {
-      console.error('Error starting call:', error);
       toast.error('Failed to start call');
       endCall();
     }
@@ -426,7 +565,6 @@ export default function Community() {
       
       return pc;
     } catch (error) {
-      console.error('Error setting up peer connection:', error);
       throw error;
     }
   };
@@ -472,6 +610,13 @@ export default function Community() {
 
     try {
       const token = localStorage.getItem('Resident');
+      if (!token) {
+        throw new Error('Authentication token missing. Please log in again.');
+      }
+      
+      if (!residentDetails || !residentDetails._id) {
+        throw new Error('Sender information missing. Please refresh the page.');
+      }
       
       // If there are files, use FormData
       if (selectedFiles.length > 0) {
@@ -481,13 +626,6 @@ export default function Community() {
         formData.append('message', newMessage.trim() || 'Image message');
         formData.append('recipientId', selectedResident._id);
         formData.append('senderId', residentDetails._id);
-        
-        // Log form data values for debugging
-        console.log('Sending data:', {
-          message: newMessage.trim() || 'Image message', 
-          recipientId: selectedResident._id,
-          senderId: residentDetails._id,
-        });
         
         // Add files if any
         selectedFiles.forEach(file => {
@@ -504,14 +642,13 @@ export default function Community() {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          console.error('Error response:', errorData);
-          throw new Error(errorData.message || 'Failed to send message');
+          throw new Error(errorData.message || `Failed to send message: ${response.status}`);
         }
 
         const data = await response.json();
         handleSuccessfulMessage(data);
       } 
-      // If no files, use JSON for simpler debugging
+      // If no files, use JSON for simpler sending
       else {
         const response = await fetch('/api/chat/messages', {
           method: 'POST',
@@ -528,15 +665,13 @@ export default function Community() {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          console.error('Error response:', errorData);
-          throw new Error(errorData.message || 'Failed to send message');
+          throw new Error(errorData.message || `Failed to send message: ${response.status}`);
         }
 
         const data = await response.json();
         handleSuccessfulMessage(data);
       }
     } catch (error) {
-      console.error('Error sending message:', error);
       toast.error(error.message || 'Failed to send message');
     }
   };
@@ -555,21 +690,27 @@ export default function Community() {
     };
     
     // Update local chat state
-    setChatMessages(prevMessages => ({
-      ...prevMessages,
-      [selectedResident._id]: [
-        ...(prevMessages[selectedResident._id] || []),
-        messageObj
-      ]
-    }));
+    setChatMessages(prevMessages => {
+      const existingMessages = prevMessages[selectedResident._id] || [];
+      
+      return {
+        ...prevMessages,
+        [selectedResident._id]: [
+          ...existingMessages,
+          messageObj
+        ]
+      };
+    });
 
     // Emit message via socket
     if (socketRef.current) {
       socketRef.current.emit('chat_message', {
         to: selectedResident._id,
-        message: newMessage,
+        from: residentDetails._id,
+        text: newMessage,
         messageId: data.messageId,
-        media: data.media
+        media: data.media,
+        timestamp: messageObj.timestamp
       });
     }
 
@@ -622,6 +763,10 @@ export default function Community() {
             setSelectedResident(resident);
             setShowChat(true);
             fetchMessages(resident._id);
+            // Mark as read when opening chat
+            if (unreadCounts[resident._id] > 0) {
+              markMessagesAsRead(resident._id);
+            }
           }}
           onCallStart={startCall}
           inCall={inCall}
