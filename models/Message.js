@@ -14,7 +14,8 @@ const MessageSchema = new Schema({
   },
   message: {
     type: String,
-    required: true
+    required: false,
+    default: ''
   },
   timestamp: {
     type: Date,

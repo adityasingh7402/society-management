@@ -6,11 +6,22 @@ import fs from 'fs';
 import path from 'path';
 
 // Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+try {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+  
+  // Log Cloudinary configuration status
+  console.log('Cloudinary configuration status:', {
+    hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME,
+    hasApiKey: !!process.env.CLOUDINARY_API_KEY,
+    hasApiSecret: !!process.env.CLOUDINARY_API_SECRET
+  });
+} catch (err) {
+  console.error('Cloudinary configuration error:', err);
+}
 
 // Disable the default body parser to handle FormData
 export const config = {
@@ -108,22 +119,31 @@ async function sendMessage(req, res) {
       
       return req.on('end', async () => {
         try {
-          const { senderId, recipientId, message } = JSON.parse(body);
+          const { senderId, recipientId, message, media } = JSON.parse(body);
           
-          if (!senderId || !recipientId || !message) {
+          if (!senderId || !recipientId) {
             return res.status(400).json({ 
-              message: 'Sender ID, Recipient ID and message are required',
+              message: 'Sender ID and Recipient ID are required',
               received: { senderId, recipientId, message }
             });
           }
           
+          // Check if either message or media is present
+          if (!message && !media) {
+            return res.status(400).json({
+              success: false,
+              message: 'Either message content or media must be provided'
+            });
+          }
+          
           // Print the received data to help debug
-          console.log('Creating message with data:', { senderId, recipientId, message });
+          console.log('Creating message with data:', { senderId, recipientId, message, media });
           
           const newMessage = new Message({
             senderId,
             recipientId,
-            message,
+            message: message || '',
+            media,
             timestamp: new Date(),
             status: 'sent'
           });
@@ -151,11 +171,11 @@ async function sendMessage(req, res) {
     // Extract fields correctly - form data fields might be arrays
     const senderId = Array.isArray(fields.senderId) ? fields.senderId[0] : fields.senderId;
     const recipientId = Array.isArray(fields.recipientId) ? fields.recipientId[0] : fields.recipientId;
-    const messageText = Array.isArray(fields.message) ? fields.message[0] : fields.message;
+    const messageText = Array.isArray(fields.message) ? fields.message[0] : fields.message || '';
     
-    if (!senderId || !recipientId || !messageText) {
+    if (!senderId || !recipientId) {
       return res.status(400).json({ 
-        message: 'Sender ID, Recipient ID and message are required',
+        message: 'Sender ID and Recipient ID are required',
         received: { senderId, recipientId, messageText, originalFields: fields }
       });
     }
@@ -173,26 +193,45 @@ async function sendMessage(req, res) {
           throw new Error('Invalid file upload');
         }
         
-        // Upload to Cloudinary instead of local file system
-        const result = await cloudinary.uploader.upload(file.filepath, {
-          resource_type: 'auto', // Automatically detect the file type
+        // Log file details before uploading
+        console.log('Attempting to upload file:', {
+          name: file.originalFilename,
+          mimetype: file.mimetype,
+          size: file.size,
+          hasValidPath: fs.existsSync(file.filepath)
         });
         
-        media = {
-          url: result.secure_url,
-          type: file.mimetype,
-          filename: file.originalFilename || 'file'
-        };
-        
-        console.log('Media object created:', media);
+        // Upload to Cloudinary instead of local file system
+        try {
+          const result = await cloudinary.uploader.upload(file.filepath, {
+            resource_type: 'auto', // Automatically detect the file type
+          });
+          
+          media = {
+            url: result.secure_url,
+            type: file.mimetype,
+            filename: file.originalFilename || 'file'
+          };
+          
+          console.log('Media object created:', media);
+        } catch (cloudinaryError) {
+          console.error('Cloudinary upload error:', cloudinaryError);
+          throw new Error(`Cloudinary upload failed: ${cloudinaryError.message}`);
+        }
         
         // Clean up the temporary file
-        fs.unlinkSync(file.filepath);
+        try {
+          fs.unlinkSync(file.filepath);
+        } catch (fsError) {
+          console.error('Error cleaning up temporary file:', fsError);
+          // Continue anyway, this is not critical
+        }
       } catch (uploadError) {
         console.error('Error uploading file:', uploadError);
         return res.status(400).json({ 
           message: 'Failed to upload media', 
-          error: uploadError.message 
+          error: uploadError.message,
+          details: uploadError.stack 
         });
       }
     }
@@ -209,6 +248,14 @@ async function sendMessage(req, res) {
       // Only add media if it exists
       if (media) {
         messageData.media = media;
+      }
+      
+      // Custom validation - ensure at least one of message or media is present
+      if (!messageData.message && !messageData.media) {
+        return res.status(400).json({
+          success: false,
+          message: 'Either message content or media must be provided'
+        });
       }
       
       console.log('Creating message with data:', messageData);

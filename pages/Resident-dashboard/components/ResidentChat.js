@@ -1,16 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { Check, CheckCheck, X, ArrowLeft, Send, MessageCircle } from 'lucide-react';
+import { Check, CheckCheck, X, ArrowLeft, Send, MessageCircle, User, Clock, Loader2, ZoomIn, ZoomOut, Download, Maximize2, Minimize2 } from 'lucide-react';
 
 export default function ResidentChat() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [socketLoading, setSocketLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [messageStatus, setMessageStatus] = useState({});
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
   const router = useRouter();
+  
+  // Image viewer states
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [currentImage, setCurrentImage] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const imageRef = useRef(null);
 
   const generateResidentColor = (userId) => {
     const numericId = typeof userId === 'string' ?
@@ -22,9 +33,67 @@ export default function ResidentChat() {
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   };
 
+  // Open image in full-screen viewer
+  const openImageViewer = (imageUrl) => {
+    setCurrentImage(imageUrl);
+    setViewerOpen(true);
+    setZoomLevel(1);
+    setPosition({ x: 0, y: 0 });
+    // Prevent scrolling when viewer is open
+    document.body.style.overflow = 'hidden';
+  };
+
+  // Close image viewer
+  const closeImageViewer = () => {
+    setViewerOpen(false);
+    setCurrentImage(null);
+    // Restore scrolling
+    document.body.style.overflow = 'auto';
+  };
+
+  // Handle zoom in/out
+  const handleZoom = (increment) => {
+    setZoomLevel(prevZoom => {
+      const newZoom = prevZoom + increment;
+      // Limit zoom between 0.5 and 3
+      return Math.max(0.5, Math.min(3, newZoom));
+    });
+    // Reset position when zooming
+    if (increment < 0) {
+      setPosition({ x: 0, y: 0 });
+    }
+  };
+
+  // Handle image dragging
+  const handleMouseDown = (e) => {
+    if (zoomLevel <= 1) return; // Only allow dragging when zoomed in
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    setPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Reset image viewer when user navigates away
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
+
   useEffect(() => {
     const fetchMessages = async () => {
       try {
+        setSocketLoading(true);
         const token = localStorage.getItem('Resident');
         if (!token) {
           router.push('/residentLogin');
@@ -63,16 +132,22 @@ export default function ResidentChat() {
         const messagesData = await messagesResponse.json();
         setMessages(messagesData.messages);
         setError(null);
+        
+        // Simulate socket connection complete
+        setTimeout(() => {
+          setSocketLoading(false);
+        }, 1500);
       } catch (err) {
         setError(err.message);
         console.error('Error:', err);
+        setSocketLoading(false);
       } finally {
         setLoading(false);
       }
     };
 
     fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
+    const interval = setInterval(fetchMessages, 10000); // Reduced polling frequency
     return () => clearInterval(interval);
   }, [router]);
 
@@ -83,12 +158,26 @@ export default function ResidentChat() {
     const tempId = Date.now().toString();
     setMessageStatus(prev => ({ ...prev, [tempId]: 'sending' }));
     
+    // Optimistically add message to UI
+    const optimisticMessage = {
+      _id: tempId,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      content: newMessage,
+      timestamp: new Date().toISOString(),
+      isSociety: currentUser.isSociety,
+      isDeleted: false
+    };
+    
+    setMessages(prev => [...prev, optimisticMessage]);
+    setNewMessage('');
+    
     try {
       const response = await fetch('/api/Message-Api/sendMessage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          societyCode: currentUser.societyCode, // Changed from societyId to societyCode
+          societyCode: currentUser.societyCode,
           senderId: currentUser.id,
           senderName: currentUser.name,
           content: newMessage,
@@ -102,13 +191,21 @@ export default function ResidentChat() {
       }
   
       const data = await response.json();
-      setMessages([...messages, data.message]);
+      // Replace the optimistic message with the real one
+      setMessages(prev => 
+        prev.map(msg => msg._id === tempId ? data.message : msg)
+      );
       setMessageStatus(prev => ({ ...prev, [data.message._id]: 'sent' }));
-      setNewMessage('');
     } catch (err) {
       console.error('Error sending message:', err);
       setMessageStatus(prev => ({ ...prev, [tempId]: 'failed' }));
     }
+    
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 100);
   };
 
   const handleDeleteMessage = async (messageId) => {
@@ -143,13 +240,13 @@ export default function ResidentChat() {
     return (
       <span className="ml-2">
         {status === 'sending' && (
-          <CheckCheck className="w-4 h-4 text-gray-400" />
+          <Loader2 className="w-3 h-3 text-gray-400 animate-spin" />
         )}
         {status === 'sent' && (
-          <CheckCheck className="w-4 h-4 text-blue-500" />
+          <CheckCheck className="w-3 h-3 text-blue-500" />
         )}
         {status === 'failed' && (
-          <X className="w-4 h-4 text-red-500" />
+          <X className="w-3 h-3 text-red-500" />
         )}
       </span>
     );
@@ -205,126 +302,256 @@ export default function ResidentChat() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex h-screen items-center justify-center bg-gradient-to-b from-teal-50 to-white">
+        <div className="text-center">
+          <div className="inline-block p-6 bg-white rounded-full shadow-md">
+            <Loader2 className="h-10 w-10 text-teal-600 animate-spin" />
+          </div>
+          <p className="mt-4 text-teal-700 font-medium">Loading messages...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center text-red-500">
-        Error: {error}
+      <div className="flex h-screen items-center justify-center bg-gradient-to-b from-red-50 to-white">
+        <div className="bg-white p-6 rounded-xl shadow-lg max-w-md w-full">
+          <div className="w-16 h-16 bg-red-100 mx-auto rounded-full flex items-center justify-center mb-4">
+            <X className="h-8 w-8 text-red-500" />
+          </div>
+          <h2 className="text-center text-lg font-semibold text-red-700 mb-2">Error Loading Chat</h2>
+          <p className="text-center text-gray-600">{error}</p>
+          <button 
+            onClick={() => router.reload()}
+            className="mt-4 w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
 
+  // Render image if message has one
+  const renderMessageContent = (message) => {
+    if (message.isDeleted) {
+      return <span className="italic opacity-60">This message was deleted</span>;
+    }
+    
+    return (
+      <>
+        {/* Check if message has an image/media */}
+        {message.media && message.media.type && message.media.type.startsWith('image/') && (
+          <div className="mb-2">
+            <img 
+              src={message.media.url} 
+              alt="Shared image" 
+              className="max-w-full rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => openImageViewer(message.media.url)}
+            />
+          </div>
+        )}
+        {message.content && <div>{message.content}</div>}
+      </>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="min-h-screen bg-[#e5ded8] flex flex-col">
       {/* Header */}
-      <div className="sticky top-0 bg-white shadow-sm z-50">
-        <div className="p-4 md:p-6 max-w-7xl mx-auto flex items-center justify-between">
+      <div className="sticky top-0 bg-teal-600 shadow-md z-50">
+        <div className="px-4 py-3 flex items-center justify-between">
           <button
-            onClick={() => router.back()}
-            className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+            onClick={() => window.location.href = '/Resident-dashboard'}
+            className="text-white p-1 rounded-full"
           >
-            <ArrowLeft size={20} />
-            <span className="text-base hidden sm:inline">Back</span>
+            <ArrowLeft size={24} />
           </button>
-          <h1 className="text-xl md:text-2xl font-bold text-blue-600 flex items-center">
-            <MessageCircle className="mr-2" size={24} />
+          <h1 className="text-xl font-semibold text-white flex items-center">
+            <MessageCircle className="mr-2" size={22} />
             Society Chat
           </h1>
-          <div className="w-10 sm:w-20" /> {/* Spacer for alignment */}
+          <div className="w-8">
+            {socketLoading && (
+              <Loader2 className="h-5 w-5 text-white animate-spin" />
+            )}
+          </div>
         </div>
       </div>
 
       {/* Chat Container */}
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 h-[calc(100vh-120px)]">
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden min-h-full flex flex-col">
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-            {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
-              <div key={date} className="space-y-3">
-                <div className="flex justify-center sticky top-2 z-10">
-                  <span className="bg-blue-100 text-blue-800 text-xs px-4 py-1 rounded-full shadow-sm">
-                    {formatDateHeader(date)}
-                  </span>
-                </div>
-
-                {dateMessages.map((message) => (
-                  <div
-                    key={message._id}
-                    className={`flex ${message.senderId === currentUser?.id ? 'justify-end' : 'justify-start'} animate-fade-in`}
-                  >
-                    <div
-                      className={`max-w-[85%] sm:max-w-[70%] rounded-lg p-3 shadow-sm ${
-                        message.senderId === currentUser?.id
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white'
-                      }`}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-4 space-y-4">
+          {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
+            <div key={date} className="space-y-3">
+              <div className="flex justify-center sticky top-2 z-10">
+                <span className="bg-[#DCF8C6] text-gray-600 text-xs px-4 py-1 rounded-full shadow-sm">
+                  {formatDateHeader(date)}
+                </span>
+              </div>
+              
+              {dateMessages.map((message) => (
+                <div
+                  key={message._id}
+                  className={`flex items-start ${
+                    message.senderId === currentUser?.id
+                      ? 'justify-end'
+                      : 'justify-start'
+                  }`}
+                >
+                  {message.senderId !== currentUser?.id && (
+                    <div 
+                      className="h-8 w-8 rounded-full mr-2 overflow-hidden flex-shrink-0 flex items-center justify-center"
+                      style={{ backgroundColor: generateResidentColor(message.senderId) }}
                     >
-                      <div
-                        className={`text-sm font-semibold mb-1 ${
-                          message.senderId === currentUser?.id ? 'text-blue-100' : 'text-blue-600'
-                        }`}
-                      >
+                      <User className="h-4 w-4 text-white" />
+                    </div>
+                  )}
+                  
+                  <div className="max-w-[75%]">
+                    {/* Sender name */}
+                    {message.senderId !== currentUser?.id && (
+                      <div className="text-xs text-gray-600 mb-1 ml-1 font-medium">
                         {message.senderName}
                       </div>
-
-                      <div className={message.senderId === currentUser?.id ? 'text-white' : 'text-gray-800'}>
-                        {message.isDeleted ? (
-                          <span className="italic opacity-75">This message was deleted</span>
-                        ) : (
-                          message.content
-                        )}
+                    )}
+                    
+                    <div className="flex items-end">
+                      <div
+                        className={`px-4 py-2 rounded-lg ${
+                          message.senderId === currentUser?.id
+                            ? 'bg-[#DCF8C6] text-black rounded-tr-none'
+                            : 'bg-white text-black rounded-tl-none'
+                        } ${message.isDeleted ? 'italic opacity-60' : ''} shadow-sm`}
+                      >
+                        {renderMessageContent(message)}
                       </div>
-
-                      <div className="flex justify-between items-center mt-1">
-                        <div className="flex items-center text-xs opacity-75">
-                          {formatMessageTime(message.timestamp)}
-                          <MessageStatus messageId={message._id} senderId={message.senderId} />
-                        </div>
-                        {!message.isDeleted && message.senderId === currentUser?.id && (
-                          <button
-                            onClick={() => handleDeleteMessage(message._id)}
-                            className="text-xs opacity-75 hover:opacity-100 transition-opacity ml-4"
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
+                      
+                      {!message.isDeleted && message.senderId === currentUser?.id && (
+                        <button
+                          onClick={() => handleDeleteMessage(message._id)}
+                          className="ml-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="text-xs text-gray-500 mt-1 flex items-center justify-end">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {formatMessageTime(message.timestamp)}
+                      <MessageStatus messageId={message._id} senderId={message.senderId} />
                     </div>
                   </div>
-                ))}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
+                </div>
+              ))}
+            </div>
+          ))}
+          {/* Invisible element for auto-scrolling */}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+      
+      {/* Message Input */}
+      <div className="sticky bottom-0 w-full bg-[#f0f0f0] py-2 px-2 border-t border-gray-200">
+        <div className="flex items-center bg-white rounded-full max-w-4xl mx-auto">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            ref={inputRef}
+            placeholder="Type your message..."
+            className="flex-1 py-3 px-4 bg-white rounded-l-full focus:outline-none"
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={!newMessage.trim()}
+            className={`w-12 h-12 flex items-center justify-center rounded-full ${
+              !newMessage.trim()
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-white bg-teal-600 hover:bg-teal-700'
+            } transition-colors mr-1`}
+          >
+            <Send size={20} />
+          </button>
+        </div>
+      </div>
 
-          {/* Message Input */}
-          <div className="p-3 sm:p-4 bg-white border-t border-gray-100 sticky bottom-0">
-            <div className="flex space-x-2 max-w-4xl mx-auto">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                placeholder="Type a message..."
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim()}
-                className="px-4 sm:px-6 py-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors"
+      {/* Full Screen Image Viewer */}
+      {viewerOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
+          onClick={closeImageViewer}
+        >
+          <div 
+            className="relative w-full h-full flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button 
+              onClick={closeImageViewer}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+            >
+              <X size={28} />
+            </button>
+            
+            {/* Zoom controls */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 rounded-full py-2 px-4 flex items-center space-x-4 z-10">
+              <button 
+                onClick={() => handleZoom(-0.2)}
+                className="text-white hover:text-gray-300"
+                disabled={zoomLevel <= 0.5}
               >
-                <Send size={16} className="sm:mr-2" />
-                <span className="hidden sm:inline">Send</span>
+                <ZoomOut size={24} />
               </button>
+              
+              <span className="text-white text-sm">{Math.round(zoomLevel * 100)}%</span>
+              
+              <button 
+                onClick={() => handleZoom(0.2)}
+                className="text-white hover:text-gray-300"
+                disabled={zoomLevel >= 3}
+              >
+                <ZoomIn size={24} />
+              </button>
+              
+              <button 
+                onClick={() => setZoomLevel(1)}
+                className="text-white hover:text-gray-300 ml-2"
+              >
+                {zoomLevel > 1 ? <Minimize2 size={24} /> : <Maximize2 size={24} />}
+              </button>
+            </div>
+            
+            {/* The image */}
+            <div 
+              ref={imageRef}
+              className={`transform transition-transform duration-200 ${isDragging ? 'cursor-grabbing' : zoomLevel > 1 ? 'cursor-grab' : 'cursor-default'}`}
+              style={{
+                transform: `scale(${zoomLevel}) translate(${position.x / zoomLevel}px, ${position.y / zoomLevel}px)`,
+              }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            >
+              <img 
+                src={currentImage} 
+                alt="Enlarged view" 
+                className="max-h-[90vh] max-w-[90vw] object-contain"
+                draggable="false"
+              />
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

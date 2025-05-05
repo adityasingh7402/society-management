@@ -86,11 +86,7 @@ export const setupWebSocket = (
   residentDetails,
   handleIncomingMessage,
   updateMessageStatus,
-  markMessagesAsReadByRecipient,
-  handleIncomingCall,
-  handleCallAnswered,
-  handleCallRejected,
-  handleIceCandidate
+  markMessagesAsReadByRecipient
 ) => {
   // Check for token before even trying to connect
   let token = localStorage.getItem('Resident');
@@ -218,30 +214,11 @@ export const setupWebSocket = (
     markMessagesAsReadByRecipient(data);
   });
 
-  socket.on('call', (data) => {
-    console.log('Received incoming call:', data);
-    handleIncomingCall(data);
-  });
-
-  socket.on('call-answered', (data) => {
-    console.log('Call was answered:', data);
-    handleCallAnswered(data);
-  });
-
-  socket.on('call-rejected', (data) => {
-    console.log('Call was rejected');
-    handleCallRejected(data);
-  });
-
-  socket.on('ice-candidate', (data) => {
-    handleIceCandidate(data);
-  });
-
   // Auth handlers
   socket.on('auth_error', (data) => {
     console.error('Socket authentication error:', data.message);
     
-    // Try to refresh the token from localStorage F
+    // Try to refresh the token from localStorage
     let freshToken = localStorage.getItem('Resident');
     if (freshToken) {
       console.log('Trying with fresh token from localStorage');
@@ -249,15 +226,8 @@ export const setupWebSocket = (
         freshToken = freshToken.slice(7).trim();
       }
       socket.auth.token = freshToken;
-      setTimeout(() => socket.connect(), 1000);
-    } else {
-      // If token is invalid and no fresh token, show user a notification
-      console.warn('Authentication token rejected by server, user may need to re-login');
+      socket.connect();
     }
-  });
-  
-  socket.on('auth_success', (data) => {
-    console.log('Socket authentication successful for user:', data.id);
   });
 
   return socket;

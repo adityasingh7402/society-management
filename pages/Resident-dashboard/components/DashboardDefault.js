@@ -1,8 +1,26 @@
 import Link from 'next/link';
 import React, { useState } from 'react';
-import {
-  UserCircle, Building2, Bell, Users, Wrench, MessageCircleMore, PieChart, FileText, Home, ClipboardList, Package, Pencil, Lightbulb, History, Hammer, Search, Megaphone, BarChart, ShieldAlert, Siren
-} from 'lucide-react';
+// Import icons individually instead of using barrel imports
+import { UserCircle } from 'lucide-react';
+import { Building2 } from 'lucide-react';
+import { Bell } from 'lucide-react';
+import { Users } from 'lucide-react';
+import { Wrench } from 'lucide-react';
+import { MessageCircleMore } from 'lucide-react';
+import { PieChart } from 'lucide-react';
+import { FileText } from 'lucide-react';
+import { Home } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
+import { Package } from 'lucide-react';
+import { Pencil } from 'lucide-react';
+import { Lightbulb } from 'lucide-react';
+import { History } from 'lucide-react';
+import { Hammer } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { Megaphone } from 'lucide-react';
+import { BarChart } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
+import { Siren } from 'lucide-react';
 
 const DashboardDefault = () => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
@@ -16,7 +34,7 @@ const DashboardDefault = () => {
     { icon: Bell, label: 'Announcements', href: '/Resident-dashboard/components/Announcements' },
     { icon: Siren, label: 'Emergency', href: '/Resident-dashboard/components/Emergency' },
     { icon: Wrench, label: 'Maintenance', href: '/Resident-dashboard/components/MaintenanceBills' },
-    { icon: PieChart, label: 'Polls', href: '/Resident-dashboard/components/Polls' },
+    { icon: PieChart, label: 'Polls', href: '/Resident-dashboard/components/PollsSurveys' },
   ];
   const menuSections = [
     {
@@ -60,7 +78,7 @@ const DashboardDefault = () => {
       items: [
         { icon: MessageCircleMore, label: 'Chat', href: '/Resident-dashboard/components/ResidentChat' },
         { icon: Megaphone, label: 'Announcements', href: '/Resident-dashboard/components/Announcements' },
-        { icon: BarChart, label: 'Polls', href: '/Resident-dashboard/components/Polls' }
+        { icon: BarChart, label: 'Polls', href: '/Resident-dashboard/components/PollsSurveys' }
       ]
     },
     {

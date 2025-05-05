@@ -2,11 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import io from 'socket.io-client';
+import { Search, Bell, User, ArrowLeft, Users, Shield, Headphones, MessageCircle, Building2, Loader2 } from 'lucide-react';
 
-import CommunityHeader from '../../../components/Community/CommunityHeader';
 import ResidentList from '../../../components/Community/ResidentList';
 import ChatModal from '../../../components/Community/ChatModal';
-import CallModal from '../../../components/Community/CallModal';
 import { setupWebSocket, fetchResidentDetails, fetchResidents, fetchUnreadCounts } from '../../../services/CommunityService';
 
 export default function Community() {
@@ -15,6 +14,9 @@ export default function Community() {
   const [isLoading, setIsLoading] = useState(true);
   const [residentDetails, setResidentDetails] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [societyManagerPhone, setSocietyManagerPhone] = useState('');
+  const [activeSection, setActiveSection] = useState(null);
 
   // Chat state
   const [selectedResident, setSelectedResident] = useState(null);
@@ -25,29 +27,36 @@ export default function Community() {
   const [messageStatus, setMessageStatus] = useState({});
   const [selectedFiles, setSelectedFiles] = useState([]);
 
-  // Call state
-  const [inCall, setInCall] = useState(false);
-  const [callWith, setCallWith] = useState(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-  const [callTimer, setCallTimer] = useState(null);
-
-  // WebRTC refs
-  const localStreamRef = useRef(null);
-  const remoteStreamRef = useRef(null);
-  const peerConnectionRef = useRef(null);
-  const dataChannelRef = useRef(null);
+  // Socket state
   const socketRef = useRef(null);
-
-  // Add socket connection state
   const [socketConnected, setSocketConnected] = useState(false);
   const [socketError, setSocketError] = useState(false);
+  const [socketLoading, setSocketLoading] = useState(true);
 
   useEffect(() => {
     const initializeData = async () => {
       const details = await fetchResidentDetails(router);
       if (details) {
         setResidentDetails(details);
+        
+        // Fetch society details to get manager phone
+        try {
+          const token = localStorage.getItem('Resident');
+          const response = await fetch(`/api/societies/${details.societyCode}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          
+          if (response.ok) {
+            const societyData = await response.json();
+            if (societyData.managerPhone) {
+              setSocietyManagerPhone(societyData.managerPhone);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching society details:', error);
+        }
       }
     };
     
@@ -56,9 +65,6 @@ export default function Community() {
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
-      }
-      if (callTimer) {
-        clearInterval(callTimer);
       }
     };
   }, []);
@@ -76,6 +82,7 @@ export default function Community() {
       
       // Setup socket connection
       const setupSocket = () => {
+        setSocketLoading(true);
         // Clear previous socket if it exists
         if (socketRef.current) {
           socketRef.current.disconnect();
@@ -100,11 +107,7 @@ export default function Community() {
           residentDetails, 
           handleIncomingMessage,
           updateMessageStatus,
-          markMessagesAsReadByRecipient,
-          handleIncomingCall,
-          handleCallAnswered,
-          handleCallRejected,
-          handleIceCandidate
+          markMessagesAsReadByRecipient
         );
         
         // Only set socket ref and add listeners if socket was created
@@ -115,6 +118,7 @@ export default function Community() {
           socket.on('connect', () => {
             setSocketConnected(true);
             setSocketError(false);
+            setSocketLoading(false);
             
             // Re-fetch unread counts after connection
             fetchUnreadCounts(residentDetails._id, setUnreadCounts);
@@ -123,6 +127,7 @@ export default function Community() {
           socket.on('connect_error', (error) => {
             setSocketConnected(false);
             setSocketError(true);
+            setSocketLoading(false);
             
             // Show error message to user
             toast.error('Unable to connect to chat server. Please try refreshing the page.', {
@@ -134,6 +139,7 @@ export default function Community() {
           socket.on('disconnect', (reason) => {
             setSocketConnected(false);
             setSocketError(true);
+            setSocketLoading(false);
             
             // Show appropriate message based on disconnect reason
             if (reason === 'io server disconnect') {
@@ -148,6 +154,7 @@ export default function Community() {
           socket.on('reconnect', () => {
             setSocketConnected(true);
             setSocketError(false);
+            setSocketLoading(false);
             // Re-fetch unread counts after reconnection
             fetchUnreadCounts(residentDetails._id, setUnreadCounts);
           });
@@ -155,6 +162,7 @@ export default function Community() {
           socket.on('auth_error', (data) => {
             setSocketConnected(false);
             setSocketError(true);
+            setSocketLoading(false);
             
             // Check if token issue and show appropriate message
             if (data.message.includes('token') || data.message.includes('auth')) {
@@ -164,10 +172,16 @@ export default function Community() {
               });
             }
           });
+          
+          // Set a timeout to stop the loading indicator if it takes too long
+          setTimeout(() => {
+            setSocketLoading(false);
+          }, 5000);
         } else {
           // No socket was created, likely due to missing token
           setSocketConnected(false);
           setSocketError(true);
+          setSocketLoading(false);
           
           // Show error message to user
           toast.error('Failed to connect to chat. Please try refreshing the page.', {
@@ -184,79 +198,45 @@ export default function Community() {
     }
   }, [residentDetails]);
 
-  // Update call duration timer
-  useEffect(() => {
-    if (inCall) {
-      const timer = setInterval(() => {
-        setCallDuration(prev => prev + 1);
-      }, 1000);
-      setCallTimer(timer);
-      return () => clearInterval(timer);
-    } else {
-      setCallDuration(0);
-      if (callTimer) {
-        clearInterval(callTimer);
-      }
-    }
-  }, [inCall]);
-
-  // Mark messages as read when chat is opened
-  useEffect(() => {
-    if (selectedResident && unreadCounts[selectedResident._id] > 0) {
-      markMessagesAsRead(selectedResident._id);
-    }
-  }, [selectedResident, unreadCounts]);
-
-  // Add a function to refresh unread counts periodically and on relevant events
-  useEffect(() => {
-    // Check if we have the resident's ID
-    if (residentDetails && residentDetails._id) {
-      // Initial fetch
-      fetchUnreadCounts(residentDetails._id, setUnreadCounts);
-      
-      // Set up periodic refresh
-      const refreshInterval = setInterval(() => {
-        if (socketConnected) {
-          fetchUnreadCounts(residentDetails._id, setUnreadCounts);
-        }
-      }, 10000); // Refresh every 10 seconds when connected
-      
-      return () => {
-        clearInterval(refreshInterval);
-      };
-    }
-  }, [residentDetails, socketConnected]);
-
   const fetchMessages = async (recipientId) => {
     try {
       const token = localStorage.getItem('Resident');
+      
       const response = await fetch(`/api/chat/messages?userId=${residentDetails._id}&recipientId=${recipientId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch messages');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch messages');
       }
-
+      
       const data = await response.json();
-
-      // Update chat messages state with fetched messages
-      setChatMessages(prevMessages => ({
-        ...prevMessages,
-        [recipientId]: data.messages.map(msg => ({
-          id: msg._id,
-          sender: msg.senderId,
-          text: msg.message,
-          timestamp: msg.timestamp,
-          status: msg.status,
-          isIncoming: msg.senderId !== residentDetails._id,
-          media: msg.media || null
-        }))
+      
+      // Format messages for UI display
+      const formattedMessages = data.messages.map(msg => ({
+        id: msg._id,
+        sender: msg.senderId,
+        text: msg.message,
+        timestamp: msg.timestamp,
+        status: msg.status,
+        isIncoming: msg.senderId !== residentDetails._id,
+        media: msg.media || null
       }));
+      
+      // Update chat messages state
+      setChatMessages(prev => ({
+        ...prev,
+        [recipientId]: formattedMessages
+      }));
+      
+      return formattedMessages;
     } catch (error) {
-      toast.error('Failed to load messages');
+      console.error('Error fetching messages:', error);
+      toast.error('Failed to load messages. Please try again.');
+      return [];
     }
   };
 
@@ -376,262 +356,143 @@ export default function Community() {
       // If chat is open, mark as read immediately
       markMessagesAsRead(from);
     }
-
-    // Play notification sound
-    try {
-      const audio = new Audio('/notification.mp3');
-      audio.volume = 0.5; // Lower volume
-      audio.play().catch(e => {});
-    } catch (error) {
-      // Error playing notification sound
-    }
   };
 
   const updateMessageStatus = (data) => {
     const { messageId, status } = data;
     
-    // Update message status in all chats
+    // Update message status in chat state
+    setMessageStatus(prev => ({
+      ...prev,
+      [messageId]: status
+    }));
+    
+    // Also update message object in the chatMessages state
     setChatMessages(prevMessages => {
-      const newMessages = { ...prevMessages };
       let updated = false;
       
-      // Find the message in all conversations
-      Object.keys(newMessages).forEach(recipientId => {
-        const updatedMessages = newMessages[recipientId].map(msg => {
+      // Create new object with updated message status
+      const newMessages = {};
+      
+      // Check all conversations for the message
+      Object.keys(prevMessages).forEach(recipientId => {
+        newMessages[recipientId] = prevMessages[recipientId].map(msg => {
           if (msg.id === messageId) {
             updated = true;
-            return { ...msg, status };
+            return {
+              ...msg,
+              status
+            };
           }
           return msg;
         });
-        
-        newMessages[recipientId] = updatedMessages;
       });
       
-      return newMessages;
+      return updated ? newMessages : prevMessages;
     });
   };
 
   const markMessagesAsReadByRecipient = (data) => {
     const { from } = data;
     
-    // Update all messages sent to this recipient as read
+    // Mark all messages sent to this recipient as read
     setChatMessages(prevMessages => {
-      if (!prevMessages[from]) {
-        return prevMessages;
-      }
-      
-      const updatedMessages = prevMessages[from].map(msg => 
-        !msg.isIncoming ? { ...msg, status: 'read' } : msg
-      );
+      if (!prevMessages[from]) return prevMessages;
       
       return {
         ...prevMessages,
-        [from]: updatedMessages
+        [from]: prevMessages[from].map(msg => 
+          !msg.isIncoming ? { ...msg, status: 'read' } : msg
+        )
       };
     });
   };
 
-  const handleIncomingCall = async (data) => {
-    const { callerId, offer } = data;
-    const caller = residents.find(r => r._id === callerId);
-    
-    if (!caller) return;
-    
-    if (window.confirm(`Incoming call from ${caller.name}. Accept?`)) {
-      try {
-        await setupPeerConnection();
-        
-        // Set the remote description (offer)
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
-        
-        // Create answer
-        const answer = await peerConnectionRef.current.createAnswer();
-        await peerConnectionRef.current.setLocalDescription(answer);
-        
-        // Send answer to caller
-        socketRef.current.emit('call-answer', {
-          to: callerId,
-          answer
-        });
-        
-        setInCall(true);
-        setCallWith(caller);
-      } catch (error) {
-        toast.error('Failed to establish call connection');
-      }
+  // Replace WebRTC call with phone dialer
+  const startCall = (resident) => {
+    if (resident.phoneNumber) {
+      window.open(`tel:${resident.phoneNumber}`);
     } else {
-      socketRef.current.emit('call-rejected', {
-        to: callerId
-      });
+      toast.error('No phone number available for this resident');
     }
   };
 
-  const handleCallAnswered = async (data) => {
-    const { answer } = data;
+  const handleChatSelect = async (resident) => {
+    setSelectedResident(resident);
+    setShowChat(true);
     
-    try {
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-    } catch (error) {
-      toast.error('Failed to establish call connection');
-      endCall();
-    }
-  };
-
-  const handleCallRejected = () => {
-    toast.error('Call was rejected');
-    endCall();
-  };
-
-  const handleIceCandidate = async (data) => {
-    const { candidate } = data;
-    
-    try {
-      if (peerConnectionRef.current) {
-        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    } catch (error) {
-      // Error adding ICE candidate
-    }
-  };
-
-  const startCall = async (recipient) => {
-    try {
-      await setupPeerConnection();
-      
-      // Create offer
-      const offer = await peerConnectionRef.current.createOffer();
-      await peerConnectionRef.current.setLocalDescription(offer);
-      
-      // Send offer to recipient
-      socketRef.current.emit('call-request', {
-        to: recipient._id,
-        offer
-      });
-      
-      setInCall(true);
-      setCallWith(recipient);
-      toast.success(`Calling ${recipient.name}...`);
-    } catch (error) {
-      toast.error('Failed to start call');
-      endCall();
-    }
-  };
-
-  const setupPeerConnection = async () => {
-    try {
-      const configuration = {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ]
-      };
-      
-      const pc = new RTCPeerConnection(configuration);
-      
-      // Get user media
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: true
-      });
-      
-      // Store local stream
-      localStreamRef.current = stream;
-      
-      // Add tracks to peer connection
-      stream.getTracks().forEach(track => {
-        pc.addTrack(track, stream);
-      });
-      
-      // Handle incoming tracks
-      pc.ontrack = (event) => {
-        if (remoteStreamRef.current && remoteStreamRef.current.srcObject !== event.streams[0]) {
-          remoteStreamRef.current.srcObject = event.streams[0];
-        }
-      };
-      
-      // Handle ICE candidates
-      pc.onicecandidate = (event) => {
-        if (event.candidate && socketRef.current && callWith) {
-          socketRef.current.emit('ice-candidate', {
-            to: callWith._id,
-            candidate: event.candidate
-          });
-        }
-      };
-      
-      // Store peer connection
-      peerConnectionRef.current = pc;
-      
-      return pc;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const endCall = () => {
-    // Stop all tracks
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
+    // Fetch messages if not already loaded
+    if (!chatMessages[resident._id] || chatMessages[resident._id].length === 0) {
+      await fetchMessages(resident._id);
     }
     
-    // Close peer connection
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-    
-    // Reset call state
-    setInCall(false);
-    setCallWith(null);
-    setIsMuted(false);
-    setCallDuration(0);
-    
-    if (callTimer) {
-      clearInterval(callTimer);
-      setCallTimer(null);
+    // Mark messages as read when opening chat
+    if (unreadCounts[resident._id] && unreadCounts[resident._id] > 0) {
+      markMessagesAsRead(resident._id);
     }
   };
 
-  const toggleMute = () => {
-    if (localStreamRef.current) {
-      const audioTracks = localStreamRef.current.getAudioTracks();
-      if (audioTracks.length > 0) {
-        const track = audioTracks[0];
-        track.enabled = !track.enabled;
-        setIsMuted(!track.enabled);
-      }
+  const closeChat = () => {
+    setShowChat(false);
+    setSelectedResident(null);
+    setNewMessage('');
+    setSelectedFiles([]);
+  };
+
+  const navigateBack = () => {
+    // Use window.location instead of router.push to force a full page reload
+    window.location.href = '/Resident-dashboard';
+  };
+
+  const handleOpenResidentChat = () => {
+    setActiveSection('residents');
+  };
+  
+  const handleOpenSocietyChat = () => {
+    router.push('/Resident-dashboard/components/ResidentChat');
+  };
+  
+  const handleOpenHelpDeskChat = () => {
+    // Create a help desk "resident" object
+    if (!societyManagerPhone) {
+      toast.error('Help desk contact information not available');
+      return;
     }
+    
+    // Create a help desk user object
+    const helpDeskUser = {
+      _id: 'helpdesk',
+      name: 'Help Desk',
+      phoneNumber: societyManagerPhone,
+      isHelpDesk: true,
+      flatDetails: { flatNumber: 'Society Manager' },
+      userImage: '/support.png'
+    };
+    
+    // Open chat with this user
+    handleChatSelect(helpDeskUser);
   };
 
   const sendMessage = async () => {
-    if ((!newMessage.trim() && !selectedFiles.length) || !selectedResident) return;
-
+    if (!newMessage.trim() && selectedFiles.length === 0) {
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('Resident');
-      if (!token) {
-        throw new Error('Authentication token missing. Please log in again.');
-      }
       
-      if (!residentDetails || !residentDetails._id) {
-        throw new Error('Sender information missing. Please refresh the page.');
-      }
-      
-      // If there are files, use FormData
+      // If files are selected, use FormData to upload them
       if (selectedFiles.length > 0) {
         const formData = new FormData();
-        
-        // Add message text and IDs - ensure message is never empty
-        formData.append('message', newMessage.trim() || 'Image message');
-        formData.append('recipientId', selectedResident._id);
         formData.append('senderId', residentDetails._id);
+        formData.append('recipientId', selectedResident._id);
+        formData.append('message', newMessage.trim());
         
-        // Add files if any
+        // Add files to form data
         selectedFiles.forEach(file => {
           formData.append('media', file);
         });
-
+        
         const response = await fetch('/api/chat/messages', {
           method: 'POST',
           headers: {
@@ -639,12 +500,12 @@ export default function Community() {
           },
           body: formData
         });
-
+        
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `Failed to send message: ${response.status}`);
+          throw new Error(errorData.message || 'Failed to send message');
         }
-
+        
         const data = await response.json();
         handleSuccessfulMessage(data);
       } 
@@ -719,84 +580,166 @@ export default function Community() {
     setSelectedFiles([]);
   };
 
+  // Calculate total unread messages
+  const totalUnreadMessages = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+
+  // Filter residents based on search query
   const filteredResidents = residents.filter(resident =>
     resident.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    resident.flatDetails?.flatNumber.toLowerCase().includes(searchQuery.toLowerCase())
+    (resident.flatDetails?.flatNumber && resident.flatDetails.flatNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <CommunityHeader router={router} />
-      
-      {socketError && (
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-2 text-sm flex justify-between items-center">
-          <div>
-            <span>Connection to chat server is unavailable. Some features may be limited.</span>
-            <button 
-              onClick={() => {
-                if (socketRef.current) {
-                  socketRef.current.connect();
-                }
-              }}
-              className="ml-2 text-blue-600 underline"
-            >
-              Try again
-            </button>
+      {!showChat ? (
+        <>
+          {/* Directory View */}
+          <div className="max-w-lg mx-auto bg-white min-h-screen pb-8">
+            {/* App Header */}
+            <div className="bg-teal-600 text-white px-4 py-3">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <button
+                    onClick={navigateBack}
+                    className="mr-2"
+                  >
+                    <ArrowLeft className="h-6 w-6" />
+                  </button>
+                  <h1 className="text-xl font-medium">Society Directory</h1>
+                </div>
+                <div className="flex items-center">
+                  {socketLoading && (
+                    <div className="flex items-center text-white">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <span className="text-xs">Connecting...</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Directory Options */}
+            {!activeSection ? (
+              <div className="p-4">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Select an option to chat</h2>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Resident Block */}
+                  <div 
+                    onClick={handleOpenResidentChat} 
+                    className="bg-white border-2 border-teal-100 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                  >
+                    <div className="bg-teal-50 p-4">
+                      <Users className="h-12 w-12 text-teal-600 mx-auto" />
+                    </div>
+                    <div className="p-4 text-center">
+                      <h3 className="font-medium text-teal-700">Resident Chat</h3>
+                      <p className="text-xs text-gray-500 mt-1">Chat with other residents</p>
+                      {totalUnreadMessages > 0 && (
+                        <div className="bg-red-500 text-white text-xs rounded-full px-2 py-1 mt-2 inline-block">
+                          {totalUnreadMessages} new {totalUnreadMessages === 1 ? 'message' : 'messages'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Society Chat Block */}
+                  <div 
+                    onClick={handleOpenSocietyChat} 
+                    className="bg-white border-2 border-blue-100 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                  >
+                    <div className="bg-blue-50 p-4">
+                      <Building2 className="h-12 w-12 text-blue-600 mx-auto" />
+                    </div>
+                    <div className="p-4 text-center">
+                      <h3 className="font-medium text-blue-700">Society Chat</h3>
+                      <p className="text-xs text-gray-500 mt-1">Group discussion forum</p>
+                    </div>
+                  </div>
+                  
+                  {/* Security Block */}
+                  <div 
+                    className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-md cursor-not-allowed opacity-75"
+                  >
+                    <div className="bg-gray-50 p-4">
+                      <Shield className="h-12 w-12 text-gray-400 mx-auto" />
+                    </div>
+                    <div className="p-4 text-center">
+                      <h3 className="font-medium text-gray-500">Security</h3>
+                      <p className="text-xs text-gray-400 mt-1">Contact security (coming soon)</p>
+                    </div>
+                  </div>
+                  
+                  {/* Help Desk Block */}
+                  <div 
+                    onClick={handleOpenHelpDeskChat} 
+                    className="bg-white border-2 border-amber-100 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                  >
+                    <div className="bg-amber-50 p-4">
+                      <Headphones className="h-12 w-12 text-amber-600 mx-auto" />
+                    </div>
+                    <div className="p-4 text-center">
+                      <h3 className="font-medium text-amber-700">Help Desk</h3>
+                      <p className="text-xs text-gray-500 mt-1">Contact management</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : activeSection === 'residents' ? (
+              <>
+                {/* Search Bar */}
+                <div className="bg-gray-100 px-4 py-2">
+                  <div className="bg-white rounded-full px-4 py-2 flex items-center shadow-sm">
+                    <Search className="h-4 w-4 text-gray-500 mr-2" />
+                    <input
+                      type="text"
+                      placeholder="Search residents"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="flex-1 outline-none text-sm"
+                    />
+                    <button 
+                      onClick={() => setActiveSection(null)}
+                      className="text-xs text-teal-600"
+                    >
+                      Back
+                    </button>
+                  </div>
+                </div>
+
+                {/* Residents List */}
+                <div className="h-[calc(100vh-120px)] overflow-y-auto border-t">
+                  <ResidentList 
+                    residents={filteredResidents}
+                    isLoading={isLoading}
+                    unreadCounts={unreadCounts}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    onChatSelect={handleChatSelect}
+                    onCallStart={startCall}
+                    socketConnected={socketConnected}
+                  />
+                </div>
+              </>
+            ) : null}
           </div>
-          <button 
-            onClick={() => setSocketError(false)} 
-            className="text-gray-500 hover:text-gray-700"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-      
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <ResidentList 
-          residents={filteredResidents}
-          isLoading={isLoading}
-          unreadCounts={unreadCounts}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onChatSelect={(resident) => {
-            setSelectedResident(resident);
-            setShowChat(true);
-            fetchMessages(resident._id);
-            // Mark as read when opening chat
-            if (unreadCounts[resident._id] > 0) {
-              markMessagesAsRead(resident._id);
-            }
-          }}
-          onCallStart={startCall}
-          inCall={inCall}
-          socketConnected={socketConnected}
-        />
-      </div>
-
-      {showChat && selectedResident && (
-        <ChatModal
-          selectedResident={selectedResident}
-          chatMessages={chatMessages[selectedResident._id] || []}
-          newMessage={newMessage}
-          setNewMessage={setNewMessage}
-          onClose={() => setShowChat(false)}
-          onSend={sendMessage}
-          selectedFiles={selectedFiles}
-          setSelectedFiles={setSelectedFiles}
-        />
-      )}
-
-      {inCall && callWith && (
-        <CallModal
-          callWith={callWith}
-          callDuration={callDuration}
-          isMuted={isMuted}
-          onToggleMute={toggleMute}
-          onEndCall={endCall}
-          localStreamRef={localStreamRef}
-          remoteStreamRef={remoteStreamRef}
-        />
+        </>
+      ) : (
+        <>
+          {/* Chat View */}
+          <div className="fixed inset-0 bg-gray-100">
+            <ChatModal
+              selectedResident={selectedResident}
+              chatMessages={chatMessages[selectedResident._id] || []}
+              newMessage={newMessage}
+              setNewMessage={setNewMessage}
+              onClose={closeChat}
+              onSend={sendMessage}
+              selectedFiles={selectedFiles}
+              setSelectedFiles={setSelectedFiles}
+            />
+          </div>
+        </>
       )}
     </div>
   );
