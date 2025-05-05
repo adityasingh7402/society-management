@@ -241,7 +241,7 @@ export const setupWebSocket = (
   socket.on('auth_error', (data) => {
     console.error('Socket authentication error:', data.message);
     
-    // Try to refresh the token from localStorage
+    // Try to refresh the token from localStorage F
     let freshToken = localStorage.getItem('Resident');
     if (freshToken) {
       console.log('Trying with fresh token from localStorage');
