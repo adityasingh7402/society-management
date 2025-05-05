@@ -596,7 +596,7 @@ export default function Community() {
           {/* Directory View */}
           <div className="max-w-lg mx-auto bg-white min-h-screen pb-8">
             {/* App Header */}
-            <div className="bg-teal-600 text-white px-4 py-3">
+            <div className="bg-teal-600 text-white px-4 py-5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center">
                   <button
@@ -688,7 +688,7 @@ export default function Community() {
             ) : activeSection === 'residents' ? (
               <>
                 {/* Search Bar */}
-                <div className="bg-gray-100 px-4 py-2">
+                {/* <div className="bg-gray-100 px-4 py-2">
                   <div className="bg-white rounded-full px-4 py-2 flex items-center shadow-sm">
                     <Search className="h-4 w-4 text-gray-500 mr-2" />
                     <input
@@ -705,7 +705,7 @@ export default function Community() {
                       Back
                     </button>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Residents List */}
                 <div className="h-[calc(100vh-120px)] overflow-y-auto border-t">
