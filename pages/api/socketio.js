@@ -1,5 +1,5 @@
 import { Server } from 'socket.io';
-import { verifyToken } from '../../utils/auth';
+import { verifyToken } from '../../lib/auth';
 import Message from '../../models/Message';
 import Resident from '../../models/Resident';
 import connectDB from '../../lib/mongodb';

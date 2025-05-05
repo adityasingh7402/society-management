@@ -117,6 +117,9 @@ async function sendMessage(req, res) {
             });
           }
           
+          // Print the received data to help debug
+          console.log('Creating message with data:', { senderId, recipientId, message });
+          
           const newMessage = new Message({
             senderId,
             recipientId,
@@ -133,8 +136,11 @@ async function sendMessage(req, res) {
             message: newMessage
           });
         } catch (error) {
-          console.error('Error parsing JSON:', error);
-          return res.status(400).json({ message: 'Invalid JSON data' });
+          console.error('Error parsing or saving JSON message:', error);
+          return res.status(400).json({ 
+            message: 'Invalid JSON data or database error', 
+            error: error.message 
+          });
         }
       });
     }

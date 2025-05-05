@@ -1,5 +1,5 @@
 import connectDB from '../../../lib/mongodb';
-import Message from '../../../models/MessageG';
+import MessageG from '../../../models/MessageG';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -17,8 +17,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    const message = await Message.create({
-      societyId: societyCode, // Map societyCode to societyId in the Message model
+    const message = await MessageG.create({
+      societyId: societyCode, // Map societyCode to societyId in the MessageG model
       senderId,
       senderName,
       content,

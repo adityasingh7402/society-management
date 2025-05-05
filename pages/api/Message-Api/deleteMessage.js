@@ -1,5 +1,5 @@
 import connectDB from '../../../lib/mongodb';
-import Message from '../../../models/MessageG';
+import MessageG from '../../../models/MessageG';
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     }
 
     // Soft delete the message by marking it as deleted
-    const message = await Message.findByIdAndUpdate(
+    const message = await MessageG.findByIdAndUpdate(
       messageId,
       {
         isDeleted: true,

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const messageSchema = new mongoose.Schema({
+const messageGSchema = new mongoose.Schema({
   societyId: {
     type: String,
     required: true,
@@ -32,5 +32,6 @@ const messageSchema = new mongoose.Schema({
   }
 });
 
-const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
-export default Message;
+// Use a different model name to avoid conflicts
+const MessageG = mongoose.models.MessageG || mongoose.model('MessageG', messageGSchema);
+export default MessageG;

@@ -1,5 +1,5 @@
 import connectDB from '../../../lib/mongodb';
-import Message from '../../../models/MessageG';
+import MessageG from '../../../models/MessageG';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Society ID is required' });
     }
 
-    const messages = await Message.find({ societyId })
+    const messages = await MessageG.find({ societyId })
       .sort({ timestamp: 1 })
       .lean();
 
