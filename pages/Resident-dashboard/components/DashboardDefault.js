@@ -21,6 +21,7 @@ import { Megaphone } from 'lucide-react';
 import { BarChart } from 'lucide-react';
 import { ShieldAlert } from 'lucide-react';
 import { Siren } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 
 const DashboardDefault = () => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
@@ -32,6 +33,7 @@ const DashboardDefault = () => {
     { icon: UserCircle, label: 'Profile', href: '/Resident-dashboard/components/Profile' },
     { icon: MessageCircleMore, label: 'Chat', href: '/Resident-dashboard/components/ResidentChat' },
     { icon: Bell, label: 'Announcements', href: '/Resident-dashboard/components/Announcements' },
+    { icon: ShoppingCart, label: 'Marketplace', href: '/Resident-dashboard/components/Marketplace' },
     { icon: Siren, label: 'Emergency', href: '/Resident-dashboard/components/Emergency' },
     { icon: Wrench, label: 'Maintenance', href: '/Resident-dashboard/components/MaintenanceBills' },
     { icon: PieChart, label: 'Polls', href: '/Resident-dashboard/components/PollsSurveys' },
@@ -49,6 +51,7 @@ const DashboardDefault = () => {
       title: 'Property Actions',
       items: [
         { icon: ClipboardList, label: 'Sell Property', href: '/Resident-dashboard/components/SellProperty' },
+        { icon: ShoppingCart, label: 'Marketplace', href: '/Resident-dashboard/components/Marketplace' },
         { icon: Package, label: 'Sell Items', href: '/Resident-dashboard/components/SellItems' }
       ]
     },

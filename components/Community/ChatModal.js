@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { X, Send, User, Check, CheckCheck, Paperclip, Loader2, Phone, ArrowLeft, MoreVertical, Image, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Send, User, Check, CheckCheck, Paperclip, Loader2, Phone, ArrowLeft, MoreVertical, Image, ZoomIn, ZoomOut, Maximize2, Minimize2, Tag } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import Link from 'next/link';
 
 export default function ChatModal({
   selectedResident,
@@ -10,7 +11,8 @@ export default function ChatModal({
   onClose,
   onSend,
   selectedFiles,
-  setSelectedFiles
+  setSelectedFiles,
+  productRef
 }) {
   // Message container ref for auto-scrolling
   const messagesEndRef = useRef(null);
@@ -225,7 +227,22 @@ export default function ChatModal({
                   src={selectedResident.userImage} 
                   alt={selectedResident.name} 
                   className="h-10 w-10 rounded-full object-cover"
+                  onError={(e) => {
+                    // If image fails to load and there's a fallback, use it
+                    if (selectedResident.fallbackImage) {
+                      e.target.style.display = 'none';
+                      e.target.parentNode.classList.add('bg-amber-100');
+                    } else {
+                      // Otherwise show default user icon
+                      e.target.style.display = 'none';
+                    }
+                  }}
                 />
+              ) : selectedResident.fallbackImage ? (
+                // Render fallback element if provided
+                <div className="bg-amber-100 h-10 w-10 rounded-full flex items-center justify-center">
+                  {selectedResident.fallbackImage}
+                </div>
               ) : (
                 <User className="text-white" />
               )}
@@ -263,13 +280,39 @@ export default function ChatModal({
         </div>
       </div>
       
+      {/* Product Reference Banner (if applicable) */}
+      {productRef && productRef.id && productRef.title && (
+        <Link 
+          href={`/Resident-dashboard/components/ProductDetail?id=${productRef.id}`}
+          className="bg-white/90 backdrop-blur-sm p-2 flex items-center shadow-md hover:bg-white/95 transition-colors"
+        >
+          <div className="mr-2 bg-blue-50 rounded-full p-2">
+            <Tag className="h-5 w-5 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs text-gray-500">Product Inquiry</p>
+            <p className="text-sm font-medium text-gray-800 truncate">{productRef.title}</p>
+          </div>
+          <div className="ml-2 text-xs text-blue-600 font-medium">View</div>
+        </Link>
+      )}
+      
       {/* Chat Messages - Enhanced styling */}
       <div 
         ref={chatContainerRef} 
         className="flex-1 overflow-y-auto p-2 md:p-4 bg-[url('/chat-bg.png')] bg-repeat bg-opacity-30"
         style={{backgroundImage: "url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImEiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblRyYW5zZm9ybT0icm90YXRlKDQ1KSI+PHBhdGggZD0iTTAgMTBoNDBNMTAgMHY0ME0wIDIwaDQwTTIwIDB2NDBNMCAzMGg0ME0zMCAwdjQwIiBzdHJva2U9IiNjY2MiIHN0cm9rZS1vcGFjaXR5PSIuMiIgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2EpIi8+PC9zdmc+')"}}
       >
-        {chatMessages.length === 0 ? (
+        {/* Initial message suggestion for product inquiries */}
+        {chatMessages.length === 0 && productRef && productRef.title && (
+          <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 mb-4 text-sm text-gray-700 shadow-sm border border-blue-100">
+            <p className="font-medium text-blue-700 mb-1">Tip:</p>
+            <p>You're inquiring about: <span className="font-medium">{productRef.title}</span></p>
+            <p className="mt-1">Introduce yourself and let the seller know you're interested in their listing.</p>
+          </div>
+        )}
+      
+        {chatMessages.length === 0 && !productRef ? (
           <div className="h-full flex flex-col items-center justify-center">
             <div className="h-20 w-20 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center mb-4 shadow-md">
               <User className="h-12 w-12 text-teal-500" />
@@ -383,13 +426,12 @@ export default function ChatModal({
                 <div className="h-16 w-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shadow-sm">
                   <img 
                     src={URL.createObjectURL(file)} 
-                    alt={`Preview ${index}`} 
-                    className="h-full w-full object-cover"
+                    alt={`Preview ${index}`}
                   />
                 </div>
               ) : (
-                <div className="h-16 w-16 rounded-lg bg-gray-100 flex items-center justify-center border border-gray-200 shadow-sm">
-                  <Paperclip className="text-gray-500" />
+                <div className="h-16 w-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shadow-sm">
+                  <Paperclip className="h-8 w-8 text-gray-500" />
                 </div>
               )}
               <button 

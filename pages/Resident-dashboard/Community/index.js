@@ -39,10 +39,54 @@ export default function Community() {
       if (details) {
         setResidentDetails(details);
         
+        // Check if there's a stored seller to chat with
+        try {
+          const storedSellerData = localStorage.getItem('chatWithSeller');
+          if (storedSellerData) {
+            try {
+              const sellerData = JSON.parse(storedSellerData);
+              
+              // Validate required fields
+              if (!sellerData.sellerId || !sellerData.sellerName || !sellerData.productTitle) {
+                throw new Error('Invalid seller data');
+              }
+              
+              // Create a seller "resident" object for the chat
+              const sellerToChat = {
+                _id: sellerData.sellerId,
+                name: sellerData.sellerName,
+                userImage: sellerData.sellerImage,
+                flatDetails: { flatNumber: 'Seller' },
+                productRef: {
+                  id: sellerData.productId,
+                  title: sellerData.productTitle
+                }
+              };
+              
+              // Clear the stored data
+              localStorage.removeItem('chatWithSeller');
+              
+              // Set active section to residents and open chat with seller
+              setActiveSection('residents');
+              
+              // Wait for residents to load before opening chat
+              setTimeout(() => {
+                handleChatSelect(sellerToChat);
+              }, 1000); // Increased timeout to ensure all data is loaded
+            } catch (error) {
+              console.error('Error parsing seller data:', error);
+              toast.error('There was a problem connecting to the seller. Please try again.');
+              localStorage.removeItem('chatWithSeller');
+            }
+          }
+        } catch (error) {
+          console.error('Error accessing localStorage:', error);
+        }
+        
         // Fetch society details to get manager phone
         try {
           const token = localStorage.getItem('Resident');
-          const response = await fetch(`/api/societies/${details.societyCode}`, {
+          const response = await fetch(`/api/Resident-Api/get-society-residents?societyId=${details.societyCode}`, { 
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -200,7 +244,18 @@ export default function Community() {
 
   const fetchMessages = async (recipientId) => {
     try {
+      // Check if recipientId is valid
+      if (!recipientId) {
+        console.error('Invalid recipient ID');
+        return [];
+      }
+
       const token = localStorage.getItem('Resident');
+      
+      if (!residentDetails || !residentDetails._id) {
+        console.error('Resident details not loaded yet');
+        return [];
+      }
       
       const response = await fetch(`/api/chat/messages?userId=${residentDetails._id}&recipientId=${recipientId}`, {
         headers: {
@@ -417,18 +472,233 @@ export default function Community() {
     }
   };
 
-  const handleChatSelect = async (resident) => {
-    setSelectedResident(resident);
-    setShowChat(true);
-    
-    // Fetch messages if not already loaded
-    if (!chatMessages[resident._id] || chatMessages[resident._id].length === 0) {
-      await fetchMessages(resident._id);
+  const fetchHelpDeskMessages = async () => {
+    try {
+      if (!residentDetails || !residentDetails._id) {
+        console.error('Resident details not loaded yet');
+        return [];
+      }
+
+      const token = localStorage.getItem('Resident');
+      
+      const response = await fetch(`/api/chat/helpdesk-messages?residentId=${residentDetails._id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch help desk messages');
+      }
+      
+      const data = await response.json();
+      
+      // Format messages for UI display
+      const formattedMessages = data.messages.map(msg => ({
+        id: msg._id,
+        sender: msg.isFromResident ? residentDetails._id : 'helpdesk',
+        text: msg.message,
+        timestamp: msg.timestamp,
+        status: msg.status,
+        isIncoming: !msg.isFromResident,
+        media: msg.media || null
+      }));
+      
+      // Update chat messages state for helpdesk
+      setChatMessages(prev => ({
+        ...prev,
+        helpdesk: formattedMessages
+      }));
+      
+      return formattedMessages;
+    } catch (error) {
+      console.error('Error fetching help desk messages:', error);
+      toast.error('Failed to load help desk messages. Please try again.');
+      return [];
+    }
+  };
+
+  const sendHelpDeskMessage = async () => {
+    if (!newMessage.trim() && selectedFiles.length === 0) {
+      return;
     }
     
-    // Mark messages as read when opening chat
-    if (unreadCounts[resident._id] && unreadCounts[resident._id] > 0) {
-      markMessagesAsRead(resident._id);
+    try {
+      const token = localStorage.getItem('Resident');
+      
+      // If files are selected, use FormData to upload them
+      if (selectedFiles.length > 0) {
+        const formData = new FormData();
+        formData.append('residentId', residentDetails._id);
+        formData.append('message', newMessage.trim());
+        
+        // Add files to form data
+        selectedFiles.forEach(file => {
+          formData.append('media', file);
+        });
+        
+        const response = await fetch('/api/chat/helpdesk-messages', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to send message');
+        }
+        
+        const data = await response.json();
+        
+        // Create message object
+        const messageObj = {
+          id: data.messageId,
+          sender: residentDetails._id,
+          text: newMessage,
+          timestamp: new Date().toISOString(),
+          status: 'sent',
+          isIncoming: false,
+          media: data.media || null
+        };
+        
+        // Update local chat state
+        setChatMessages(prevMessages => {
+          const existingMessages = prevMessages.helpdesk || [];
+          
+          return {
+            ...prevMessages,
+            helpdesk: [
+              ...existingMessages,
+              messageObj
+            ]
+          };
+        });
+        
+        // Reset input
+        setNewMessage('');
+        setSelectedFiles([]);
+        
+        // Fetch updated messages after sending to get any new replies
+        setTimeout(() => {
+          fetchHelpDeskMessages();
+        }, 1000);
+      } 
+      // If no files, use JSON for simpler sending
+      else {
+        const response = await fetch('/api/chat/helpdesk-messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            message: newMessage.trim(),
+            residentId: residentDetails._id
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to send message');
+        }
+        
+        const data = await response.json();
+        
+        // Create message object
+        const messageObj = {
+          id: data.messageId,
+          sender: residentDetails._id,
+          text: newMessage,
+          timestamp: new Date().toISOString(),
+          status: 'sent',
+          isIncoming: false,
+          media: data.media || null
+        };
+        
+        // Update local chat state
+        setChatMessages(prevMessages => {
+          const existingMessages = prevMessages.helpdesk || [];
+          
+          return {
+            ...prevMessages,
+            helpdesk: [
+              ...existingMessages,
+              messageObj
+            ]
+          };
+        });
+        
+        // Reset input
+        setNewMessage('');
+        setSelectedFiles([]);
+        
+        // Fetch updated messages after sending to get any new replies
+        setTimeout(() => {
+          fetchHelpDeskMessages();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error sending help desk message:', error);
+      toast.error(error.message || 'Failed to send message');
+    }
+  };
+
+  const handleChatSelect = async (resident) => {
+    if (!resident) {
+      toast.error('Unable to start chat with this user');
+      return;
+    }
+
+    // Ensure the resident has a valid ID
+    if (!resident._id) {
+      toast.error('Invalid chat recipient');
+      return;
+    }
+
+    try {
+      setSelectedResident(resident);
+      setShowChat(true);
+      
+      // Check if this is a product-related chat
+      if (resident.productRef) {
+        // If first message in chat, initialize with a product reference
+        if (!chatMessages[resident._id] || chatMessages[resident._id].length === 0) {
+          // Pre-populate a message about the product
+          setNewMessage(`Hi, I'm interested in your listing: ${resident.productRef.title}`);
+        }
+      }
+      
+      // Special handling for help desk
+      if (resident.isHelpDesk) {
+        // Fetch help desk messages
+        const messages = await fetchHelpDeskMessages();
+        
+        // If no messages, set a welcome message
+        if (messages.length === 0) {
+          setNewMessage("Hello, I need assistance with...");
+        }
+        
+        return; // Skip the regular message fetching
+      }
+      
+      // Fetch messages if not already loaded
+      if (!chatMessages[resident._id] || chatMessages[resident._id].length === 0) {
+        await fetchMessages(resident._id);
+      }
+      
+      // Mark messages as read when opening chat
+      if (unreadCounts[resident._id] && unreadCounts[resident._id] > 0) {
+        markMessagesAsRead(resident._id);
+      }
+    } catch (error) {
+      console.error('Error setting up chat:', error);
+      toast.error('Failed to set up chat. Please try again.');
+      // Revert to previous state
+      setShowChat(false);
+      setSelectedResident(null);
     }
   };
 
@@ -453,20 +723,15 @@ export default function Community() {
   };
   
   const handleOpenHelpDeskChat = () => {
-    // Create a help desk "resident" object
-    if (!societyManagerPhone) {
-      toast.error('Help desk contact information not available');
-      return;
-    }
-    
-    // Create a help desk user object
+    // Create a help desk user object with a valid ID format
     const helpDeskUser = {
       _id: 'helpdesk',
       name: 'Help Desk',
-      phoneNumber: societyManagerPhone,
+      phoneNumber: societyManagerPhone || 'helpdesk@society.com',
       isHelpDesk: true,
       flatDetails: { flatNumber: 'Society Manager' },
-      userImage: '/support.png'
+      userImage: '/images/support.png',
+      fallbackImage: <Headphones className="h-8 w-8 text-amber-600" />
     };
     
     // Open chat with this user
@@ -479,6 +744,13 @@ export default function Community() {
     }
     
     try {
+      // Special handling for help desk chat
+      if (selectedResident.isHelpDesk) {
+        await sendHelpDeskMessage();
+        return;
+      }
+      
+      // Regular chat message handling
       const token = localStorage.getItem('Resident');
       
       // If files are selected, use FormData to upload them
@@ -737,6 +1009,7 @@ export default function Community() {
               onSend={sendMessage}
               selectedFiles={selectedFiles}
               setSelectedFiles={setSelectedFiles}
+              productRef={selectedResident?.productRef}
             />
           </div>
         </>
