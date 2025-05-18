@@ -66,7 +66,7 @@ export default async function handler(req, res) {
           token: token,
           notification: {
             title: 'New Visitor',
-            body: `${visitorName} is waiting at the gate \n Click here to Approve`
+            body: {visitorName}
           },
           data: {
             visitorId: visitorId.toString(),
