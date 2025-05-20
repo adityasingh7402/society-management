@@ -7,6 +7,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     const { phoneNumber, fcmToken } = req.body;
+    alert(fcmToken , "fcmToken")
 
     try {
       // Fetch the resident by their phone number
