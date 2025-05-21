@@ -6,9 +6,10 @@ import { Bell, Send, CheckCircle, AlertCircle } from 'lucide-react';
 export default function TestNotification() {
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [residentId, setResidentId] = useState("6808a4b7c9509274ee105eb5");
   
   const sampleData = {
-    residentId: "6808a4b7c9509274ee105eb5",
+    residentId: residentId,
     visitorId: "65a123b4c5d6e7f8g9h0i1j3",
     visitorName: "John Doe",
     guardName: "Security Guard",
@@ -52,6 +53,20 @@ export default function TestNotification() {
 
           {/* Content */}
           <div className="p-6">
+            {/* Resident ID Input */}
+            <div className="mb-6">
+              <label htmlFor="residentId" className="block text-sm font-medium text-gray-700 mb-2">
+                Resident ID
+              </label>
+              <input
+                type="text"
+                id="residentId"
+                value={residentId}
+                onChange={(e) => setResidentId(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            
             <div className="bg-gray-50 rounded-xl p-6 mb-6">
               <h2 className="text-xl font-semibold mb-4 text-gray-800">Sample Visitor Data</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
