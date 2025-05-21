@@ -66,9 +66,44 @@ export default function Home() {
         };
     }, [isSidebarOpen]);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        // Check if fcmToken exists in localStorage
+        const fcmToken = localStorage.getItem("fcmToken");
+        const residentToken = localStorage.getItem("Resident");
+        
+        // If no resident token, just redirect to login
+        if (!residentToken) {
+            router.push("/Login");
+            return;
+        }
+
+        // Only try to update FCM token if it exists
+        if (fcmToken) {
+            try {
+                const response = await fetch("/api/Resident-Api/update-resident-fcm", {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${residentToken}`,
+                    },
+                    body: JSON.stringify({
+                        residentId: residentDetails.residentId,
+                        fcmToken: fcmToken
+                    }),
+                });
+                
+                if (!response.ok) {
+                    console.error("Failed to update FCM token in database");
+                }
+            } catch (error) {
+                console.error("Error updating FCM token:", error);
+            }
+        }
+
+        // Always remove tokens (if they exist) and redirect
         localStorage.removeItem("Resident");
-        router.push("/Login"); // Redirect to the home page
+        localStorage.removeItem("fcmToken");
+        router.push("/Login");
     };
 
     const handleComponent = (item, linkName) => {
