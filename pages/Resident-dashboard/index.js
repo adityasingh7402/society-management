@@ -102,7 +102,6 @@ export default function Home() {
 
         // Always remove tokens (if they exist) and redirect
         localStorage.removeItem("Resident");
-        localStorage.removeItem("fcmToken");
         router.push("/Login");
     };
 
