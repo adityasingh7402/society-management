@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import DashboardDefault from "./components/DashboardDefault";
-import { 
-    HomeIcon as HomeIcon, 
-    User, 
-    LogOut, 
-    AlertTriangle, 
-    Menu, 
+import {
+    HomeIcon as HomeIcon,
+    User,
+    LogOut,
+    AlertTriangle,
+    UserCircle,
     Bell,
     X,
     Camera
@@ -74,7 +74,7 @@ export default function Home() {
         // Check if fcmToken exists in localStorage
         const fcmToken = localStorage.getItem("fcmToken");
         const residentToken = localStorage.getItem("Resident");
-        
+
         // If no resident token, just redirect to login
         if (!residentToken) {
             router.push("/Login");
@@ -95,7 +95,7 @@ export default function Home() {
                         fcmToken: fcmToken
                     }),
                 });
-                
+
                 if (!response.ok) {
                     console.error("Failed to update FCM token in database");
                 }
@@ -117,8 +117,8 @@ export default function Home() {
         <div className="relative flex flex-col min-h-screen bg-white text-gray-900">
             {/* Overlay when sidebar is open */}
             {isSidebarOpen && (
-                <div 
-                    className="fixed inset-0 bg-black opacity-50 z-30" 
+                <div
+                    className="fixed inset-0 bg-black opacity-50 z-30"
                     onClick={() => setIsSidebarOpen(false)}
                 ></div>
             )}
@@ -126,23 +126,24 @@ export default function Home() {
             {/* App Bar */}
             <div className="flex justify-between items-center h-16 px-4 bg-indigo-600 text-white shadow-lg sticky top-0 z-20">
                 <div className="flex items-center space-x-3">
-                    <button 
+                    <button
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        className="p-1 rounded-full hover:bg-indigo-700 transition-colors"
+                        className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
                     >
-                        <Menu size={24} />
+                        <UserCircle className="w-5 h-5 text-white" />
                     </button>
-                    <h1 className="text-xl font-medium">Society App</h1>
+                    <div>
+                        <p className="text-white text-sm font-medium">Welcome</p>
+                    </div>
                 </div>
-                
-                <div className="flex items-center space-x-3">
-                    <button 
-                        onClick={handleNotification} 
-                        className="p-2 rounded-full hover:bg-indigo-700 transition-colors"
-                    >
-                        <Bell size={20} />
-                    </button>
-                </div>
+
+                <button
+                    onClick={handleNotification}
+                    className="relative p-2 rounded-full hover:bg-indigo-700 transition-colors"
+                >
+                    <Bell className="w-6 h-6 text-white" />
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                </button>
             </div>
 
             {/* Side Navigation Drawer - Mobile Style */}
@@ -154,28 +155,28 @@ export default function Home() {
                     {/* Drawer Header */}
                     <div className="p-4 flex justify-between items-center border-b border-gray-200">
                         <h2 className="text-xl font-semibold">Menu</h2>
-                        <button 
+                        <button
                             onClick={() => setIsSidebarOpen(false)}
                             className="p-1 rounded-full hover:bg-gray-100 transition-colors"
                         >
                             <X size={24} />
                         </button>
                     </div>
-                    
+
                     {/* User Profile Section - Enhanced */}
                     <div className="p-4 pb-5 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-gray-200">
                         <div className="flex flex-col items-center">
                             {/* Profile Image with Upload Button */}
                             <div className="relative mb-3">
                                 <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-r from-indigo-500 to-blue-500">
-                                    <img 
-                                        src={residentDetails.userImage || "/profile.png"} 
-                                        alt="Profile" 
+                                    <img
+                                        src={residentDetails.userImage || "/profile.png"}
+                                        alt="Profile"
                                         className="w-full h-full rounded-full object-cover border-2 border-white"
                                     />
                                 </div>
                                 {/* Upload Profile Image Button */}
-                                <button 
+                                <button
                                     onClick={() => {
                                         setIsSidebarOpen(false);
                                         router.push("./Resident-dashboard/components/uploadProfile");
@@ -185,7 +186,7 @@ export default function Home() {
                                     <Camera size={18} className="text-white" />
                                 </button>
                             </div>
-                            
+
                             {/* User Details */}
                             <div className="text-center">
                                 <h3 className="font-bold text-xl text-gray-800">{residentDetails?.name || 'N/A'}</h3>
@@ -198,28 +199,28 @@ export default function Home() {
                             </div>
                         </div>
                     </div>
-                    
+
                     {/* Navigation Menu */}
                     <nav className="flex-1 overflow-y-auto p-2">
                         <ul className="space-y-1">
                             <li>
-                                <button 
+                                <button
                                     onClick={() => {
                                         setComponent("DashboardDefault");
                                         setActiveLink("Dashboard");
                                         setIsSidebarOpen(false);
                                     }}
                                     className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors
-                                    ${activeLink === "Dashboard" 
-                                        ? 'bg-indigo-100 text-indigo-600' 
-                                        : 'hover:bg-gray-100'}`}
+                                    ${activeLink === "Dashboard"
+                                            ? 'bg-indigo-100 text-indigo-600'
+                                            : 'hover:bg-gray-100'}`}
                                 >
                                     <HomeIcon className={`mr-3 ${activeLink === "Dashboard" ? 'text-indigo-600' : ''}`} size={20} />
                                     <span className={activeLink === "Dashboard" ? 'text-indigo-600 font-medium' : ''}>Home</span>
                                 </button>
                             </li>
                             <li>
-                                <button 
+                                <button
                                     onClick={() => {
                                         router.push("./Resident-dashboard/components/Profile");
                                         setIsSidebarOpen(false);
@@ -231,7 +232,7 @@ export default function Home() {
                                 </button>
                             </li>
                             <li>
-                                <button 
+                                <button
                                     onClick={() => {
                                         router.push("./Resident-dashboard/components/Emergency");
                                         setIsSidebarOpen(false);
@@ -244,10 +245,10 @@ export default function Home() {
                             </li>
                         </ul>
                     </nav>
-                    
+
                     {/* Bottom Actions */}
                     <div className="p-4 border-t border-gray-200">
-                        <button 
+                        <button
                             onClick={handleLogout}
                             className="flex items-center w-full px-4 py-3 rounded-lg bg-red-100 hover:bg-red-200 transition-colors"
                         >
@@ -260,8 +261,8 @@ export default function Home() {
 
             {/* Main content - Full Screen */}
             <main className="flex-1">
-                {loading ? <Preloader /> : 
-                  component === "DashboardDefault" && <DashboardDefault />
+                {loading ? <Preloader /> :
+                    component === "DashboardDefault" && <DashboardDefault />
                 }
             </main>
         </div>
