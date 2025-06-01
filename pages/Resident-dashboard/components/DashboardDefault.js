@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   UserCircle, Bell, MessageCircleMore, ShoppingCart, Siren, 
@@ -7,19 +7,21 @@ import {
   Megaphone, BarChart, ShieldAlert, Plus, X, ChevronRight
 } from 'lucide-react';
 
-const AndroidDashboard = () => {
+const AndroidDashboard = ({ onLoaded }) => {
   const [activeTab, setActiveTab] = useState('home');
   const [fabOpen, setFabOpen] = useState(false);
   const [categoryPopup, setCategoryPopup] = useState(null);
   const [isClosingPopup, setIsClosingPopup] = useState(false);
   const [isOpeningPopup, setIsOpeningPopup] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [imagesLoadedCount, setImagesLoadedCount] = useState(0);
 
   // Bottom navigation items
   const bottomNavItems = [
-    { id: 'home', icon: Home, label: 'Home', href: '/Resident-dashboard/components/Profile' },
-    { id: 'profile', icon: UserCircle, label: 'Profile', href: '/Resident-dashboard/components/Emergency' },
-    { id: 'chat', icon: MessageCircleMore, label: 'Chat', href: '/Resident-dashboard/components/Emergency' },
+    { id: 'home', icon: Home, label: 'Home', href: '/Resident-dashboard' },
+    { id: 'profile', icon: UserCircle, label: 'Profile', href: '/Resident-dashboard/components/Profile' },
+    { id: 'chat', icon: MessageCircleMore, label: 'Chat', href: '/Resident-dashboard/components/ResidentChat' },
     { id: 'notifications', icon: Bell, label: 'Alerts', href: '/Resident-dashboard/components/Emergency' },
   ];
 
@@ -48,13 +50,29 @@ const AndroidDashboard = () => {
     }
   ];
 
+  // Preload images
+  useEffect(() => {
+    // Notify parent component that we're loaded after a short delay
+    // This ensures the skeleton loader is shown for at least a short time
+    const timer = setTimeout(() => {
+      setImagesLoaded(true);
+      if (onLoaded) {
+        onLoaded();
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [onLoaded]);
+
   // Auto-slide functionality
-  React.useEffect(() => {
+  useEffect(() => {
+    if (!imagesLoaded) return; // Only start auto-slide when images are loaded
+    
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % sliderData.length);
     }, 4000);
     return () => clearInterval(timer);
-  }, [sliderData.length]);
+  }, [sliderData.length, imagesLoaded]);
 
   // Quick action items for FAB
   const quickActions = [
@@ -145,7 +163,7 @@ const AndroidDashboard = () => {
     <div className="min-h-screen bg-gray-50 pb-20">
       
       {/* Header with Image Slider */}
-      <div className="relative h-64 overflow-hidden">
+      <div className="relative m-1 rounded-3xl h-64 overflow-hidden">
         {/* Image Slider */}
         <div 
           className="flex transition-transform duration-500 ease-in-out h-full"
@@ -159,24 +177,21 @@ const AndroidDashboard = () => {
                 className="w-full h-full object-cover"
               />
               {/* Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/60 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
               
               {/* Content Overlay */}
-              <div className="absolute inset-0 flex flex-col justify-between p-12">
-                {/* Bottom Content */}
-                <div className="space-y-3 mt-auto">
-                  <div>
-                    <h1 className="text-white text-xl font-bold">{slide.title}</h1>
-                    <p className="text-white/90 text-sm font-medium">{slide.subtitle}</p>
-                    <p className="text-white/80 text-xs mt-1">{slide.description}</p>
-                  </div>
+              <div className="absolute inset-0 flex flex-col justify-center p-12">
+                <div className="space-y-2">
+                  <h1 className="text-white text-2xl font-bold">{slide.title}</h1>
+                  <p className="text-white/90 text-sm font-medium">{slide.subtitle}</p>
+                  <p className="text-white/80 text-xs mb-4">{slide.description}</p>
                   
                   {/* Buttons */}
-                  <div className="flex space-x-3">
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
+                  <div className="flex space-x-3 mt-2">
+                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors">
                       Contact
                     </button>
-                    <button className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
+                    <button className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors">
                       About
                     </button>
                   </div>
@@ -186,7 +201,7 @@ const AndroidDashboard = () => {
           ))}
         </div>
 
-        {/* Slide Indicators */}
+        {/* Slide Indicators - Updated for modern look */}
         <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
           {sliderData.map((_, index) => (
             <button
@@ -199,71 +214,85 @@ const AndroidDashboard = () => {
           ))}
         </div>
 
-        {/* Manual Navigation Arrows */}
+        {/* Manual Navigation Arrows - Updated for better visibility */}
         <button
           onClick={() => setCurrentSlide((prev) => (prev - 1 + sliderData.length) % sliderData.length)}
-          className="absolute left-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+          className="absolute left-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/30 transition-colors"
         >
-          ‹
+          <span className="text-xl font-bold">‹</span>
         </button>
         <button
           onClick={() => setCurrentSlide((prev) => (prev + 1) % sliderData.length)}
-          className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/30 transition-colors"
         >
-          ›
+          <span className="text-xl font-bold">›</span>
         </button>
       </div>
 
       {/* Main Content */}
-      <div className="px-4 py-6">
+      <div className="px-4 py-5">
         {/* Quick Stats Cards */}
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Due Bills</p>
-                <p className="text-xl font-bold text-gray-900">₹2,450</p>
-              </div>
-              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                <Lightbulb className="w-5 h-5 text-red-600" />
-              </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm relative overflow-hidden">
+            <div className="flex flex-col">
+              <p className="text-sm text-gray-600">Due Bills</p>
+              <p className="text-2xl font-bold text-gray-900">₹2,450</p>
+            </div>
+            <div className="absolute -bottom-3 -right-3 w-16 h-16 bg-red-100 rounded-full flex items-center justify-center opacity-80">
+              <Lightbulb className="w-6 h-6 text-red-600" />
             </div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Open Requests</p>
-                <p className="text-xl font-bold text-gray-900">3</p>
-              </div>
-              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                <Wrench className="w-5 h-5 text-orange-600" />
-              </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm relative overflow-hidden">
+            <div className="flex flex-col">
+              <p className="text-sm text-gray-600">Open Requests</p>
+              <p className="text-2xl font-bold text-gray-900">3</p>
+            </div>
+            <div className="absolute -bottom-3 -right-3 w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center opacity-80">
+              <Wrench className="w-6 h-6 text-orange-600" />
             </div>
           </div>
         </div>
 
         {/* Feature Categories */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Services</h2>
-          {featureCategories.map((category) => (
-            <div key={category.id} className="bg-white rounded-xl shadow-sm">
-              <button
-                onClick={() => handleOpenPopup(category)}
-                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 rounded-xl transition-colors"
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-lg font-semibold text-gray-900">Services</h2>
+            {/* <button className="text-sm text-blue-600 font-medium flex items-center">
+              View All <ChevronRight className="w-4 h-4 ml-1" />
+            </button> */}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            {featureCategories.map((category) => (
+              <div 
+                key={category.id} 
+                className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 transform transition-all duration-200 hover:shadow-md hover:scale-[1.02]"
               >
-                <div className="flex items-center space-x-3">
-                  <div className={`w-12 h-12 ${category.color} rounded-xl flex items-center justify-center`}>
-                    <category.icon className="w-6 h-6 text-white" />
+                <button
+                  onClick={() => handleOpenPopup(category)}
+                  className="w-full flex flex-col items-center p-4 relative"
+                >
+                  
+                  {/* Icon with gradient background */}
+                  <div 
+                    className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm
+                      ${category.id === 'property' ? 'bg-gradient-to-br from-blue-400 to-blue-600' : 
+                        category.id === 'services' ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
+                        category.id === 'community' ? 'bg-gradient-to-br from-green-400 to-green-600' :
+                        'bg-gradient-to-br from-purple-400 to-purple-600'}`}
+                  >
+                    <category.icon className="w-8 h-8 text-white" />
                   </div>
-                  <div className="text-left">
-                    <h3 className="font-medium text-gray-900">{category.title}</h3>
-                    <p className="text-sm text-gray-600">{category.items.length} services</p>
+                  
+                  {/* Title and services count */}
+                  <div className="text-center">
+                    <h3 className="font-medium text-gray-900 text-base">{category.title}</h3>
+                    <p className="text-xs text-gray-500 mt-1">{category.items.length} services</p>
                   </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
-          ))}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -340,32 +369,42 @@ const AndroidDashboard = () => {
           isClosingPopup ? 'bg-opacity-0' : 
           isOpeningPopup ? 'bg-opacity-0' : 'bg-opacity-50'
         }`}>
-          <div className={`bg-white w-full rounded-t-3xl max-h-96 overflow-hidden transition-transform duration-300 ease-out ${
+          <div className={`bg-white w-full rounded-t-3xl max-h-[80vh] overflow-hidden transition-transform duration-300 ease-out ${
             isClosingPopup ? 'translate-y-full' : 
             isOpeningPopup ? 'translate-y-full' : 'translate-y-0'
           }`}>
-            <div className="p-4 border-b border-gray-200">
+            {/* Popup header with gradient background */}
+            <div className={`p-6 border-b border-gray-100
+              ${categoryPopup.id === 'property' ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 
+                categoryPopup.id === 'services' ? 'bg-gradient-to-r from-orange-500 to-orange-600' :
+                categoryPopup.id === 'community' ? 'bg-gradient-to-r from-green-500 to-green-600' :
+                'bg-gradient-to-r from-purple-500 to-purple-600'}`}>
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 ${categoryPopup.color} rounded-xl flex items-center justify-center`}>
-                    <categoryPopup.icon className="w-6 h-6 text-white" />
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                    <categoryPopup.icon className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900">{categoryPopup.title}</h3>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">{categoryPopup.title}</h3>
+                    <p className="text-sm text-white/80">{categoryPopup.items.length} services available</p>
+                  </div>
                 </div>
                 <button
                   onClick={handleClosePopup}
-                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors active:scale-95"
+                  className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors active:scale-95"
                 >
-                  <X className="w-5 h-5 text-gray-600" />
+                  <X className="w-5 h-5 text-white" />
                 </button>
               </div>
             </div>
-            <div className="p-4 max-h-80 overflow-y-auto">
+            
+            {/* Popup content */}
+            <div className="p-4 max-h-[calc(80vh-100px)] overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
                 {categoryPopup.items.map((item, index) => (
                   <Link key={index} href={item.href} passHref>
                     <div
-                      className={`flex flex-col items-center p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all duration-200 active:scale-95 ${
+                      className={`flex flex-col items-center p-5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all duration-200 active:scale-95 border border-gray-100 ${
                         isClosingPopup ? 'animate-fade-out-down' : 
                         isOpeningPopup ? 'animate-fade-in-up-delayed' : 'animate-fade-in-up-delayed'
                       }`}
@@ -375,8 +414,8 @@ const AndroidDashboard = () => {
                       }}
                       onClick={handlePopupLinkClick} // Close popup immediately when clicked
                     >
-                      <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm mb-2">
-                        <item.icon className="w-6 h-6 text-gray-700" />
+                      <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-3 border border-gray-200">
+                        <item.icon className="w-7 h-7 text-gray-700" />
                       </div>
                       <span className="text-sm font-medium text-gray-900 text-center">{item.label}</span>
                     </div>
