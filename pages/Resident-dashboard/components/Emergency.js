@@ -43,7 +43,7 @@ export default function EmergencyManagement() {
             setLoading(true);
             const token = localStorage.getItem('Resident');
             if (!token) {
-                router.push('/Login');
+                router.push('/login');
                 return;
             }
 

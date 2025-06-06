@@ -30,7 +30,7 @@ const AndroidDashboard = ({ onLoaded }) => {
     {
       id: 1,
       image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1973&q=80',
-      title: 'Welcome to Paradise Heights',
+      title: 'Welcome to Paradise',
       subtitle: 'Modern living at its finest',
       description: 'Experience luxury and comfort in our premium residential community'
     },
@@ -188,7 +188,7 @@ const AndroidDashboard = ({ onLoaded }) => {
                   
                   {/* Buttons */}
                   <div className="flex space-x-3 mt-2">
-                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors">
+                    <button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors">
                       Contact
                     </button>
                     <button className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors">
@@ -233,22 +233,26 @@ const AndroidDashboard = ({ onLoaded }) => {
       <div className="px-4 py-5">
         {/* Quick Stats Cards */}
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm relative overflow-hidden">
-            <div className="flex flex-col">
-              <p className="text-sm text-gray-600">Due Bills</p>
-              <p className="text-2xl font-bold text-gray-900">₹2,450</p>
-            </div>
-            <div className="absolute -bottom-3 -right-3 w-16 h-16 bg-red-100 rounded-full flex items-center justify-center opacity-80">
-              <Lightbulb className="w-6 h-6 text-red-600" />
+          <div className="bg-white rounded-xl p-4 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300 border border-gray-100/80">
+            {/* Background gradient decoration */}
+            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-red-500/20 to-red-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+            <div className="flex flex-col relative z-10">
+              <p className="text-sm text-gray-600 font-medium">Due Bills</p>
+              <p className="text-2xl font-bold text-gray-900 group-hover:text-red-600 transition-colors duration-300">₹2,450</p>
+              <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
+                <Lightbulb className="w-6 h-6 text-red-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+              </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm relative overflow-hidden">
-            <div className="flex flex-col">
-              <p className="text-sm text-gray-600">Open Requests</p>
-              <p className="text-2xl font-bold text-gray-900">3</p>
-            </div>
-            <div className="absolute -bottom-3 -right-3 w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center opacity-80">
-              <Wrench className="w-6 h-6 text-orange-600" />
+          <div className="bg-white rounded-xl p-4 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300 border border-gray-100/80">
+            {/* Background gradient decoration */}
+            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-orange-500/20 to-orange-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+            <div className="flex flex-col relative z-10">
+              <p className="text-sm text-gray-600 font-medium">Open Requests</p>
+              <p className="text-2xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors duration-300">3</p>
+              <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
+                <Wrench className="w-6 h-6 text-orange-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+              </div>
             </div>
           </div>
         </div>
@@ -256,26 +260,35 @@ const AndroidDashboard = ({ onLoaded }) => {
         {/* Feature Categories */}
         <div className="space-y-4">
           <div className="flex justify-between items-center mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">Services</h2>
-            {/* <button className="text-sm text-blue-600 font-medium flex items-center">
-              View All <ChevronRight className="w-4 h-4 ml-1" />
-            </button> */}
+            <h2 className="text-lg font-semibold text-gray-900 relative">
+              Services
+              {/* Decorative underline */}
+              <span className="absolute bottom-0 left-0 w-1/3 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"></span>
+            </h2>
           </div>
           
           <div className="grid grid-cols-2 gap-3">
             {featureCategories.map((category) => (
               <div 
                 key={category.id} 
-                className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 transform transition-all duration-200 hover:shadow-md hover:scale-[1.02]"
+                className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 transform transition-all duration-200 hover:shadow-md hover:scale-[1.02] hover:border-indigo-100"
               >
                 <button
                   onClick={() => handleOpenPopup(category)}
                   className="w-full flex flex-col items-center p-4 relative"
                 >
                   
-                  {/* Icon with gradient background */}
+                  {/* Decorative pattern background */}
+                  <div className="absolute inset-0 opacity-5" 
+                    style={{ 
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%235C54F4' fill-opacity='0.25' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+                      backgroundSize: '100px 100px'
+                    }}>
+                  </div>
+                  
+                  {/* Icon with gradient background and subtle shadow */}
                   <div 
-                    className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm
+                    className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-md transform transition-all duration-300 hover:scale-110 hover:rotate-3
                       ${category.id === 'property' ? 'bg-gradient-to-br from-blue-400 to-blue-600' : 
                         category.id === 'services' ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
                         category.id === 'community' ? 'bg-gradient-to-br from-green-400 to-green-600' :
@@ -287,7 +300,12 @@ const AndroidDashboard = ({ onLoaded }) => {
                   {/* Title and services count */}
                   <div className="text-center">
                     <h3 className="font-medium text-gray-900 text-base">{category.title}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{category.items.length} services</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {/* Pill badge for services count */}
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                        {category.items.length} services
+                      </span>
+                    </p>
                   </div>
                 </button>
               </div>
@@ -296,9 +314,32 @@ const AndroidDashboard = ({ onLoaded }) => {
         </div>
       </div>
 
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg backdrop-blur-lg bg-white/90 z-30">
+        <div className="flex items-center justify-around py-2 px-2">
+          {bottomNavItems.map((item) => (
+            <Link key={item.id} href={item.href} passHref>
+              <div
+                className={`flex flex-col items-center py-2 px-3 rounded-xl transition-all duration-200 ${
+                  activeTab === item.id
+                    ? 'text-indigo-600 bg-indigo-50 scale-110 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+                onClick={() => setActiveTab(item.id)}
+              >
+                <item.icon className={`w-6 h-6 mb-1 transition-all duration-200 ${
+                  activeTab === item.id ? 'stroke-[2.5px]' : 'stroke-[1.5px]'
+                }`} />
+                <span className="text-xs font-medium">{item.label}</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
       {/* Floating Action Button with Animated Quick Actions */}
-      <div className="fixed bottom-24 right-6">
-        {/* Quick Actions Menu - Now with smooth animations */}
+      <div className="fixed bottom-24 right-6 z-20">
+        {/* Quick Actions Menu - With enhanced animations */}
         <div className={`absolute bottom-16 right-0 space-y-3 transition-all duration-300 ease-out transform origin-bottom-right ${
           fabOpen 
             ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' 
@@ -316,12 +357,12 @@ const AndroidDashboard = ({ onLoaded }) => {
                 transitionDelay: fabOpen ? `${index * 50}ms` : '0ms' 
               }}
             >
-              <span className="bg-gray-900 text-white px-3 py-1 rounded-full text-sm whitespace-nowrap shadow-lg">
+              <span className="bg-gray-900/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm whitespace-nowrap shadow-lg">
                 {action.label}
               </span>
               <Link href={action.href} passHref>
                 <div 
-                  className={`w-12 h-12 ${action.color} rounded-full flex items-center justify-center shadow-lg transform transition-all duration-200 hover:scale-110 active:scale-95`}
+                  className={`w-12 h-12 ${action.color} rounded-full flex items-center justify-center shadow-lg transform transition-all duration-200 hover:scale-110 active:scale-95 border border-white/20`}
                   onClick={() => setFabOpen(false)} // Close FAB when quick action is clicked
                 >
                   <action.icon className="w-6 h-6 text-white" />
@@ -334,33 +375,19 @@ const AndroidDashboard = ({ onLoaded }) => {
         {/* Main FAB Button */}
         <button
           onClick={() => setFabOpen(!fabOpen)}
-          className={`w-14 h-14 bg-blue-500 rounded-full flex items-center justify-center shadow-lg transform transition-all duration-300 active:scale-95 ${
-            fabOpen ? 'rotate-45 bg-gray-600 scale-110' : 'hover:scale-110 hover:bg-blue-600'
+          className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transform transition-all duration-300 active:scale-95 ${
+            fabOpen 
+              ? 'rotate-45 bg-gray-700 scale-110' 
+              : 'hover:scale-110 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700'
           }`}
         >
           <Plus className="w-7 h-7 text-white" />
-        </button>
-      </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div className="flex items-center justify-around py-2">
-          {bottomNavItems.map((item) => (
-            <Link key={item.id} href={item.href} passHref>
-              <div
-                className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-                  activeTab === item.id
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-                onClick={() => setActiveTab(item.id)}
-              >
-                <item.icon className="w-6 h-6 mb-1" />
-                <span className="text-xs font-medium">{item.label}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+          {/* Animated ring effect */}
+          {!fabOpen && (
+            <span className="absolute w-full h-full rounded-full border-4 border-indigo-400/30 animate-ping"></span>
+          )}
+        </button>
       </div>
 
       {/* Category Popup - With proper open and close animations */}

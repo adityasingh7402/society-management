@@ -5,7 +5,7 @@ export const fetchResidentDetails = async (router) => {
   try {
     const token = localStorage.getItem('Resident');
     if (!token) {
-      router.push('/Login');
+      router.push('/login');
       return null;
     }
 

@@ -32,7 +32,7 @@ const AddProduct = () => {
     try {
       const token = localStorage.getItem('Resident');
       if (!token) {
-        router.push('/Login');
+        router.push('/login');
         return;
       }
 
@@ -50,7 +50,7 @@ const AddProduct = () => {
       setResidentData(data);
     } catch (error) {
       console.error('Error fetching resident details:', error);
-      router.push('/Login');
+      router.push('/login');
     }
   };
 

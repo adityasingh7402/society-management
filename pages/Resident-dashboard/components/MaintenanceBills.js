@@ -18,7 +18,7 @@ export default function MaintenanceBills() {
             try {
                 const token = localStorage.getItem("Resident");
                 if (!token) {
-                    router.push("/Login");
+                    router.push("/login");
                     return;
                 }
 
@@ -47,7 +47,7 @@ export default function MaintenanceBills() {
                 setPaymentHistory(billsData.bills || []); // Set payment history if available
             } catch (error) {
                 console.error("Error fetching data:", error);
-                router.push("/Login");
+                router.push("/login");
             } finally {
                 setLoading(false);
             }
@@ -92,7 +92,7 @@ export default function MaintenanceBills() {
         try {
             const token = localStorage.getItem("Resident");
             if (!token) {
-                router.push("/Login");
+                router.push("/login");
                 return;
             }
 

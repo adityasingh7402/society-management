@@ -30,7 +30,7 @@ export default function Profile() {
             try {
                 const token = localStorage.getItem("Resident");
                 if (!token) {
-                    router.push("/Login");
+                    router.push("/login");
                     return;
                 }
 
@@ -52,7 +52,7 @@ export default function Profile() {
                 });
             } catch (error) {
                 console.error("Error fetching profile:", error);
-                router.push("/Login");
+                router.push("/login");
             }
         };
 

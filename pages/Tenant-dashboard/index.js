@@ -16,7 +16,7 @@ export default function Home() {
             try {
                 const token = localStorage.getItem("Tenant");
                 if (!token) {
-                    router.push("/Login");
+                    router.push("/login");
                     return;
                 }
 
@@ -32,7 +32,7 @@ export default function Home() {
             } catch (error) {
                 console.error("Error fetching profile:", error);
                 if (error.message === "Failed to fetch profile") {
-                    router.push("/Login");
+                    router.push("/login");
                     localStorage.removeItem("Tenant");
                 }
             } finally {

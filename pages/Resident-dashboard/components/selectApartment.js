@@ -48,7 +48,7 @@ export default function FlatSelection({ residentId }) {
             try {
                 const token = localStorage.getItem("Resident");
                 if (!token) {
-                    router.push("/Login");
+                    router.push("/login");
                     return;
                 }
 
@@ -67,7 +67,7 @@ export default function FlatSelection({ residentId }) {
             } catch (error) {
                 console.error("Error fetching profile:", error);
                 localStorage.removeItem("Resident");
-                router.push("/Login");
+                router.push("/login");
             } finally {
                 setLoading(false);
             }

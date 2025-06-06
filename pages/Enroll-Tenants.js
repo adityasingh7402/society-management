@@ -84,7 +84,7 @@ export default function TenantSignup() {
 
                 if (submitData.message === 'Tenant signed up successfully!') {
                     alert('Tenant signed up successfully!');
-                    router.push('/Login'); // Redirect after successful signup
+                    router.push('/login'); // Redirect after successful signup
                 } else {
                     alert('Error in tenant signup.');
                 }
@@ -110,7 +110,7 @@ export default function TenantSignup() {
                     <Link href={"/"}><h1 className="sm:text-xl md:text-3xl font-bold">SocietyManage</h1></Link>
                     <nav>
                         <ul className="flex space-x-6">
-                            <a href="/Login" className="hover:underline text-lg font-medium">Login</a>
+                            <a href="/login" className="hover:underline text-lg font-medium">Login</a>
                             <a href="/Contact" className="hover:underline text-lg font-medium">Contact</a>
                         </ul>
                     </nav>

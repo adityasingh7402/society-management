@@ -199,7 +199,7 @@ export default function ResidentSignup() {
                 if (submitData.message === 'Resident signed up successfully!') {
                     showNotification('success', 'Resident signed up successfully! Redirecting to login...');
                     setTimeout(() => {
-                        router.push('/Login');
+                        router.push('/login');
                     }, 2000);
                 } else {
                     showNotification('error', 'Error in resident signup. Please try again.');
@@ -310,7 +310,7 @@ export default function ResidentSignup() {
                     <nav>
                         <ul className="flex space-x-6">
                             <motion.li whileHover={{ scale: 1.1 }}>
-                                <Link href="/Login" className="hover:underline text-lg font-medium flex items-center">
+                                <Link href="/login" className="hover:underline text-lg font-medium flex items-center">
                                     <User size={18} className="mr-1" />
                                     <span>Login</span>
                                 </Link>
@@ -804,7 +804,7 @@ export default function ResidentSignup() {
                     >
                         <p className="text-gray-600">
                             Already have an account?{' '}
-                            <Link href="/Login" className="text-indigo-600 font-medium hover:underline">
+                            <Link href="/login" className="text-indigo-600 font-medium hover:underline">
                                 Login here
                             </Link>
                         </p>

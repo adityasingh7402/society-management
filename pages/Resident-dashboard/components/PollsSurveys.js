@@ -44,7 +44,7 @@ export default function ResidentPollsSurveys() {
         try {
             const token = localStorage.getItem('Resident');
             if (!token) {
-                router.push('/Login');
+                router.push('/login');
                 return;
             }
 
@@ -113,7 +113,7 @@ export default function ResidentPollsSurveys() {
             console.error('Error fetching polls and surveys:', error);
             toast.error(error.message || 'Failed to load data');
             if (error.status === 401) {
-                router.push('/Login');
+                router.push('/login');
             }
         } finally {
             setIsLoading(false);

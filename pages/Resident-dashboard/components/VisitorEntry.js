@@ -28,7 +28,7 @@ const VisitorEntry = () => {
             try {
                 const token = localStorage.getItem("Resident");
                 if (!token) {
-                    router.push("/Login");
+                    router.push("/login");
                     return;
                 }
 
@@ -50,7 +50,7 @@ const VisitorEntry = () => {
             } catch (error) {
                 console.error("Error fetching resident profile:", error);
                 setError("Failed to load your profile. Please login again.");
-                router.push("/Login");
+                router.push("/login");
             }
         };
 
