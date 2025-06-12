@@ -4,7 +4,8 @@ import {
   UserCircle, Bell, MessageCircleMore, ShoppingCart, Siren, 
   Wrench, PieChart, FileText, Home, ClipboardList, Package,
   Users, Pencil, Lightbulb, History, Hammer, Search,
-  Megaphone, BarChart, ShieldAlert, Plus, X, ChevronRight
+  Megaphone, BarChart, ShieldAlert, Plus, X, ChevronRight,
+  Building, Trees, Sun, Cloud, Leaf, Bird, Flower2, CloudSun, ShieldCheck, Waves, Palmtree
 } from 'lucide-react';
 
 const AndroidDashboard = ({ onLoaded }) => {
@@ -160,7 +161,19 @@ const AndroidDashboard = ({ onLoaded }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-20 relative overflow-hidden">
+      {/* Decorative Background Icons */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <Building className="absolute top-[15%] left-[10%] w-20 h-20 text-indigo-600/5 transform rotate-12 float-animation" />
+        <Trees className="absolute top-[35%] right-[8%] w-24 h-24 text-purple-600/5 transform -rotate-6 float-animation-reverse" />
+        <Waves className="absolute bottom-[25%] left-[5%] w-32 h-32 text-indigo-600/5 transform rotate-12 float-animation-slow" />
+        <Sun className="absolute top-[45%] left-[25%] w-16 h-16 text-purple-600/5 transform rotate-45 float-animation" />
+        <Cloud className="absolute top-[10%] right-[25%] w-20 h-20 text-indigo-600/5 transform -rotate-12 float-animation-reverse" />
+        <Leaf className="absolute bottom-[40%] right-[15%] w-16 h-16 text-purple-600/5 transform rotate-12 float-animation" />
+        <Palmtree className="absolute bottom-[15%] right-[10%] w-24 h-24 text-indigo-600/5 transform -rotate-6 float-animation-slow" />
+        <ShieldCheck className="absolute top-[60%] left-[15%] w-20 h-20 text-purple-600/5 transform rotate-12 float-animation-reverse" />
+        <CloudSun className="absolute bottom-[10%] left-[20%] w-16 h-16 text-indigo-600/5 transform -rotate-12 float-animation" />
+      </div>
       
       {/* Header with Image Slider */}
       <div className="relative m-1 rounded-3xl h-64 overflow-hidden">
@@ -188,8 +201,9 @@ const AndroidDashboard = ({ onLoaded }) => {
                   
                   {/* Buttons */}
                   <div className="flex space-x-3 mt-2">
-                    <button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors">
-                      Contact
+                    <button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors animated-gradient shadow-lg relative overflow-hidden group">
+                      <span className="relative z-10">Contact</span>
+                      <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></span>
                     </button>
                     <button className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors">
                       About
@@ -258,13 +272,18 @@ const AndroidDashboard = ({ onLoaded }) => {
         </div>
 
         {/* Feature Categories */}
-        <div className="space-y-4">
+                  <div className="space-y-4">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-semibold text-gray-900 relative">
               Services
               {/* Decorative underline */}
-              <span className="absolute bottom-0 left-0 w-1/3 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"></span>
+              <span className="absolute bottom-0 left-0 w-1/3 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full animated-gradient"></span>
             </h2>
+            {/* Decorative element */}
+            <div className="w-8 h-8 relative">
+              <span className="absolute inset-0 bg-gradient-to-r from-indigo-400/30 to-purple-400/30 rounded-full blur-md float-animation-slow"></span>
+              <span className="absolute inset-0 border border-indigo-500/20 rounded-full"></span>
+            </div>
           </div>
           
           <div className="grid grid-cols-2 gap-3">
@@ -378,14 +397,17 @@ const AndroidDashboard = ({ onLoaded }) => {
           className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transform transition-all duration-300 active:scale-95 ${
             fabOpen 
               ? 'rotate-45 bg-gray-700 scale-110' 
-              : 'hover:scale-110 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700'
+              : 'hover:scale-110 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 animated-gradient'
           }`}
         >
           <Plus className="w-7 h-7 text-white" />
 
           {/* Animated ring effect */}
           {!fabOpen && (
-            <span className="absolute w-full h-full rounded-full border-4 border-indigo-400/30 animate-ping"></span>
+            <>
+              <span className="absolute w-full h-full rounded-full border-4 border-indigo-400/30 animate-ping"></span>
+              <span className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-400/20 to-purple-400/20 blur-md"></span>
+            </>
           )}
         </button>
       </div>
@@ -486,6 +508,47 @@ const AndroidDashboard = ({ onLoaded }) => {
         
         .animate-fade-out-down {
           animation: fade-out-down 0.2s ease-out forwards;
+        }
+
+        @keyframes gradient-shift {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+
+        .animated-gradient {
+          background-size: 200% 200%;
+          animation: gradient-shift 3s ease infinite;
+        }
+
+        @keyframes float {
+          0% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-10px) rotate(5deg);
+          }
+          100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+        }
+
+        .float-animation {
+          animation: float 8s ease-in-out infinite;
+        }
+
+        .float-animation-reverse {
+          animation: float 6s ease-in-out infinite reverse;
+        }
+
+        .float-animation-slow {
+          animation: float 10s ease-in-out infinite;
         }
       `}</style>
     </div>
