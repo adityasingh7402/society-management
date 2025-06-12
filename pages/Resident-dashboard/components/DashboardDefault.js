@@ -4,7 +4,7 @@ import {
   UserCircle, Bell, MessageCircleMore, ShoppingCart, Siren, 
   Wrench, PieChart, FileText, Home, ClipboardList, Package,
   Users, Pencil, Lightbulb, History, Hammer, Search,
-  Megaphone, BarChart, ShieldAlert, Plus, X, ChevronRight,
+  Megaphone, BarChart, ShieldAlert, Plus, X, ChevronRight, FolderCheck,
   Building, Trees, Sun, Cloud, Leaf, Bird, Flower2, CloudSun, ShieldCheck, Waves, Palmtree
 } from 'lucide-react';
 
@@ -266,6 +266,30 @@ const AndroidDashboard = ({ onLoaded }) => {
               <p className="text-2xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors duration-300">3</p>
               <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
                 <Wrench className="w-6 h-6 text-orange-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-white rounded-xl p-4 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300 border border-gray-100/80">
+            {/* Background gradient decoration */}
+            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-red-500/20 to-red-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+            <div className="flex flex-col relative z-10">
+              <p className="text-sm text-gray-600 font-medium">Messages</p>
+              <p className="text-2xl font-bold text-gray-900 group-hover:text-red-600 transition-colors duration-300">4</p>
+              <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
+                <MessageCircleMore className="w-6 h-6 text-red-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300 border border-gray-100/80">
+            {/* Background gradient decoration */}
+            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-orange-500/20 to-orange-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+            <div className="flex flex-col relative z-10">
+              <p className="text-sm text-gray-600 font-medium">Notifications</p>
+              <p className="text-2xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors duration-300">6</p>
+              <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
+                <FolderCheck  className="w-6 h-6 text-orange-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
               </div>
             </div>
           </div>
