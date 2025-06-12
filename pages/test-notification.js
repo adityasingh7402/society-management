@@ -11,7 +11,7 @@ export default function TestNotification() {
   const sampleData = {
     residentId: residentId,
     visitorId: "65a123b4c5d6e7f8g9h0i1j3",
-    visitorName: "John Doe",
+    visitorName: "Aditya",
     guardName: "Security Guard",
     guardPhone: "1234567890",
     visitorReason: "Family Visit",
