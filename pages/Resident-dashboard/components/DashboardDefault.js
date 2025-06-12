@@ -5,7 +5,7 @@ import {
   Wrench, PieChart, FileText, Home, ClipboardList, Package,
   Users, Pencil, Lightbulb, History, Hammer, Search,
   Megaphone, BarChart, ShieldAlert, Plus, X, ChevronRight, FolderCheck,
-  Building, Trees, Sun, Cloud, Leaf, Bird, Flower2, CloudSun, ShieldCheck, Waves, Palmtree
+  Building, Trees, Sun, Cloud, Leaf, Bird, Flower2, CloudSun, ShieldCheck, Waves,Headphones, Palmtree
 } from 'lucide-react';
 
 const AndroidDashboard = ({ onLoaded }) => {
@@ -22,7 +22,7 @@ const AndroidDashboard = ({ onLoaded }) => {
   const bottomNavItems = [
     { id: 'home', icon: Home, label: 'Home', href: '/Resident-dashboard' },
     { id: 'profile', icon: UserCircle, label: 'Profile', href: '/Resident-dashboard/components/Profile' },
-    { id: 'chat', icon: MessageCircleMore, label: 'Chat', href: '/Resident-dashboard/components/ResidentChat' },
+    { id: 'chat', icon: MessageCircleMore, label: 'Chat', href: '/Resident-dashboard/Community' },
     { id: 'notifications', icon: Bell, label: 'Alerts', href: '/Resident-dashboard/components/Emergency' },
   ];
 
@@ -142,10 +142,20 @@ const AndroidDashboard = ({ onLoaded }) => {
       icon: Users,
       color: 'bg-green-500',
       items: [
-        { icon: MessageCircleMore, label: 'Resident Chat', href: '/Resident-dashboard/components/ResidentChat' },
         { icon: Megaphone, label: 'Announcements', href: '/Resident-dashboard/components/Announcements' },
         { icon: BarChart, label: 'Polls & Surveys', href: '/Resident-dashboard/components/PollsSurveys' },
         { icon: ShieldAlert, label: 'Visitor Entry', href: '/Resident-dashboard/components/VisitorEntry' }
+      ]
+    },
+    {
+      id: 'directory',
+      title: 'Directory',
+      icon: Users,
+      color: 'bg-green-500',
+      items: [
+        { icon: MessageCircleMore, label: 'Resident Chat', href: 'Resident-dashboard/components/ResidentChat' },
+        { icon: Users, label: 'Society Chat', href: 'Resident-dashboard/components/SocietyChat' },
+        { icon: Headphones, label: 'Help Desk', href: 'Resident-dashboard/components/HelpDesk' },
       ]
     },
     {
@@ -335,6 +345,7 @@ const AndroidDashboard = ({ onLoaded }) => {
                       ${category.id === 'property' ? 'bg-gradient-to-br from-blue-400 to-blue-600' : 
                         category.id === 'services' ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
                         category.id === 'community' ? 'bg-gradient-to-br from-green-400 to-green-600' :
+                        category.id === 'directory' ? 'bg-gradient-to-br from-cyan-400 to-blue-600' :
                         'bg-gradient-to-br from-purple-400 to-purple-600'}`}
                   >
                     <category.icon className="w-8 h-8 text-white" />
@@ -449,8 +460,9 @@ const AndroidDashboard = ({ onLoaded }) => {
             {/* Popup header with gradient background */}
             <div className={`p-6 border-b border-gray-100
               ${categoryPopup.id === 'property' ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 
-                categoryPopup.id === 'services' ? 'bg-gradient-to-r from-orange-500 to-orange-600' :
-                categoryPopup.id === 'community' ? 'bg-gradient-to-r from-green-500 to-green-600' :
+                                  categoryPopup.id === 'services' ? 'bg-gradient-to-r from-orange-500 to-orange-600' :
+                  categoryPopup.id === 'community' ? 'bg-gradient-to-r from-green-500 to-green-600' :
+                 categoryPopup.id === 'directory' ? 'bg-gradient-to-r from-cyan-500 to-blue-600' :
                 'bg-gradient-to-r from-purple-500 to-purple-600'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
