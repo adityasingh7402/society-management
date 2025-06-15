@@ -294,7 +294,7 @@ const Marketplace = () => {
       </Head>
       
       {/* Header */}
-      <div className="bg-white shadow-md py-4 px-6 sticky top-0 z-10">
+      <div className="bg-white z-20 shadow-md py-4 px-6 sticky top-0">
         <div className="max-w-6xl mx-auto">
           <div className="p-2">
             <button
@@ -341,7 +341,7 @@ const Marketplace = () => {
               className="flex items-center space-x-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
             >
               <Filter size={18} />
-              <span>Filters</span>
+              <span>Filters</span> 
               <ChevronDown size={16} className={`transform transition-transform ${showFilters ? 'rotate-180' : ''}`} />
             </button>
           </div>
@@ -428,7 +428,7 @@ const Marketplace = () => {
       </div>
 
       {/* Products Display */}
-      <div className="max-w-6xl mx-auto px-4 mt-6">
+      <div className="w-full max-w-4xl mx-auto px-4 mt-6">
         {formattedProducts.length === 0 ? (
           <div className="text-center py-10">
             <ShoppingCart size={48} className="mx-auto text-gray-400 mb-4" />
@@ -442,15 +442,15 @@ const Marketplace = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 gap-4">
             {formattedProducts.map((product) => (
               <Link 
                 key={product._id} 
                 href={`/Resident-dashboard/components/ProductDetail?id=${product._id}`}
-                className="block bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                className="block bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full"
               >
                 {/* Product Image */}
-                <div className="relative h-48 bg-gray-200">
+                <div className="relative w-full h-48">
                   {/* Delete button - only show for the product owner */}
                   {residentData && product.sellerId === residentData._id && (
                     <button 
@@ -458,7 +458,7 @@ const Marketplace = () => {
                       className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow-md hover:bg-red-100 transition-colors z-10"
                       title="Delete product"
                     >
-                      <Trash2 size={18} className="text-red-500" />
+                      <Trash2 size={16} className="text-red-500" />
                     </button>
                   )}
                   
@@ -470,29 +470,29 @@ const Marketplace = () => {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <Tag size={48} className="text-gray-400" />
+                      <Tag size={32} className="text-gray-400" />
                     </div>
                   )}
                   
                   {/* Status Tag */}
                   {product.status !== 'Available' && (
-                    <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 text-xs font-semibold rounded">
+                    <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-0.5 text-xs font-semibold rounded">
                       {product.status}
                     </div>
                   )}
                 </div>
                 
                 {/* Product Info */}
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 hover:text-blue-600 line-clamp-1">{product.title}</h3>
+                <div className="p-3">
+                  <h3 className="text-base font-semibold text-gray-800 hover:text-blue-600 line-clamp-1">{product.title}</h3>
                   
                   <div className="mt-1">
-                    <span className="text-xl font-bold text-blue-600">{formatPrice(product.price)}</span>
+                    <span className="text-lg font-bold text-blue-600">{formatPrice(product.price)}</span>
                   </div>
                   
-                  <div className="mt-2 flex items-center text-sm text-gray-500">
-                    <span className="mr-2">Condition:</span>
-                    <span className={`px-2 py-0.5 rounded text-xs ${
+                  <div className="mt-1.5 flex items-center text-sm text-gray-500">
+                    <span className="text-xs mr-1.5">Condition:</span>
+                    <span className={`px-1.5 py-0.5 rounded text-xs ${
                       product.condition === 'New' ? 'bg-green-100 text-green-800' :
                       product.condition === 'Like New' ? 'bg-emerald-100 text-emerald-800' :
                       product.condition === 'Good' ? 'bg-blue-100 text-blue-800' :
@@ -503,53 +503,54 @@ const Marketplace = () => {
                     </span>
                   </div>
                   
-                  <p className="mt-2 text-sm text-gray-600 line-clamp-2">{product.description}</p>
+                  <p className="mt-1.5 text-xs text-gray-600 line-clamp-1">{product.description}</p>
                   
                   {/* Seller Info */}
-                  <div className="mt-3 flex items-center">
-                    <div className="flex-shrink-0">
-                      {product.sellerImage ? (
-                        <img
-                          src={product.sellerImage}
-                          alt={product.sellerName}
-                          className="h-8 w-8 rounded-full"
-                        />
-                      ) : (
-                        <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                          <span className="text-xs font-medium text-gray-500">
-                            {product.sellerName.charAt(0)}
-                          </span>
-                        </div>
-                      )}
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        {product.sellerImage ? (
+                          <img
+                            src={product.sellerImage}
+                            alt={product.sellerName}
+                            className="h-6 w-6 rounded-full"
+                          />
+                        ) : (
+                          <div className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-xs font-medium text-gray-500">
+                              {product.sellerName.charAt(0)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="ml-1.5">
+                        <p className="text-xs text-gray-500 line-clamp-1">{product.sellerName}</p>
+                      </div>
                     </div>
-                    <div className="ml-2">
-                      <p className="text-xs text-gray-500">Posted by</p>
-                      <p className="text-sm font-medium text-gray-700">{product.sellerName}</p>
-                    </div>
-                    <div className="ml-auto text-xs text-gray-500">
+                    <div className="text-xs text-gray-500">
                       {formatDate(product.createdAt)}
                     </div>
                   </div>
                   
                   {/* Actions */}
-                  <div className="mt-4 flex items-center justify-between border-t pt-3">
+                  <div className="mt-2 pt-2 border-t flex items-center justify-between">
                     <button 
                       className={`flex items-center space-x-1 ${
                         isLikedByUser(product) ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
                       }`}
                       onClick={(e) => {
-                        e.preventDefault(); // Prevent navigation to product detail
-                        e.stopPropagation(); // Prevent event bubbling
+                        e.preventDefault();
+                        e.stopPropagation();
                         handleLike(product._id);
                       }}
                     >
-                      <Heart size={18} fill={isLikedByUser(product) ? 'currentColor' : 'none'} />
-                      <span>{product.likes.length}</span>
+                      <Heart size={14} fill={isLikedByUser(product) ? 'currentColor' : 'none'} />
+                      <span className="text-xs">{product.likes.length}</span>
                     </button>
                     
                     <div className="flex items-center space-x-1 text-gray-500">
-                      <MessageCircle size={18} />
-                      <span>{product.comments.length}</span>
+                      <MessageCircle size={14} />
+                      <span className="text-xs">{product.comments.length}</span>
                     </div>
                   </div>
                 </div>

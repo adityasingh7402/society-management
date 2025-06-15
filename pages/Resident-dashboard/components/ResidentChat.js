@@ -43,7 +43,7 @@ export default function ResidentChat() {
               const sellerData = JSON.parse(storedSellerData);
               
               // Validate required fields
-              if (!sellerData.sellerId || !sellerData.sellerName || !sellerData.productTitle) {
+              if (!sellerData.sellerId || !sellerData.sellerName) {
                 throw new Error('Invalid seller data');
               }
               
@@ -53,7 +53,13 @@ export default function ResidentChat() {
                 name: sellerData.sellerName,
                 userImage: sellerData.sellerImage,
                 flatDetails: { flatNumber: 'Seller' },
-                productRef: {
+                productRef: sellerData.propertyType === 'property' ? {
+                  id: sellerData.propertyId,
+                  title: sellerData.propertyTitle,
+                  type: 'property',
+                  price: sellerData.propertyPrice,
+                  image: sellerData.propertyImage
+                } : {
                   id: sellerData.productId,
                   title: sellerData.productTitle
                 }
@@ -462,12 +468,22 @@ export default function ResidentChat() {
       setSelectedResident(resident);
       setShowChat(true);
       
-      // Check if this is a product-related chat
+      // Check if this is a product or property-related chat
       if (resident.productRef) {
-        // If first message in chat, initialize with a product reference
+        // If first message in chat, initialize with a reference message
         if (!chatMessages[resident._id] || chatMessages[resident._id].length === 0) {
-          // Pre-populate a message about the product
-          setNewMessage(`Hi, I'm interested in your listing: ${resident.productRef.title}`);
+          // Pre-populate a message based on the type
+          if (resident.productRef.type === 'property') {
+            const price = new Intl.NumberFormat('en-IN', {
+              style: 'currency',
+              currency: 'INR',
+              maximumFractionDigits: 0
+            }).format(resident.productRef.price);
+            
+            setNewMessage(`Hi, I'm interested in your property listing: ${resident.productRef.title} (${price})`);
+          } else {
+            setNewMessage(`Hi, I'm interested in your listing: ${resident.productRef.title}`);
+          }
         }
       }
       
@@ -696,7 +712,8 @@ export default function ResidentChat() {
               onSend={sendMessage}
               selectedFiles={selectedFiles}
               setSelectedFiles={setSelectedFiles}
-              productRef={selectedResident?.productRef}
+              productRef={selectedResident?.productRef?.type !== 'property' ? selectedResident?.productRef : null}
+              propertyRef={selectedResident?.productRef?.type === 'property' ? selectedResident?.productRef : null}
             />
           </div>
         </>

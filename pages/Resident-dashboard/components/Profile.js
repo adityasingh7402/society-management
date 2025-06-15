@@ -172,14 +172,22 @@ export default function Profile() {
 
     return (
         <motion.div 
-            className="min-h-screen bg-white"
+            className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 relative"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
         >
+            {/* Background pattern overlay */}
+            <div className="absolute inset-0 z-0 opacity-10" 
+                style={{ 
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236366F1' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                    backgroundSize: '60px 60px'
+                }}>
+            </div>
+
             {/* Header */}
             <motion.div 
-                className="bg-blue-600 text-white py-4 px-4 shadow-md"
+                className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-4 px-4 shadow-lg"
                 initial={{ y: -50 }}
                 animate={{ y: 0 }}
                 transition={{ type: "spring", stiffness: 100 }}
@@ -187,10 +195,10 @@ export default function Profile() {
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
                     <motion.button 
                         onClick={() => router.back()} 
-                        className="flex items-center space-x-2 text-white"
+                        className="flex items-center space-x-2 text-white bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 hover:bg-white/30 transition-colors transform hover:scale-105 duration-200"
                         whileTap={{ scale: 0.95 }}
                     >
-                        <ChevronLeft size={24} />
+                        <ChevronLeft size={20} />
                         <span className="text-base font-medium">Back</span>
                     </motion.button>
                     <motion.h1 
@@ -199,279 +207,255 @@ export default function Profile() {
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.2 }}
                     >
-                        My Profile
+                        Profile Settings
                     </motion.h1>
-                    <div className="w-10"></div> {/* Spacer for alignment */}
+                    <div className="w-24"></div> {/* Spacer for alignment */}
                 </div>
             </motion.div>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 py-6">
+            <main className="max-w-7xl mx-auto px-4 py-6 relative z-10">
                 {/* Profile Form */}
                 <motion.div 
-                    className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100"
+                    className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-indigo-50"
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
                 >
-                    <div className="bg-blue-50 px-6 py-4 border-b border-blue-100">
-                        <h2 className="text-xl font-semibold text-blue-800 flex items-center">
-                            <User size={20} className="mr-2 text-blue-600" />
+                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4 border-b border-indigo-100">
+                        <h2 className="text-xl font-semibold text-indigo-800 flex items-center">
+                            <User size={20} className="mr-2 text-indigo-600" />
                             Edit Resident Profile
                         </h2>
                     </div>
                     
-                    <form onSubmit={handlePreviewSubmit} className="p-6">
+                    <form onSubmit={handlePreviewSubmit} className="p-6 space-y-8">
                         <motion.div 
-                            className="grid grid-cols-1 gap-6 md:grid-cols-2"
+                            className="space-y-8"
                             variants={containerVariants}
                         >
-                            {/* Name */}
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <User size={16} className="mr-2 text-blue-500" />
-                                    Name
-                                </label>
-                                <input
-                                    type="text"
-                                    name="name"
-                                    value={formData.name}
-                                    onChange={handleChange}
-                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all duration-200"
-                                    required
-                                />
-                            </motion.div>
-
-                            {/* Primary Phone */}
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <Phone size={16} className="mr-2 text-blue-500" />
-                                    Primary Phone
-                                </label>
-                                <input
-                                    type="text"
-                                    name="phone"
-                                    value={formData.phone}
-                                    onChange={handleChange}
-                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all duration-200"
-                                    required
-                                />
-                            </motion.div>
-
-                            {/* Additional Phone Numbers */}
-                            {formData.additionalNumbers.map((number, index) => (
-                                <motion.div 
-                                    key={index} 
-                                    variants={itemVariants}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                >
-                                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                        <Phone size={16} className="mr-2 text-blue-500" />
-                                        Additional Phone {index + 1}
-                                    </label>
-                                    <div className="flex gap-2">
+                            {/* Personal Information Section */}
+                            <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
+                                    <h2 className="text-lg font-semibold text-white flex items-center">
+                                        <User size={20} className="mr-2" />
+                                        Personal Information
+                                    </h2>
+                                </div>
+                                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">Name</label>
                                         <input
                                             type="text"
-                                            value={number}
-                                            onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
-                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all duration-200"
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleChange}
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                            required
                                         />
-                                        <motion.button
-                                            type="button"
-                                            onClick={() => handleRemoveNumber(index)}
-                                            className="bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 transition-colors flex items-center"
-                                            whileTap={{ scale: 0.95 }}
-                                        >
-                                            <Trash2 size={18} />
-                                        </motion.button>
                                     </div>
-                                </motion.div>
-                            ))}
-
-                            {/* Add Another Number Button */}
-                            <motion.div 
-                                className="col-span-1 md:col-span-2"
-                                variants={itemVariants}
-                            >
-                                <motion.button
-                                    type="button"
-                                    onClick={handleAddNumber}
-                                    className="bg-blue-100 text-blue-800 px-4 py-3 rounded-lg hover:bg-blue-200 transition-colors flex items-center justify-center w-full md:w-auto"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                >
-                                    <Plus size={18} className="mr-2" />
-                                    Add Another Number
-                                </motion.button>
-                            </motion.div>
-
-                            {/* Email */}
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <Mail size={16} className="mr-2 text-blue-500" />
-                                    Email
-                                </label>
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all duration-200"
-                                    required
-                                />
-                            </motion.div>
-
-                            {/* Address Fields */}
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <MapPin size={16} className="mr-2 text-blue-500" />
-                                    Street
-                                </label>
-                                <input
-                                    type="text"
-                                    name="street"
-                                    value={formData.address.street}
-                                    onChange={handleAddressChange}
-                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
-                                    disabled
-                                />
-                            </motion.div>
-
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <MapPin size={16} className="mr-2 text-blue-500" />
-                                    City
-                                </label>
-                                <input
-                                    type="text"
-                                    name="city"
-                                    value={formData.address.city}
-                                    onChange={handleAddressChange}
-                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
-                                    disabled
-                                />
-                            </motion.div>
-
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <MapPin size={16} className="mr-2 text-blue-500" />
-                                    State
-                                </label>
-                                <input
-                                    type="text"
-                                    name="state"
-                                    value={formData.address.state}
-                                    onChange={handleAddressChange}
-                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
-                                    disabled
-                                />
-                            </motion.div>
-
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <MapPin size={16} className="mr-2 text-blue-500" />
-                                    Pin Code
-                                </label>
-                                <input
-                                    type="text"
-                                    name="pinCode"
-                                    value={formData.address.pinCode}
-                                    onChange={handleAddressChange}
-                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
-                                    disabled
-                                />
-                            </motion.div>
-
-                            {/* Society Information */}
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <Building size={16} className="mr-2 text-blue-500" />
-                                    Society Code
-                                </label>
-                                <input
-                                    type="text"
-                                    name="societyCode"
-                                    value={formData.societyCode}
-                                    onChange={handleChange}
-                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all duration-200"
-                                    required
-                                />
-                            </motion.div>
-
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <Building size={16} className="mr-2 text-blue-500" />
-                                    Society ID
-                                </label>
-                                <input
-                                    type="text"
-                                    name="societyId"
-                                    value={formData.societyId}
-                                    onChange={handleChange}
-                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
-                                    disabled
-                                />
-                            </motion.div>
-
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <Building size={16} className="mr-2 text-blue-500" />
-                                    Society Name
-                                </label>
-                                <input
-                                    type="text"
-                                    name="societyName"
-                                    value={formData.societyName}
-                                    onChange={handleChange}
-                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
-                                    disabled
-                                />
-                            </motion.div>
-
-                            {/* Resident ID */}
-                            <motion.div variants={itemVariants}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                                    <User size={16} className="mr-2 text-blue-500" />
-                                    Resident ID
-                                </label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        name="residentId"
-                                        value={formData.residentId}
-                                        onChange={handleChange}
-                                        className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
-                                        disabled
-                                    />
-                                    <motion.button
-                                        type="button"
-                                        onClick={handleCopy}
-                                        className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        {copySuccess ? <Check size={18} /> : <Copy size={18} />}
-                                    </motion.button>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">Email</label>
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                            required
+                                        />
+                                    </div>
                                 </div>
                             </motion.div>
-                        </motion.div>
 
-                        {/* Form Actions */}
-                        <motion.div 
-                            className="mt-8 flex justify-center md:justify-end"
-                            variants={itemVariants}
-                        >
-                            <motion.button
-                                type="submit"
-                                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md flex items-center justify-center w-full md:w-auto"
-                                whileHover={{ scale: 1.03 }}
-                                whileTap={{ scale: 0.97 }}
-                            >
-                                <Eye size={18} className="mr-2" />
-                                Preview Changes
-                            </motion.button>
+                            {/* Contact Information Section */}
+                            <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
+                                    <h2 className="text-lg font-semibold text-white flex items-center">
+                                        <Phone size={20} className="mr-2" />
+                                        Contact Information
+                                    </h2>
+                                </div>
+                                <div className="p-6 space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">Primary Phone</label>
+                                        <input
+                                            type="text"
+                                            name="phone"
+                                            value={formData.phone}
+                                            onChange={handleChange}
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                            required
+                                        />
+                                    </div>
+                                    
+                                    {/* Additional Phone Numbers */}
+                                    {formData.additionalNumbers.map((number, index) => (
+                                        <div key={index} className="space-y-2">
+                                            <label className="block text-sm font-medium text-gray-700">
+                                                Additional Phone {index + 1}
+                                            </label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={number}
+                                                    onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
+                                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                                />
+                                                <motion.button
+                                                    type="button"
+                                                    onClick={() => handleRemoveNumber(index)}
+                                                    className="bg-red-500 text-white p-3 rounded-lg hover:bg-red-600 transition-colors flex items-center shadow-sm hover:shadow-md"
+                                                    whileTap={{ scale: 0.95 }}
+                                                >
+                                                    <Trash2 size={20} />
+                                                </motion.button>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {/* Add Phone Button */}
+                                    {formData.additionalNumbers.length < 3 && (
+                                        <motion.button
+                                            type="button"
+                                            onClick={handleAddNumber}
+                                            className="w-full bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 px-4 py-3 rounded-lg hover:from-indigo-100 hover:to-purple-100 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                                            whileHover={{ scale: 1.01 }}
+                                            whileTap={{ scale: 0.98 }}
+                                        >
+                                            <Plus size={20} />
+                                            Add Phone Number
+                                        </motion.button>
+                                    )}
+                                </div>
+                            </motion.div>
+
+                            {/* Address Information Section */}
+                            <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
+                                    <h2 className="text-lg font-semibold text-white flex items-center">
+                                        <MapPin size={20} className="mr-2" />
+                                        Address Information
+                                    </h2>
+                                </div>
+                                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">Street</label>
+                                        <input
+                                            type="text"
+                                            name="street"
+                                            value={formData.address.street}
+                                            onChange={handleAddressChange}
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                            disabled
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">City</label>
+                                        <input
+                                            type="text"
+                                            name="city"
+                                            value={formData.address.city}
+                                            onChange={handleAddressChange}
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                            disabled
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">State</label>
+                                        <input
+                                            type="text"
+                                            name="state"
+                                            value={formData.address.state}
+                                            onChange={handleAddressChange}
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                            disabled
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">Pin Code</label>
+                                        <input
+                                            type="text"
+                                            name="pinCode"
+                                            value={formData.address.pinCode}
+                                            onChange={handleAddressChange}
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                            disabled
+                                        />
+                                    </div>
+                                </div>
+                            </motion.div>
+
+                            {/* Society Information Section */}
+                            <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
+                                    <h2 className="text-lg font-semibold text-white flex items-center">
+                                        <Building size={20} className="mr-2" />
+                                        Society Information
+                                    </h2>
+                                </div>
+                                <div className="p-6 space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-gray-700">Society Code</label>
+                                            <input
+                                                type="text"
+                                                name="societyCode"
+                                                value={formData.societyCode}
+                                                onChange={handleChange}
+                                                className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-gray-700">Society Name</label>
+                                            <input
+                                                type="text"
+                                                name="societyName"
+                                                value={formData.societyName}
+                                                onChange={handleChange}
+                                                className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                                disabled
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">Resident ID</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                name="residentId"
+                                                value={formData.residentId}
+                                                onChange={handleChange}
+                                                className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                                disabled
+                                            />
+                                            <motion.button
+                                                type="button"
+                                                onClick={handleCopy}
+                                                className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-3 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center"
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                            >
+                                                {copySuccess ? <Check size={20} /> : <Copy size={20} />}
+                                            </motion.button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+
+                            {/* Submit Button */}
+                            <motion.div variants={itemVariants} className="pt-4">
+                                <motion.button
+                                    type="submit"
+                                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 text-lg font-medium"
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    <Eye size={20} />
+                                    Preview Changes
+                                </motion.button>
+                            </motion.div>
                         </motion.div>
                     </form>
                 </motion.div>
@@ -480,57 +464,57 @@ export default function Profile() {
             {/* Preview Modal */}
             {showModal && (
                 <motion.div 
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                 >
                     <motion.div 
-                        className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl"
+                        className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl border border-indigo-50"
                         variants={modalVariants}
                         initial="hidden"
                         animate="visible"
                         exit="exit"
                     >
-                        <h2 className="text-xl font-semibold text-blue-800 mb-4 flex items-center">
-                            <Eye size={20} className="mr-2 text-blue-600" />
+                        <h2 className="text-xl font-semibold text-indigo-800 mb-4 flex items-center">
+                            <Eye size={20} className="mr-2 text-indigo-600" />
                             Preview Changes
                         </h2>
                         
-                        <div className="space-y-4 bg-blue-50 p-4 rounded-lg">
+                        <div className="space-y-4 bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-xl">
                             <motion.div 
                                 className="grid grid-cols-1 md:grid-cols-2 gap-4"
                                 variants={containerVariants}
                                 initial="hidden"
                                 animate="visible"
                             >
-                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
-                                    <span className="font-semibold text-blue-700">Name:</span> {formData.name}
+                                <motion.p variants={itemVariants} className="p-3 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-indigo-700">Name:</span> {formData.name}
                                 </motion.p>
-                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
-                                    <span className="font-semibold text-blue-700">Primary Phone:</span> {formData.phone}
+                                <motion.p variants={itemVariants} className="p-3 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-indigo-700">Primary Phone:</span> {formData.phone}
                                 </motion.p>
                                 
                                 {formData.additionalNumbers.map((number, index) => (
-                                    <motion.p key={index} variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
-                                        <span className="font-semibold text-blue-700">Additional Phone {index + 1}:</span> {number}
+                                    <motion.p key={index} variants={itemVariants} className="p-3 bg-white rounded-lg shadow-sm">
+                                        <span className="font-semibold text-indigo-700">Additional Phone {index + 1}:</span> {number}
                                     </motion.p>
                                 ))}
                                 
-                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
-                                    <span className="font-semibold text-blue-700">Email:</span> {formData.email}
+                                <motion.p variants={itemVariants} className="p-3 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-indigo-700">Email:</span> {formData.email}
                                 </motion.p>
-                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
-                                    <span className="font-semibold text-blue-700">Address:</span> {formData.address.street}, {formData.address.city}, {formData.address.state}, {formData.address.pinCode}
+                                <motion.p variants={itemVariants} className="p-3 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-indigo-700">Address:</span> {formData.address.street}, {formData.address.city}, {formData.address.state}, {formData.address.pinCode}
                                 </motion.p>
-                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
-                                    <span className="font-semibold text-blue-700">Society Code:</span> {formData.societyCode}
+                                <motion.p variants={itemVariants} className="p-3 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-indigo-700">Society Code:</span> {formData.societyCode}
                                 </motion.p>
-                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm">
-                                    <span className="font-semibold text-blue-700">Society Name:</span> {formData.societyName}
+                                <motion.p variants={itemVariants} className="p-3 bg-white rounded-lg shadow-sm">
+                                    <span className="font-semibold text-indigo-700">Society Name:</span> {formData.societyName}
                                 </motion.p>
-                                <motion.p variants={itemVariants} className="p-2 bg-white rounded-lg shadow-sm md:col-span-2">
-                                    <span className="font-semibold text-blue-700">Resident ID:</span> {formData.residentId}
+                                <motion.p variants={itemVariants} className="p-3 bg-white rounded-lg shadow-sm md:col-span-2">
+                                    <span className="font-semibold text-indigo-700">Resident ID:</span> {formData.residentId}
                                 </motion.p>
                             </motion.div>
                         </div>
@@ -539,7 +523,7 @@ export default function Profile() {
                             <motion.button
                                 type="button"
                                 onClick={() => setShowModal(false)}
-                                className="bg-gray-200 text-gray-800 px-5 py-3 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center"
+                                className="px-5 py-3 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors flex items-center justify-center shadow-sm hover:shadow-md"
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                             >
@@ -549,11 +533,10 @@ export default function Profile() {
                                 type="button"
                                 onClick={handleFinalSubmit}
                                 disabled={isSubmitting}
-                                className={`bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center ${isSubmitting ? 'opacity-70' : ''}`}
-                                whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+                                className={`bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-5 py-3 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center transform hover:scale-[1.02] ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
                                 whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
                             >
-                                {isSubmitting ? 'Submitting...' : 'Confirm Changes'}
+                                {isSubmitting ? 'Updating...' : 'Confirm Changes'}
                             </motion.button>
                         </div>
                     </motion.div>

@@ -120,8 +120,8 @@ const AndroidDashboard = ({ onLoaded }) => {
       items: [
         { icon: FileText, label: 'Ownership', href: '/Resident-dashboard/components/Ownership' },
         { icon: Home, label: 'House Details', href: '/Resident-dashboard/components/House' },
-        { icon: ClipboardList, label: 'Sell Property', href: '/Resident-dashboard/components/SellProperty' },
-        { icon: Package, label: 'Sell Items', href: '/Resident-dashboard/components/SellItems' }
+        { icon: ClipboardList, label: 'Property', href: '/Resident-dashboard/components/SellProperty' },
+        { icon: Package, label: 'Items Marketplace', href: '/Resident-dashboard/components/Marketplace' }
       ]
     },
     {
@@ -171,9 +171,9 @@ const AndroidDashboard = ({ onLoaded }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 relative overflow-hidden">
-      {/* Decorative Background Icons */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 pb-20 relative isolate">
+      {/* Decorative Background Icons - with reduced size and opacity */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
         <Building className="absolute top-[15%] left-[10%] w-20 h-20 text-indigo-600/5 transform rotate-12 float-animation" />
         <Trees className="absolute top-[35%] right-[8%] w-24 h-24 text-purple-600/5 transform -rotate-6 float-animation-reverse" />
         <Waves className="absolute bottom-[25%] left-[5%] w-32 h-32 text-indigo-600/5 transform rotate-12 float-animation-slow" />
@@ -211,7 +211,7 @@ const AndroidDashboard = ({ onLoaded }) => {
                   
                   {/* Buttons */}
                   <div className="flex space-x-3 mt-2">
-                    <button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors animated-gradient shadow-lg relative overflow-hidden group">
+                    <button className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-700 hover:to-purple-700 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors animated-gradient shadow-lg relative overflow-hidden group">
                       <span className="relative z-10">Contact</span>
                       <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></span>
                     </button>
@@ -283,23 +283,23 @@ const AndroidDashboard = ({ onLoaded }) => {
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-white rounded-xl p-4 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300 border border-gray-100/80">
             {/* Background gradient decoration */}
-            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-red-500/20 to-red-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-green-500/20 to-green-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
             <div className="flex flex-col relative z-10">
               <p className="text-sm text-gray-600 font-medium">Messages</p>
-              <p className="text-2xl font-bold text-gray-900 group-hover:text-red-600 transition-colors duration-300">4</p>
+              <p className="text-2xl font-bold text-gray-900 group-hover:text-green-600 transition-colors duration-300">4</p>
               <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
-                <MessageCircleMore className="w-6 h-6 text-red-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+                <MessageCircleMore className="w-6 h-6 text-green-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
               </div>
             </div>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300 border border-gray-100/80">
             {/* Background gradient decoration */}
-            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-orange-500/20 to-orange-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-blue-500/20 to-blue-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
             <div className="flex flex-col relative z-10">
               <p className="text-sm text-gray-600 font-medium">Notifications</p>
-              <p className="text-2xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors duration-300">6</p>
+              <p className="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300">6</p>
               <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
-                <FolderCheck  className="w-6 h-6 text-orange-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+                <FolderCheck  className="w-6 h-6 text-blue-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
               </div>
             </div>
           </div>
@@ -369,8 +369,8 @@ const AndroidDashboard = ({ onLoaded }) => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg backdrop-blur-lg bg-white/90 z-30">
-        <div className="flex items-center justify-around py-2 px-2">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/90 border-t border-gray-200 shadow-lg backdrop-blur-md z-40">
+        <div className="flex items-center justify-around py-2 px-2 max-w-screen-xl mx-auto">
           {bottomNavItems.map((item) => (
             <Link key={item.id} href={item.href} passHref>
               <div
@@ -392,7 +392,7 @@ const AndroidDashboard = ({ onLoaded }) => {
       </div>
 
       {/* Floating Action Button with Animated Quick Actions */}
-      <div className="fixed bottom-24 right-6 z-20">
+      <div className="fixed bottom-24 right-6 z-[45] pointer-events-auto">
         {/* Quick Actions Menu - With enhanced animations */}
         <div className={`absolute bottom-16 right-0 space-y-3 transition-all duration-300 ease-out transform origin-bottom-right ${
           fabOpen 
@@ -449,24 +449,37 @@ const AndroidDashboard = ({ onLoaded }) => {
 
       {/* Category Popup - With proper open and close animations */}
       {categoryPopup && (
-        <div className={`fixed inset-0 bg-black z-50 flex items-end transition-all duration-300 ${
-          isClosingPopup ? 'bg-opacity-0' : 
-          isOpeningPopup ? 'bg-opacity-0' : 'bg-opacity-50'
+        <div className={`fixed inset-0 bg-black/50 z-50 flex items-end transition-all duration-300 backdrop-blur-sm ${
+          isClosingPopup ? 'bg-opacity-0 backdrop-blur-none' : 
+          isOpeningPopup ? 'bg-opacity-0 backdrop-blur-none' : 'bg-opacity-50'
         }`}>
-          <div className={`bg-white w-full rounded-t-3xl max-h-[80vh] overflow-hidden transition-transform duration-300 ease-out ${
+          <div className={`bg-gradient-to-r from-indigo-100 to-purple-50 w-full rounded-t-3xl max-h-[80vh] overflow-y-auto transition-transform duration-300 ease-out ${
             isClosingPopup ? 'translate-y-full' : 
             isOpeningPopup ? 'translate-y-full' : 'translate-y-0'
           }`}>
+            {/* Decorative Background Icons */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <Building className="absolute top-[15%] left-[10%] w-20 h-20 text-indigo-600/5 transform rotate-12 float-animation" />
+              <Trees className="absolute top-[35%] right-[8%] w-24 h-24 text-purple-600/5 transform -rotate-6 float-animation-reverse" />
+              <Waves className="absolute bottom-[25%] left-[5%] w-32 h-32 text-indigo-600/5 transform rotate-12 float-animation-slow" />
+              <Sun className="absolute top-[45%] left-[25%] w-16 h-16 text-purple-600/5 transform rotate-45 float-animation" />
+              <Cloud className="absolute top-[10%] right-[25%] w-20 h-20 text-indigo-600/5 transform -rotate-12 float-animation-reverse" />
+              <Leaf className="absolute bottom-[40%] right-[15%] w-16 h-16 text-purple-600/5 transform rotate-12 float-animation" />
+              <Palmtree className="absolute bottom-[15%] right-[10%] w-24 h-24 text-indigo-600/5 transform -rotate-6 float-animation-slow" />
+              <ShieldCheck className="absolute top-[60%] left-[15%] w-20 h-20 text-purple-600/5 transform rotate-12 float-animation-reverse" />
+              <CloudSun className="absolute bottom-[10%] left-[20%] w-16 h-16 text-indigo-600/5 transform -rotate-12 float-animation" />
+            </div>
+
             {/* Popup header with gradient background */}
-            <div className={`p-6 border-b border-gray-100
-              ${categoryPopup.id === 'property' ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 
-                                  categoryPopup.id === 'services' ? 'bg-gradient-to-r from-orange-500 to-orange-600' :
-                  categoryPopup.id === 'community' ? 'bg-gradient-to-r from-green-500 to-green-600' :
-                 categoryPopup.id === 'directory' ? 'bg-gradient-to-r from-cyan-500 to-blue-600' :
-                'bg-gradient-to-r from-purple-500 to-purple-600'}`}>
+            <div className={`p-6 border-b border-gray-100 relative z-10
+              ${categoryPopup.id === 'property' ? 'bg-gradient-to-br from-blue-400 to-blue-600' : 
+                categoryPopup.id === 'services' ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
+                categoryPopup.id === 'community' ? 'bg-gradient-to-br from-green-400 to-green-600' :
+                categoryPopup.id === 'directory' ? 'bg-gradient-to-br from-cyan-400 to-blue-600' :
+                'bg-gradient-to-br from-purple-400 to-purple-600'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-md">
                     <categoryPopup.icon className="w-7 h-7 text-white" />
                   </div>
                   <div>
@@ -484,12 +497,12 @@ const AndroidDashboard = ({ onLoaded }) => {
             </div>
             
             {/* Popup content */}
-            <div className="p-4 max-h-[calc(80vh-100px)] overflow-y-auto">
+            <div className="p-4 max-h-[calc(80vh-100px)] overflow-y-auto relative z-10">
               <div className="grid grid-cols-2 gap-3">
                 {categoryPopup.items.map((item, index) => (
                   <Link key={index} href={item.href} passHref>
                     <div
-                      className={`flex flex-col items-center p-5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all duration-200 active:scale-95 border border-gray-100 ${
+                      className={`flex flex-col items-center p-5 bg-white/80 backdrop-blur-sm rounded-xl hover:bg-white/90 transition-all duration-200 active:scale-95 border border-gray-100 shadow-sm ${
                         isClosingPopup ? 'animate-fade-out-down' : 
                         isOpeningPopup ? 'animate-fade-in-up-delayed' : 'animate-fade-in-up-delayed'
                       }`}
@@ -497,10 +510,15 @@ const AndroidDashboard = ({ onLoaded }) => {
                         animationDelay: isClosingPopup ? '0ms' : `${index * 50}ms`,
                         animationFillMode: 'forwards'
                       }}
-                      onClick={handlePopupLinkClick} // Close popup immediately when clicked
+                      onClick={handlePopupLinkClick}
                     >
-                      <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-3 border border-gray-200">
-                        <item.icon className="w-7 h-7 text-gray-700" />
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-md mb-3 border border-gray-200
+                        ${categoryPopup.id === 'property' ? 'bg-gradient-to-br from-blue-400 to-blue-600' : 
+                          categoryPopup.id === 'services' ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
+                          categoryPopup.id === 'community' ? 'bg-gradient-to-br from-green-400 to-green-600' :
+                          categoryPopup.id === 'directory' ? 'bg-gradient-to-br from-cyan-400 to-blue-600' :
+                          'bg-gradient-to-br from-purple-400 to-purple-600'}`}>
+                        <item.icon className="w-7 h-7 text-white" />
                       </div>
                       <span className="text-sm font-medium text-gray-900 text-center">{item.label}</span>
                     </div>
