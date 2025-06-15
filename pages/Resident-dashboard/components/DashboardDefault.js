@@ -120,7 +120,7 @@ const AndroidDashboard = ({ onLoaded }) => {
       items: [
         { icon: FileText, label: 'Ownership', href: '/Resident-dashboard/components/Ownership' },
         { icon: Home, label: 'House Details', href: '/Resident-dashboard/components/House' },
-        { icon: ClipboardList, label: 'Property', href: '/Resident-dashboard/components/SellProperty' },
+        { icon: ClipboardList, label: 'Property', href: '/Resident-dashboard/components/PropertyMarketplace' },
         { icon: Package, label: 'Items Marketplace', href: '/Resident-dashboard/components/Marketplace' }
       ]
     },
