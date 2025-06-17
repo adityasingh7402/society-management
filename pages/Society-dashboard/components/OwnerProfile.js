@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { ChevronDown, ChevronUp, Home, Layers, Grid, User } from 'lucide-react';
+import { useRouter } from 'next/router';
 
 export default function OwnerProfile() {
   const [residentList, setResidentList] = useState([]);
@@ -9,13 +10,36 @@ export default function OwnerProfile() {
   const [openBlocks, setOpenBlocks] = useState({});
   const [openFloors, setOpenFloors] = useState({});
   const [openFlats, setOpenFlats] = useState({});
+  const router = useRouter();
 
   // Fetch residents from the API
   useEffect(() => {
     const fetchResidents = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/Resident-Api/getAllResidents');
+        // Get society token
+        const token = localStorage.getItem('Society');
+        if (!token) {
+          router.push('/societyLogin');
+          return;
+        }
+
+        // First get society details to get the societyId
+        const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!societyResponse.ok) {
+          throw new Error('Failed to fetch society details');
+        }
+
+        const societyData = await societyResponse.json();
+        const societyId = societyData.societyId;
+
+        // Now fetch residents with the societyId
+        const response = await fetch(`/api/Resident-Api/getAllResidents?societyId=${societyId}`);
         if (response.ok) {
           const data = await response.json();
           setResidentList(data);
@@ -31,7 +55,7 @@ export default function OwnerProfile() {
     };
 
     fetchResidents();
-  }, []);
+  }, [router]);
 
   // Organize residents by block, floor and flat
   const organizeResidentsByStructure = (residents) => {

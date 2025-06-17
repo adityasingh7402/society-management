@@ -32,13 +32,16 @@ export default async function handler(req, res) {
 
     // Extract and format fields
     const {
-      societyName, societyType, managerName, managerPhone, managerEmail,
+      societyName, societyType, societyStructureType, customStructureTypeName,
+      managerName, managerPhone, managerEmail,
       street, city, state, pinCode, description, otp
     } = fields;
 
     const formattedFields = {
       societyName: Array.isArray(societyName) ? societyName[0] : societyName,
       societyType: Array.isArray(societyType) ? societyType[0] : societyType,
+      societyStructureType: Array.isArray(societyStructureType) ? societyStructureType[0] : societyStructureType,
+      customStructureTypeName: Array.isArray(customStructureTypeName) ? customStructureTypeName[0] : customStructureTypeName,
       managerName: Array.isArray(managerName) ? managerName[0] : managerName,
       managerPhone: Array.isArray(managerPhone) ? managerPhone[0] : managerPhone,
       managerEmail: Array.isArray(managerEmail) ? managerEmail[0] : managerEmail,

@@ -41,6 +41,18 @@ const SocietySchema = new mongoose.Schema({
   },
   societyName: { type: String, required: true },
   societyType: { type: String, required: true },
+  societyStructureType: { 
+    type: String, 
+    required: true,
+    enum: ['Block', 'Wing', 'Tower', 'Custom'],
+    default: 'Block'
+  },
+  customStructureTypeName: {
+    type: String,
+    required: function() {
+      return this.societyStructureType === 'Custom';
+    }
+  },
   managerName: { type: String, required: true },
   managerPhone: { type: String, required: true, unique: true },
   managerEmail: { type: String, required: true },

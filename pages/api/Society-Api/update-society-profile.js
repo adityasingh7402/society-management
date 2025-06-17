@@ -26,6 +26,8 @@ export default async function handler(req, res) {
       societyId,
       societyName,
       societyType,
+      societyStructureType,
+      customStructureTypeName,
       managerName,
       managerPhone,
       managerEmail,
@@ -46,6 +48,8 @@ export default async function handler(req, res) {
       {
         societyName,
         societyType,
+        societyStructureType,
+        customStructureTypeName,
         managerName,
         managerPhone: managerPhone.startsWith('+91') ? managerPhone : `+91${managerPhone}`, // Add prefix only if not already present
         managerEmail,

@@ -355,7 +355,6 @@ export default function ResidentSignup() {
                         className="text-center mb-8"
                     >
                         <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent inline-block mb-4">Resident Signup</h2>
-                        <p className="text-lg text-gray-600">Complete the form below to register with SocietyManage</p>
                     </motion.div>
 
                     {/* Progress Steps */}
@@ -371,16 +370,16 @@ export default function ResidentSignup() {
                                 return (
                                     <motion.div
                                         key={step.number}
-                                        className="flex flex-col items-center relative z-10"
+                                        className="flex flex-col items-center relative" style={{ zIndex: 1 }}
                                         initial={{ scale: 0.8, opacity: 0 }}
                                         animate={{ scale: 1, opacity: 1 }}
                                         transition={{ delay: index * 0.1 + 0.3 }}
                                     >
                                         <motion.div
-                                            className={`w-14 h-14 rounded-full flex items-center justify-center shadow-md transition-colors duration-200 ${currentStep >= step.number ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' : 'bg-white text-gray-400'}`}
+                                            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-colors duration-200 ${currentStep >= step.number ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' : 'bg-white text-gray-400'}`}
                                             whileHover={{ scale: 1.1 }}
                                         >
-                                            <Icon className="w-6 h-6" />
+                                            <Icon className="w-4 h-4" />
                                         </motion.div>
                                         <p className={`mt-2 text-sm font-medium ${currentStep >= step.number ? 'text-indigo-600' : 'text-gray-500'}`}>
                                             {step.title}
@@ -389,7 +388,7 @@ export default function ResidentSignup() {
                                 );
                             })}
                             {/* Progress line */}
-                            <div className="absolute top-7 left-0 h-0.5 bg-gray-200 w-full -z-10">
+                            <div className="absolute top-5 left-10 right-5 mx-auto h-[2px] bg-gray-200" style={{ width: '80%', zIndex: 0 }}>
                                 <motion.div
                                     className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 transition-all duration-300"
                                     initial={{ width: 0 }}

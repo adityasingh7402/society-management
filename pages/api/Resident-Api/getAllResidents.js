@@ -6,7 +6,12 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const residents = await Resident.find({}).populate('societyId', 'societyName');
+      const { societyId } = req.query;
+
+      // If societyId is provided, filter residents by societyCode
+      const query = societyId ? { societyCode: societyId } : {};
+
+      const residents = await Resident.find(query).populate('societyId', 'societyName');
       const residentsData = residents.map(resident => ({
         ...resident.toObject(),
         _id: resident._id.toString(),

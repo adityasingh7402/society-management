@@ -2,7 +2,7 @@ import "../styles/globals.css";
 import { useState, useEffect } from "react";
 import { useRef } from "react";
 import { useRouter } from "next/router";
-import Loader from './components/Preloader';
+import Loader from './components/PreloaderSociety';
 
 
 function MyApp({ Component, pageProps }) {

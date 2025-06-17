@@ -1,37 +1,91 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import PreloaderSociety from '../../components/PreloaderSociety';
-import { ChevronDown, ChevronUp, Home, Layers, Grid, Plus, Trash2, Save, Building, Settings } from 'lucide-react';
+import { ChevronDown, ChevronUp, Home, Layers, Grid, Plus, Trash2, Save, Building, Settings, Check, AlertCircle, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ApartmentStructureForm() {
   const [blocks, setBlocks] = useState([{ blockName: '', floors: [{ flats: [{ flatNumber: '', residents: [] }] }], isOpen: true }]);
   const [loading, setLoading] = useState(true);
   const [structureType, setStructureType] = useState('block');
-  const [structure, setStructure] = useState({});
   const [customStructureName, setCustomStructureName] = useState('');
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const router = useRouter();
+
+  // Notification animation variants
+  const notificationVariants = {
+    hidden: { opacity: 0, y: -50 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 120,
+        damping: 12
+      }
+    },
+    exit: {
+      opacity: 0,
+      y: -50,
+      transition: {
+        duration: 0.3
+      }
+    }
+  };
+
+  // Show notification helper function
+  const showNotification = (type, message, duration = 5000) => {
+    setNotification({
+      show: true,
+      type,
+      message
+    });
+
+    // Auto hide notification after duration
+    setTimeout(() => {
+      setNotification(prev => ({ ...prev, show: false }));
+    }, duration);
+  };
+
+  // Sort flats by their number
+  const sortFlats = (flats) => {
+    return [...flats].sort((a, b) => {
+      // Extract numeric part from flat numbers
+      const getNumericPart = (flatNumber) => {
+        if (!flatNumber) return -1;
+        const match = flatNumber.match(/\d+$/);
+        return match ? parseInt(match[0]) : -1;
+      };
+
+      const numA = getNumericPart(a.flatNumber);
+      const numB = getNumericPart(b.flatNumber);
+      return numA - numB;
+    });
+  };
+
+  // Validate flat number format
+  const isValidFlatNumber = (value) => {
+    // Allow empty value
+    if (!value) return true;
+    // Only allow numbers
+    return /^\d+$/.test(value);
+  };
 
   // Get structure type label (singular)
   const getStructureLabel = () => {
-    if (structureType === 'block') return 'Block';
-    if (structureType === 'wing') return 'Wing';
-    if (structureType === 'tower') return 'Tower';
-    if (structureType === 'custom') return customStructureName || 'Unit';
+    // Convert to lowercase for comparison since database uses lowercase
+    const type = structureType.toLowerCase();
+    if (type === 'block') return 'Block';
+    if (type === 'wing') return 'Wing';
+    if (type === 'tower') return 'Tower';
+    if (type === 'custom') return customStructureName || 'Unit';
     return 'Block';
-  };
-
-  // Get structure type label (plural)
-  const getStructureLabelPlural = () => {
-    if (structureType === 'block') return 'Blocks';
-    if (structureType === 'wing') return 'Wings';
-    if (structureType === 'tower') return 'Towers';
-    if (structureType === 'custom') return `${customStructureName}s` || 'Units';
-    return 'Blocks';
   };
 
   // Get the structure icon
   const getStructureIcon = () => {
-    if (structureType === 'tower') return <Building className="mr-2" size={20} />;
+    const type = structureType.toLowerCase();
+    if (type === 'tower') return <Building className="mr-2" size={20} />;
     return <Home className="mr-2" size={20} />;
   };
 
@@ -60,6 +114,14 @@ export default function ApartmentStructureForm() {
         const societyData = await societyResponse.json();
         const societyId = societyData.societyId;
 
+        // Set structure type from society data (convert to lowercase for consistency)
+        if (societyData.societyStructureType) {
+          setStructureType(societyData.societyStructureType.toLowerCase());
+        }
+        if (societyData.customStructureTypeName) {
+          setCustomStructureName(societyData.customStructureTypeName);
+        }
+
         // Fetch apartment structure using societyId
         const structureResponse = await fetch(`/api/Society-Api/get-apartment-structure?societyId=${societyId}`);
         if (!structureResponse.ok) {
@@ -67,32 +129,21 @@ export default function ApartmentStructureForm() {
         }
 
         const structureData = await structureResponse.json();
-        setStructure(structureData);
-
-        // Set structure type and custom name if available
-        if (structureData.structureType) {
-          setStructureType(structureData.structureType);
-        }
-        if (structureData.customStructureName) {
-          setCustomStructureName(structureData.customStructureName);
-        }
 
         // Add isOpen property to each block and floor for dropdown functionality
+        // and sort flats within each floor
         const blocksWithOpenState = (structureData.data.structures || [{ blockName: '', floors: [{ flats: [{ flatNumber: '', residents: [] }] }] }])
           .map(block => ({
             ...block,
             isOpen: true,
             floors: block.floors.map(floor => ({
               ...floor,
+              flats: sortFlats(floor.flats),
               isOpen: true
             }))
           }));
 
-        console.log('Transformed Blocks:', blocksWithOpenState);
         setBlocks(blocksWithOpenState);
-
-        setBlocks(blocksWithOpenState);
-        console.log('Blocks after setting state:', blocksWithOpenState); // Log here
       } catch (error) {
         console.error('Error:', error);
       } finally {
@@ -102,8 +153,6 @@ export default function ApartmentStructureForm() {
 
     fetchSocietyAndStructure();
   }, [router]);
-
-  console.log(blocks)
 
   // Toggle block dropdown
   const toggleBlock = (blockIndex) => {
@@ -147,7 +196,8 @@ export default function ApartmentStructureForm() {
   // Add a new flat to a floor
   const addFlat = (blockIndex, floorIndex) => {
     const updatedBlocks = [...blocks];
-    updatedBlocks[blockIndex].floors[floorIndex].flats.push({ flatNumber: '', residents: [] });
+    const newFlat = { flatNumber: '', residents: [] };
+    updatedBlocks[blockIndex].floors[floorIndex].flats.push(newFlat);
     setBlocks(updatedBlocks);
   };
 
@@ -157,6 +207,28 @@ export default function ApartmentStructureForm() {
     updatedBlocks[blockIndex].floors[floorIndex].flats = updatedBlocks[blockIndex].floors[floorIndex].flats.filter(
       (_, index) => index !== flatIndex
     );
+    setBlocks(updatedBlocks);
+  };
+
+  // Update flat number
+  const updateFlatNumber = (blockIndex, floorIndex, flatIndex, value) => {
+    // Validate the input
+    if (!isValidFlatNumber(value)) {
+      showNotification('error', 'Please enter only numbers for the flat number.');
+      return;
+    }
+
+    const updatedBlocks = [...blocks];
+    const blockName = updatedBlocks[blockIndex].blockName;
+
+    if (value === '') {
+      updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber = '';
+    } else {
+      updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber =
+        blockName ? `${blockName}-${value}` : value;
+    }
+
+    // No sorting here - keep the order as is
     setBlocks(updatedBlocks);
   };
 
@@ -188,10 +260,13 @@ export default function ApartmentStructureForm() {
       // Clean up the blocks data before sending (remove isOpen property)
       const cleanedBlocks = blocks.map(block => ({
         blockName: block.blockName,
-        structureType: structureType,
-        customStructureName: structureType === 'custom' ? customStructureName : '',
+        structureType: structureType.toLowerCase(),
+        customStructureName: structureType.toLowerCase() === 'custom' ? customStructureName : '',
         floors: block.floors.map(floor => ({
-          flats: floor.flats
+          flats: floor.flats.map(flat => ({
+            flatNumber: flat.flatNumber,
+            residents: flat.residents
+          }))
         }))
       }));
 
@@ -205,19 +280,21 @@ export default function ApartmentStructureForm() {
         body: JSON.stringify({
           societyId,
           apartmentStructure: { structures: cleanedBlocks },
-          structureType,
-          customStructureName: structureType === 'custom' ? customStructureName : ''
+          structureType: structureType.toLowerCase(),
+          customStructureName: structureType.toLowerCase() === 'custom' ? customStructureName : ''
         }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        alert('Apartment structure updated successfully!');
+        showNotification('success', 'Apartment structure updated successfully!');
       } else {
         console.error('Error updating apartment structure:', data.error);
+        showNotification('error', 'Failed to update apartment structure.');
       }
     } catch (error) {
       console.error('Error:', error);
+      showNotification('error', 'An error occurred while updating the apartment structure.');
     }
   };
 
@@ -242,23 +319,56 @@ export default function ApartmentStructureForm() {
       : fullFlatNumber;
   };
 
-  // Update flat number
-  const updateFlatNumber = (blockIndex, floorIndex, flatIndex, value) => {
-    const updatedBlocks = [...blocks];
-    const blockName = updatedBlocks[blockIndex].blockName;
-
-    if (value === '') {
-      updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber = '';
-    } else {
-      updatedBlocks[blockIndex].floors[floorIndex].flats[flatIndex].flatNumber =
-        blockName ? `${blockName}-${value}` : value;
-    }
-
-    setBlocks(updatedBlocks);
-  };
-
   return (
     <div className="container mx-auto p-4">
+      {/* Notification Popup */}
+      <AnimatePresence>
+        {notification.show && (
+          <motion.div
+            className="fixed top-5 left-0 right-0 mx-auto z-50 px-6 py-4 rounded-lg shadow-lg flex items-center max-w-md w-11/12 sm:w-full"
+            style={{
+              margin: '0 auto',
+              backgroundColor: notification.type === 'success' ? '#f0fdf4' : '#fef2f2',
+              borderLeft: notification.type === 'success' ? '4px solid #22c55e' : '4px solid #ef4444'
+            }}
+            variants={notificationVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+          >
+            <div
+              className="rounded-full p-2 mr-3"
+              style={{
+                backgroundColor: notification.type === 'success' ? '#dcfce7' : '#fee2e2',
+                color: notification.type === 'success' ? '#16a34a' : '#dc2626'
+              }}
+            >
+              {notification.type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <h3
+                className="font-medium"
+                style={{ color: notification.type === 'success' ? '#166534' : '#991b1b' }}
+              >
+                {notification.type === 'success' ? 'Success' : 'Error'}
+              </h3>
+              <p
+                className="text-sm"
+                style={{ color: notification.type === 'success' ? '#15803d' : '#b91c1c' }}
+              >
+                {notification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => setNotification({ ...notification, show: false })}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X size={18} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {loading ? (
         <PreloaderSociety />
       ) : (
@@ -267,78 +377,18 @@ export default function ApartmentStructureForm() {
             <Building className="mr-2" size={28} /> Apartment Structure Management
           </h1>
 
-          {/* Structure Type Selection */}
+          {/* Structure Type Information */}
           <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
             <div className="flex items-center mb-2">
               <Settings className="mr-2" size={20} />
               <h2 className="text-lg font-semibold">Structure Configuration</h2>
             </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  id="structure-block"
-                  name="structureType"
-                  value="block"
-                  checked={structureType === 'block'}
-                  onChange={() => setStructureType('block')}
-                  className="h-4 w-4 text-blue-600"
-                />
-                <label htmlFor="structure-block" className="text-gray-700">Blocks</label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  id="structure-wing"
-                  name="structureType"
-                  value="wing"
-                  checked={structureType === 'wing'}
-                  onChange={() => setStructureType('wing')}
-                  className="h-4 w-4 text-blue-600"
-                />
-                <label htmlFor="structure-wing" className="text-gray-700">Wings</label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  id="structure-tower"
-                  name="structureType"
-                  value="tower"
-                  checked={structureType === 'tower'}
-                  onChange={() => setStructureType('tower')}
-                  className="h-4 w-4 text-blue-600"
-                />
-                <label htmlFor="structure-tower" className="text-gray-700">Towers</label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  id="structure-custom"
-                  name="structureType"
-                  value="custom"
-                  checked={structureType === 'custom'}
-                  onChange={() => setStructureType('custom')}
-                  className="h-4 w-4 text-blue-600"
-                />
-                <label htmlFor="structure-custom" className="text-gray-700">Custom</label>
-              </div>
+            <div className="text-gray-700">
+              Current Structure Type: <span className="font-semibold">{getStructureLabel()}</span>
+              {structureType.toLowerCase() === 'custom' && customStructureName && (
+                <span className="ml-2">({customStructureName})</span>
+              )}
             </div>
-
-            {structureType === 'custom' && (
-              <div className="mt-3">
-                <input
-                  type="text"
-                  placeholder="Enter custom structure name (e.g., Building, Phase)"
-                  value={customStructureName}
-                  onChange={(e) => setCustomStructureName(e.target.value)}
-                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all"
-                />
-              </div>
-            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

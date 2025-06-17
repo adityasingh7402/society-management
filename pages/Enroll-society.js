@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import axios from 'axios';
 import { useRouter } from 'next/router';
@@ -17,15 +17,21 @@ import {
   FileText,
   Home,
   MessageSquare,
-  Navigation
+  Navigation,
+  Check,
+  AlertCircle,
+  X
 } from 'lucide-react';
 
 export default function Enroll() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const [formData, setFormData] = useState({
     societyName: '',
     societyType: '',
+    societyStructureType: 'Block',
+    customStructureTypeName: '',
     managerName: '',
     managerPhone: '',
     managerEmail: '',
@@ -40,6 +46,47 @@ export default function Enroll() {
   const [otpSent, setOtpSent] = useState(false);
   const [loadingOtp, setLoadingOtp] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
+
+  // Notification popup variants
+  const notificationVariants = {
+    hidden: {
+      y: -100,
+      opacity: 0,
+      scale: 0.8
+    },
+    visible: {
+      y: 0,
+      opacity: 1,
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 200,
+        damping: 20
+      }
+    },
+    exit: {
+      y: -100,
+      opacity: 0,
+      scale: 0.8,
+      transition: {
+        duration: 0.3
+      }
+    }
+  };
+
+  // Auto-hide notification after delay
+  useEffect(() => {
+    if (notification.show) {
+      const timer = setTimeout(() => {
+        setNotification({ ...notification, show: false });
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+  };
 
   const handleNext = () => setCurrentStep(currentStep + 1);
   const handleBack = () => setCurrentStep(currentStep - 1);
@@ -178,13 +225,13 @@ export default function Enroll() {
       if (response.data.success) {
         setFormData({ ...formData, verificationId: response.data.verificationId });
         setOtpSent(true);
-        alert('OTP sent successfully!');
+        showNotification('success', 'OTP sent successfully!');
       } else {
-        alert('Failed to send OTP. Please try again.');
+        showNotification('error', 'Failed to send OTP. Please try again.');
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
-      alert('Failed to send OTP. Please try again.');
+      showNotification('error', 'Failed to send OTP. Please try again.');
     }
     setLoadingOtp(false);
   };
@@ -193,7 +240,7 @@ export default function Enroll() {
     e.preventDefault();
 
     if (!formData.otp || formData.otp.length < 6) {
-      alert('Please enter a valid OTP.');
+      showNotification('error', 'Please enter a valid OTP.');
       return;
     }
 
@@ -229,20 +276,20 @@ export default function Enroll() {
         const societyData = await societyResponse.json();
 
         if (societyData.success) {
-          // If the society data is successfully saved, show a success alert
-          alert('Society enrolled successfully!');
-          router.push('/societyLogin');
+          showNotification('success', 'Society enrolled successfully!');
+          // Redirect after a short delay to show the notification
+          setTimeout(() => {
+            router.push('/societyLogin');
+          }, 1500);
         } else {
-          // If there was an error while saving the society data, show a failure alert
-          alert('Failed to save society data.');
+          showNotification('error', 'Failed to save society data.');
         }
       } else {
-        // If OTP verification fails, show an alert for invalid OTP
-        alert('OTP verification failed. Please try again.');
+        showNotification('error', 'OTP verification failed. Please try again.');
       }
     } catch (error) {
       console.error('Error verifying OTP:', error);
-      alert('There was an error verifying the OTP. Please try again.');
+      showNotification('error', 'There was an error verifying the OTP. Please try again.');
     }
   };
 
@@ -253,9 +300,57 @@ export default function Enroll() {
         <meta name="description" content="Enroll your society in our management system and get started!" />
       </Head>
 
+      {/* Notification Popup */}
+      <AnimatePresence>
+        {notification.show && (
+          <motion.div
+            className="fixed top-5 left-0 right-0 mx-auto z-50 px-6 py-4 rounded-lg shadow-lg flex items-center max-w-md w-11/12 sm:w-full"
+            style={{
+              margin: '0 auto',
+              backgroundColor: notification.type === 'success' ? '#f0fdf4' : '#fef2f2',
+              borderLeft: notification.type === 'success' ? '4px solid #22c55e' : '4px solid #ef4444'
+            }}
+            variants={notificationVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+          >
+            <div
+              className="rounded-full p-2 mr-3"
+              style={{
+                backgroundColor: notification.type === 'success' ? '#dcfce7' : '#fee2e2',
+                color: notification.type === 'success' ? '#16a34a' : '#dc2626'
+              }}
+            >
+              {notification.type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <div className="flex-1">
+              <h3
+                className="font-medium"
+                style={{ color: notification.type === 'success' ? '#166534' : '#991b1b' }}
+              >
+                {notification.type === 'success' ? 'Success' : 'Error'}
+              </h3>
+              <p
+                className="text-sm"
+                style={{ color: notification.type === 'success' ? '#15803d' : '#b91c1c' }}
+              >
+                {notification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => setNotification({ ...notification, show: false })}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X size={18} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header Section with Animation */}
       <motion.header
-        className="bg-gradient-to-r from-blue-600 to-blue-700 py-3 text-white shadow-lg sticky top-0 z-50"
+        className="bg-gradient-to-r from-blue-600 to-blue-700 py-3 text-white shadow-lg sticky top-0 z-40"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ type: 'spring', stiffness: 120 }}
@@ -334,7 +429,7 @@ export default function Enroll() {
                 return (
                   <motion.div
                     key={step.number}
-                    className="flex flex-col items-center relative z-10"
+                    className="flex flex-col items-center relative z-20"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 * index, duration: 0.5 }}
@@ -353,9 +448,9 @@ export default function Enroll() {
                 );
               })}
               {/* Progress line */}
-              <div className="absolute top-6 left-0 h-0.5 bg-gray-200 w-full -z-10">
+              <div className="absolute top-6 left-12 right-6 h-0.5 bg-gray-200 -z-10">
                 <motion.div
-                  className="h-full bg-blue-600"
+                  className="h-full bg-blue-600 origin-left"
                   initial={{ width: 0 }}
                   animate={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
                   transition={{ duration: 0.5 }}
@@ -411,22 +506,62 @@ export default function Enroll() {
                       />
                     </motion.div>
 
-                    <motion.div variants={itemVariants}>
-                      <label className="block text-gray-700 font-medium mb-2">
-                        Society Type
-                      </label>
-                      <select
-                        name="societyType"
-                        value={formData.societyType}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <motion.div variants={itemVariants}>
+                        <label className="block text-gray-700 font-medium mb-2">
+                          Society Type
+                        </label>
+                        <select
+                          name="societyType"
+                          value={formData.societyType}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="">Select type</option>
+                          <option value="residential">Residential</option>
+                          <option value="commercial">Commercial</option>
+                          <option value="mixed">Mixed Use</option>
+                        </select>
+                      </motion.div>
+
+                      <motion.div variants={itemVariants}>
+                        <label className="block text-gray-700 font-medium mb-2">
+                          Structure Type
+                        </label>
+                        <select
+                          name="societyStructureType"
+                          value={formData.societyStructureType}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="Block">Block</option>
+                          <option value="Wing">Wing</option>
+                          <option value="Tower">Tower</option>
+                          <option value="Custom">Custom</option>
+                        </select>
+                      </motion.div>
+                    </div>
+
+                    {formData.societyStructureType === 'Custom' && (
+                      <motion.div
+                        variants={itemVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="mb-6"
                       >
-                        <option value="">Select type</option>
-                        <option value="residential">Residential</option>
-                        <option value="commercial">Commercial</option>
-                        <option value="mixed">Mixed Use</option>
-                      </select>
-                    </motion.div>
+                        <label className="block text-gray-700 font-medium mb-2">
+                          Custom Structure Name
+                        </label>
+                        <input
+                          type="text"
+                          name="customStructureTypeName"
+                          value={formData.customStructureTypeName}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter your custom structure name"
+                        />
+                      </motion.div>
+                    )}
                   </>
                 )}
 
