@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import Webcam from 'react-webcam';
-import Preloader from '@/pages/components/Preloader';
+import PreloaderSociety from '../../components/PreloaderSociety';
 import { set } from 'mongoose';
 
 export default function EmergencyAlerts() {
@@ -526,7 +526,7 @@ export default function EmergencyAlerts() {
   );
 
   if (loading) {
-    return <Preloader />;
+    return <PreloaderSociety />;
   }
 
   return (

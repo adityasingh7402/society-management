@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
+import PreloaderSociety from '../../components/PreloaderSociety';
 
 export default function Tickets() {
   // State for tickets and loading
@@ -189,9 +190,7 @@ export default function Tickets() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-          </div>
+          <PreloaderSociety />
         ) : (
           <>
             {/* Dashboard Tab */}

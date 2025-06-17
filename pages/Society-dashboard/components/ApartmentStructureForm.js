@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Preloader from '@/pages/components/Preloader';
+import PreloaderSociety from '../../components/PreloaderSociety';
 import { ChevronDown, ChevronUp, Home, Layers, Grid, Plus, Trash2, Save, Building, Settings } from 'lucide-react';
 
 export default function ApartmentStructureForm() {
@@ -257,247 +257,249 @@ export default function ApartmentStructureForm() {
     setBlocks(updatedBlocks);
   };
 
-  if (loading) {
-    return <Preloader />;
-  }
-
   return (
-    <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-lg p-6 mb-10">
-      <h1 className="text-2xl font-bold text-center mb-6 text-gray-800 flex items-center justify-center">
-        <Building className="mr-2" size={28} /> Apartment Structure Management
-      </h1>
+    <div className="container mx-auto p-4">
+      {loading ? (
+        <PreloaderSociety />
+      ) : (
+        <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-lg p-6 mb-10">
+          <h1 className="text-2xl font-bold text-center mb-6 text-gray-800 flex items-center justify-center">
+            <Building className="mr-2" size={28} /> Apartment Structure Management
+          </h1>
 
-      {/* Structure Type Selection */}
-      <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <div className="flex items-center mb-2">
-          <Settings className="mr-2" size={20} />
-          <h2 className="text-lg font-semibold">Structure Configuration</h2>
-        </div>
+          {/* Structure Type Selection */}
+          <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center mb-2">
+              <Settings className="mr-2" size={20} />
+              <h2 className="text-lg font-semibold">Structure Configuration</h2>
+            </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="structure-block"
-              name="structureType"
-              value="block"
-              checked={structureType === 'block'}
-              onChange={() => setStructureType('block')}
-              className="h-4 w-4 text-blue-600"
-            />
-            <label htmlFor="structure-block" className="text-gray-700">Blocks</label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="structure-wing"
-              name="structureType"
-              value="wing"
-              checked={structureType === 'wing'}
-              onChange={() => setStructureType('wing')}
-              className="h-4 w-4 text-blue-600"
-            />
-            <label htmlFor="structure-wing" className="text-gray-700">Wings</label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="structure-tower"
-              name="structureType"
-              value="tower"
-              checked={structureType === 'tower'}
-              onChange={() => setStructureType('tower')}
-              className="h-4 w-4 text-blue-600"
-            />
-            <label htmlFor="structure-tower" className="text-gray-700">Towers</label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="structure-custom"
-              name="structureType"
-              value="custom"
-              checked={structureType === 'custom'}
-              onChange={() => setStructureType('custom')}
-              className="h-4 w-4 text-blue-600"
-            />
-            <label htmlFor="structure-custom" className="text-gray-700">Custom</label>
-          </div>
-        </div>
-
-        {structureType === 'custom' && (
-          <div className="mt-3">
-            <input
-              type="text"
-              placeholder="Enter custom structure name (e.g., Building, Phase)"
-              value={customStructureName}
-              onChange={(e) => setCustomStructureName(e.target.value)}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all"
-            />
-          </div>
-        )}
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {blocks.map((block, blockIndex) => (
-          <div key={blockIndex} className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden">
-            <div
-              className="bg-gradient-to-r from-blue-500 to-blue-700 p-4 flex justify-between items-center cursor-pointer"
-              onClick={() => toggleBlock(blockIndex)}
-            >
-              <div className="flex items-center flex-grow">
-                {getStructureIcon()}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="flex items-center space-x-2">
                 <input
-                  type="text"
-                  placeholder={`${getStructureLabel()} Name (e.g., A, B, C)`}
-                  value={block.blockName}
-                  onChange={(e) => {
-                    const updatedBlocks = [...blocks];
-                    updatedBlocks[blockIndex].blockName = e.target.value;
-                    setBlocks(updatedBlocks);
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="bg-white text-gray-800 p-2 rounded w-full max-w-xs"
+                  type="radio"
+                  id="structure-block"
+                  name="structureType"
+                  value="block"
+                  checked={structureType === 'block'}
+                  onChange={() => setStructureType('block')}
+                  className="h-4 w-4 text-blue-600"
                 />
+                <label htmlFor="structure-block" className="text-gray-700">Blocks</label>
               </div>
 
-              <div className="flex items-center">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeBlock(blockIndex);
-                  }}
-                  className="mr-2 p-2 text-white bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-all"
-                >
-                  <Trash2 size={16} />
-                </button>
-                {block.isOpen ? <ChevronUp className="text-white" size={20} /> : <ChevronDown className="text-white" size={20} />}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="structure-wing"
+                  name="structureType"
+                  value="wing"
+                  checked={structureType === 'wing'}
+                  onChange={() => setStructureType('wing')}
+                  className="h-4 w-4 text-blue-600"
+                />
+                <label htmlFor="structure-wing" className="text-gray-700">Wings</label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="structure-tower"
+                  name="structureType"
+                  value="tower"
+                  checked={structureType === 'tower'}
+                  onChange={() => setStructureType('tower')}
+                  className="h-4 w-4 text-blue-600"
+                />
+                <label htmlFor="structure-tower" className="text-gray-700">Towers</label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="structure-custom"
+                  name="structureType"
+                  value="custom"
+                  checked={structureType === 'custom'}
+                  onChange={() => setStructureType('custom')}
+                  className="h-4 w-4 text-blue-600"
+                />
+                <label htmlFor="structure-custom" className="text-gray-700">Custom</label>
               </div>
             </div>
 
-            {block.isOpen && (
-              <div className="p-4">
-                <button
-                  type="button"
-                  onClick={() => addFloor(blockIndex)}
-                  className="mb-4 flex items-center bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md transition-all"
-                >
-                  <Layers className="mr-1" size={16} />
-                  <Plus size={16} className="mr-1" />
-                  Add Floor
-                </button>
-
-                {block.floors.map((floor, floorIndex) => (
-                  <div key={floorIndex} className="mb-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-purple-400 to-purple-600 p-3 flex justify-between items-center cursor-pointer"
-                      onClick={() => toggleFloor(blockIndex, floorIndex)}
-                    >
-                      <div className="flex items-center text-white font-medium">
-                        <Layers className="mr-2" size={18} />
-                        Floor {floorIndex + 1}
-                      </div>
-
-                      <div className="flex items-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeFloor(blockIndex, floorIndex);
-                          }}
-                          className="mr-2 p-1.5 text-white bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-all"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                        {floor.isOpen ? <ChevronUp className="text-white" size={18} /> : <ChevronDown className="text-white" size={18} />}
-                      </div>
-                    </div>
-
-                    {floor.isOpen && (
-                      <div className="p-4">
-                        <button
-                          type="button"
-                          onClick={() => addFlat(blockIndex, floorIndex)}
-                          className="mb-4 flex items-center bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md transition-all"
-                        >
-                          <Grid className="mr-1" size={16} />
-                          <Plus size={16} className="mr-1" />
-                          Add Flat
-                        </button>
-
-                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                          {floor.flats.map((flat, flatIndex) => (
-                            <div key={flatIndex} className="bg-white p-4 border rounded-lg shadow-sm">
-                              <div>
-                                <div className="flex justify-between items-center mb-2">
-                                  <label className="text-sm font-medium text-gray-700 mb-1">Flat Number</label>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeFlat(blockIndex, floorIndex, flatIndex)}
-                                    className="p-1.5 text-white bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-all"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                                <input
-                                  type="text"
-                                  placeholder="Flat Number (e.g., 101)"
-                                  value={getFlatNumberDisplayValue(flat.flatNumber, blockIndex)}
-                                  onChange={(e) => updateFlatNumber(blockIndex, floorIndex, flatIndex, e.target.value)}
-                                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all"
-                                />
-
-                                <div className="mt-3 flex flex-col">
-                                  <div className="text-xs text-gray-500 mb-2">
-                                    Full ID: {flat.flatNumber || 'Not set'}
-                                  </div>
-
-                                  {isFlatOccupied(flat) ? (
-                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                      Occupied
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                      Vacant
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+            {structureType === 'custom' && (
+              <div className="mt-3">
+                <input
+                  type="text"
+                  placeholder="Enter custom structure name (e.g., Building, Phase)"
+                  value={customStructureName}
+                  onChange={(e) => setCustomStructureName(e.target.value)}
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all"
+                />
               </div>
             )}
           </div>
-        ))}
 
-        <div className="flex justify-between items-center">
-          <button
-            type="button"
-            onClick={addBlock}
-            className="flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition-all"
-          >
-            <Plus size={16} className="mr-1" />
-            Add {getStructureLabel()}
-          </button>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {blocks.map((block, blockIndex) => (
+              <div key={blockIndex} className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-blue-700 p-4 flex justify-between items-center cursor-pointer"
+                  onClick={() => toggleBlock(blockIndex)}
+                >
+                  <div className="flex items-center flex-grow">
+                    {getStructureIcon()}
+                    <input
+                      type="text"
+                      placeholder={`${getStructureLabel()} Name (e.g., A, B, C)`}
+                      value={block.blockName}
+                      onChange={(e) => {
+                        const updatedBlocks = [...blocks];
+                        updatedBlocks[blockIndex].blockName = e.target.value;
+                        setBlocks(updatedBlocks);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="bg-white text-gray-800 p-2 rounded w-full max-w-xs"
+                    />
+                  </div>
 
-          <button
-            type="submit"
-            className="flex items-center bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition-all"
-          >
-            <Save size={16} className="mr-1" />
-            Save Structure
-          </button>
+                  <div className="flex items-center">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeBlock(blockIndex);
+                      }}
+                      className="mr-2 p-2 text-white bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-all"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    {block.isOpen ? <ChevronUp className="text-white" size={20} /> : <ChevronDown className="text-white" size={20} />}
+                  </div>
+                </div>
+
+                {block.isOpen && (
+                  <div className="p-4">
+                    <button
+                      type="button"
+                      onClick={() => addFloor(blockIndex)}
+                      className="mb-4 flex items-center bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md transition-all"
+                    >
+                      <Layers className="mr-1" size={16} />
+                      <Plus size={16} className="mr-1" />
+                      Add Floor
+                    </button>
+
+                    {block.floors.map((floor, floorIndex) => (
+                      <div key={floorIndex} className="mb-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-purple-400 to-purple-600 p-3 flex justify-between items-center cursor-pointer"
+                          onClick={() => toggleFloor(blockIndex, floorIndex)}
+                        >
+                          <div className="flex items-center text-white font-medium">
+                            <Layers className="mr-2" size={18} />
+                            Floor {floorIndex + 1}
+                          </div>
+
+                          <div className="flex items-center">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFloor(blockIndex, floorIndex);
+                              }}
+                              className="mr-2 p-1.5 text-white bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-all"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                            {floor.isOpen ? <ChevronUp className="text-white" size={18} /> : <ChevronDown className="text-white" size={18} />}
+                          </div>
+                        </div>
+
+                        {floor.isOpen && (
+                          <div className="p-4">
+                            <button
+                              type="button"
+                              onClick={() => addFlat(blockIndex, floorIndex)}
+                              className="mb-4 flex items-center bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md transition-all"
+                            >
+                              <Grid className="mr-1" size={16} />
+                              <Plus size={16} className="mr-1" />
+                              Add Flat
+                            </button>
+
+                            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                              {floor.flats.map((flat, flatIndex) => (
+                                <div key={flatIndex} className="bg-white p-4 border rounded-lg shadow-sm">
+                                  <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                      <label className="text-sm font-medium text-gray-700 mb-1">Flat Number</label>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeFlat(blockIndex, floorIndex, flatIndex)}
+                                        className="p-1.5 text-white bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-all"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
+                                    <input
+                                      type="text"
+                                      placeholder="Flat Number (e.g., 101)"
+                                      value={getFlatNumberDisplayValue(flat.flatNumber, blockIndex)}
+                                      onChange={(e) => updateFlatNumber(blockIndex, floorIndex, flatIndex, e.target.value)}
+                                      className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all"
+                                    />
+
+                                    <div className="mt-3 flex flex-col">
+                                      <div className="text-xs text-gray-500 mb-2">
+                                        Full ID: {flat.flatNumber || 'Not set'}
+                                      </div>
+
+                                      {isFlatOccupied(flat) ? (
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                          Occupied
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                          Vacant
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div className="flex justify-between items-center">
+              <button
+                type="button"
+                onClick={addBlock}
+                className="flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition-all"
+              >
+                <Plus size={16} className="mr-1" />
+                Add {getStructureLabel()}
+              </button>
+
+              <button
+                type="submit"
+                className="flex items-center bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition-all"
+              >
+                <Save size={16} className="mr-1" />
+                Save Structure
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      )}
     </div>
   );
 }

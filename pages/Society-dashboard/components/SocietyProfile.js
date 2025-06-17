@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Preloader from '@/pages/components/Preloader';
+import PreloaderSociety from '../../components/PreloaderSociety';
 import { 
   User, 
   Building, 
@@ -177,7 +177,7 @@ export default function SocietyProfile() {
         }
     };
 
-    if (loading) return <Preloader />;
+    if (loading) return <PreloaderSociety />;
 
     return (
         <div className="min-h-screen bg-gray-100">

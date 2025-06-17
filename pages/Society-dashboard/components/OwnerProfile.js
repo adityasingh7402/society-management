@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import Preloader from '@/pages/components/Preloader';
+import PreloaderSociety from '../../components/PreloaderSociety';
 import { ChevronDown, ChevronUp, Home, Layers, Grid, User } from 'lucide-react';
 
 export default function OwnerProfile() {
@@ -192,7 +192,7 @@ export default function OwnerProfile() {
   };
 
   if (loading) {
-    return <Preloader />;
+    return <PreloaderSociety />;
   }
 
   return (

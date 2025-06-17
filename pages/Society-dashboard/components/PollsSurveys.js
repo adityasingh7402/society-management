@@ -1,7 +1,7 @@
 // pages/Society-dashboard/components/PollsSurveys.js
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Preloader from '../../components/Preloader';
+import PreloaderSociety from '../../components/PreloaderSociety';
 import {
   BarChart,
   PieChart,
@@ -419,7 +419,7 @@ export default function PollsSurveys() {
   };
 
   if (loading) {
-    return <Preloader />;
+    return <PreloaderSociety />;
   }
 
   return (<div className="min-h-screen bg-gray-50">

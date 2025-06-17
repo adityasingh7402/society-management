@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import { Megaphone, Calendar, Clock, Trash2, Upload, Edit, AlertCircle, X, Save, Plus, Loader2 } from 'lucide-react';
-import Preloader from '../../components/Preloader';
+import PreloaderSociety from '../../components/PreloaderSociety';
 
 export default function Announcements() {
   const router = useRouter();
@@ -278,7 +278,7 @@ export default function Announcements() {
   };
 
   if (loading) {
-    return <Preloader />;
+    return <PreloaderSociety />;
   }
 
   // Update the image preview section in the form

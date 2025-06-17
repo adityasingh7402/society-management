@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/router';
+import PreloaderSociety from '../../components/PreloaderSociety';
 
 export default function IncidentLogs() {
   const router = useRouter();
@@ -180,9 +181,7 @@ export default function IncidentLogs() {
         {/* Notices List */}
         <div className="space-y-4">
           {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-            </div>
+            <PreloaderSociety />
           ) : error ? (
             <div className="bg-white rounded-lg shadow p-6 text-center text-red-500">
               {error}

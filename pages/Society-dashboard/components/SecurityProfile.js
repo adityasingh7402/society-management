@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
-import Preloader from '@/pages/components/Preloader';
+import PreloaderSociety from '../../components/PreloaderSociety';
 import {
     Eye,
     CheckCircle2,
@@ -222,9 +222,6 @@ export default function SecurityProfile() {
             default: return 'bg-yellow-100 text-yellow-800';
         }
     };
-    if (loading) {
-        return <Preloader />;
-    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 p-4 md:p-8">

@@ -7,6 +7,7 @@ import {
   Calendar, Shield, Loader
 } from 'lucide-react';
 import { FaArrowLeft } from "react-icons/fa";
+import PreloaderSociety from '../../components/PreloaderSociety';
 
 const VisitorEntry = () => {
   const router = useRouter();
@@ -420,12 +421,7 @@ const VisitorEntry = () => {
 
       {/* Main loading overlay */}
       {loading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
-          <div className="bg-white p-5 rounded-lg shadow-lg flex flex-col items-center">
-            <Loader className="animate-spin h-8 w-8 text-blue-500 mb-2" />
-            <p className="text-center">Processing...</p>
-          </div>
-        </div>
+        <PreloaderSociety />
       )}
 
       <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-lg shadow-md">

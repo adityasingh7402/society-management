@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import PreloaderSociety from '../../components/PreloaderSociety';
 
 // Add these imports at the top
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -59,11 +60,7 @@ export default function Dashboard() {
   }, [router]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+    return <PreloaderSociety />;
   }
 
   if (error) {

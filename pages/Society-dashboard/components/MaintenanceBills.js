@@ -1,6 +1,6 @@
 // pages/maintenance-bills.js
 import React, { useState, useEffect } from 'react';
-import Preloader from '../../components/Preloader';
+import PreloaderSociety from '../../components/PreloaderSociety';
 
 export default function MaintenanceBills() {
   // States for UI
@@ -474,7 +474,7 @@ export default function MaintenanceBills() {
   };
 
   if (loading) {
-    return <Preloader />;
+    return <PreloaderSociety />;
   }
 
   return (
