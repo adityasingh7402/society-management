@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
-import { ChevronDown, ChevronUp, Home, Layers, Grid, User } from 'lucide-react';
+import { ChevronDown, ChevronUp, Home, Layers, Grid, User, Building } from 'lucide-react';
 import { useRouter } from 'next/router';
 
 export default function OwnerProfile() {
@@ -220,11 +220,15 @@ export default function OwnerProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <header className="bg-white shadow mb-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">Society Resident Profiles</h1>
-          <p className="mt-2 text-sm text-gray-600">Manage and monitor all resident profiles in your society</p>
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-gray-800 shadow-lg border-b-4 border-blue-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
+              <User className="mr-3" size={32} />
+              Owner Profile
+            </h1>
+          </div>
         </div>
       </header>
 

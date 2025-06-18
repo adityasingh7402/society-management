@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
+import { Building, FileText } from 'lucide-react';
 
 export default function UtilityBills() {
   // States for UI
@@ -395,16 +396,20 @@ export default function UtilityBills() {
   };
 
   return (
-    <div className="container mx-auto p-4">
+    <div>
       {loading ? (
         <PreloaderSociety />
       ) : (
         <div className="min-h-screen bg-gray-100">
           {actionLoading && <PreloaderSociety />}
-          {/* Header */}
-          <header className="bg-white shadow">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              <h1 className="text-3xl font-bold text-gray-900">Utility Bills</h1>
+          <header className="bg-gray-800 shadow-lg border-b-4 border-blue-500">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
+                  <FileText className="mr-3" size={32} />
+                  Utility Bills
+                </h1>
+              </div>
             </div>
           </header>
 

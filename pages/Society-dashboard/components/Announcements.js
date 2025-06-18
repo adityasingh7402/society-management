@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
-import { Megaphone, Calendar, Clock, Trash2, Upload, Edit, AlertCircle, X, Save, Plus, Loader2 } from 'lucide-react';
+import { Megaphone, Calendar, Clock, Trash2, Upload, Edit, AlertCircle, X, Save, Plus, Loader2, Building, Bell } from 'lucide-react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 
 export default function Announcements() {
@@ -284,14 +284,15 @@ export default function Announcements() {
   // Update the image preview section in the form
   // Fix the JSX syntax errors in the return statement
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 p-4">
-      {/* Header */}
-      <header className="bg-white shadow-md rounded-lg border-l-4 border-blue-600 mb-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center">
-            <Megaphone className="mr-3 text-blue-600" size={32} />
-            Society Announcements
-          </h1>
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-gray-800 shadow-lg border-b-4 border-blue-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
+              <Bell className="mr-3" size={32} />
+              Announcements
+            </h1>
+          </div>
         </div>
       </header>
 

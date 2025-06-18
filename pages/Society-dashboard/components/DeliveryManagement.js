@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import PreloaderSociety from '../../components/PreloaderSociety';
+import { Building, Package } from 'lucide-react';
 
 // Camera component with permission handling
 const CameraCapture = ({ onCapture }) => {
@@ -240,10 +241,14 @@ const DeliveryManagement = () => {
         <PreloaderSociety />
       ) : (
         <div className="min-h-screen bg-gray-100">
-          {/* Header */}
-          <header className="bg-white shadow">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              <h1 className="text-3xl font-bold text-gray-900">Delivery Management</h1>
+          <header className="bg-gray-800 shadow-lg border-b-4 border-blue-500">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div className="flex items-center justify-between">
+                    <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
+                        <Package className="mr-3" size={32} />
+                        Delivery Management
+                    </h1>
+                </div>
             </div>
           </header>
 

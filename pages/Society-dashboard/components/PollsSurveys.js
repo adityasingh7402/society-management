@@ -19,7 +19,8 @@ import {
   Vote,
   CheckSquare,
   HelpCircle,
-  X
+  X,
+  Building
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -81,8 +82,8 @@ export default function PollsSurveys() {
       const societyIdFromData = data.societyId;
       setSocietyId(societyIdFromData);
 
-      // Fetch polls
-      const pollsResponse = await fetch(`/api/PollSurvey-Api/get-all?type=poll&societyId=${societyId}`, {
+      // Fetch polls using societyIdFromData instead of societyId state
+      const pollsResponse = await fetch(`/api/PollSurvey-Api/get-all?type=poll&societyId=${societyIdFromData}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -92,8 +93,8 @@ export default function PollsSurveys() {
       }
       const pollsData = await pollsResponse.json();
 
-      // Fetch surveys
-      const surveysResponse = await fetch(`/api/PollSurvey-Api/get-all?type=survey&societyId=${societyId}`, {
+      // Fetch surveys using societyIdFromData instead of societyId state
+      const surveysResponse = await fetch(`/api/PollSurvey-Api/get-all?type=survey&societyId=${societyIdFromData}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -422,14 +423,15 @@ export default function PollsSurveys() {
     return <PreloaderSociety />;
   }
 
-  return (<div className="min-h-screen bg-gray-50">
-    {/* Header */}
-    <header className="bg-white shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center">
-          <Vote className="mr-3 text-blue-600" size={32} />
-          Polls & Surveys
-        </h1>
+  return (<div className="min-h-screen bg-gray-100">
+    <header className="bg-gray-800 shadow-lg border-b-4 border-blue-500">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
+            <BarChart className="mr-3" size={32} />
+            Polls & Surveys
+          </h1>
+        </div>
       </div>
     </header>
 

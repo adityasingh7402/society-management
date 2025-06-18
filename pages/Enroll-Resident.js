@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, User, MapPin, Shield, ChevronLeft, ChevronRight, Phone, Mail, MapPinned, FileText, Home, MessageSquare, Check, AlertCircle, X } from 'lucide-react';
+import { Building2, User, MapPin, Shield, ChevronLeft, ChevronRight, Phone, Mail, MapPinned, FileText, Home, MessageSquare, Check, AlertCircle, X, Edit } from 'lucide-react';
 
 export default function ResidentSignup() {
     const router = useRouter();
@@ -27,12 +27,15 @@ export default function ResidentSignup() {
     const [loadingOtp, setLoadingOtp] = useState(false);
     const [societies, setSocieties] = useState([]);
     const [filteredSocieties, setFilteredSocieties] = useState([]);
-    const [fcmToken, setFcmToken] = useState(''); // Add this line
+    const [fcmToken, setFcmToken] = useState('');
     const [notification, setNotification] = useState({
         show: false,
         type: 'success',
         message: ''
     });
+    const [showSocietyList, setShowSocietyList] = useState(false);
+    const [isPincodeValid, setIsPincodeValid] = useState(false);
+    const [isSearchingSocieties, setIsSearchingSocieties] = useState(false);
 
     // Add the new useEffect for FCM token
     useEffect(() => {
@@ -114,29 +117,65 @@ export default function ResidentSignup() {
         }, duration);
     };
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData({ ...formData, [name]: value });
+    const handlePincodeChange = async (e) => {
+        const { value } = e.target;
+        setFormData(prev => ({ ...prev, pinCode: value }));
 
-        if (name === 'societyName' && Array.isArray(societies)) {
+        // Basic pincode validation
+        if (value.length === 6 && /^\d+$/.test(value)) {
+            setIsPincodeValid(true);
+            setIsSearchingSocieties(true);
+            try {
+                const response = await fetch(`/api/societies?pincode=${value}`);
+                const data = await response.json();
+                setSocieties(data.societies || []);
+                setFilteredSocieties(data.societies || []);
+                setShowSocietyList(true);
+            } catch (error) {
+                console.error("Failed to fetch societies", error);
+                setNotification({
+                    show: true,
+                    type: 'error',
+                    message: 'Failed to fetch societies for this pincode'
+                });
+            }
+            setIsSearchingSocieties(false);
+        } else {
+            setIsPincodeValid(false);
+            setShowSocietyList(false);
+            setSocieties([]);
+            setFilteredSocieties([]);
+        }
+    };
+
+    const handleSocietySearch = (e) => {
+        const { value } = e.target;
+        setFormData(prev => ({ ...prev, societyName: value }));
+        if (societies.length > 0) {
             const filtered = societies.filter(society =>
-                society?.societyName?.toLowerCase().includes(value.toLowerCase())
+                society.societyName.toLowerCase().includes(value.toLowerCase())
             );
             setFilteredSocieties(filtered);
+            setShowSocietyList(true);
         }
     };
 
     const handleSocietySelect = (society) => {
-        setFormData({
-            ...formData,
+        setFormData(prev => ({
+            ...prev,
             societyName: society.societyName,
             street: society.street,
             city: society.city,
             state: society.state,
             societyId: society.societyId,
             pinCode: society.pinCode,
-        });
-        setFilteredSocieties([]);
+        }));
+        setShowSocietyList(false);
+    };
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
     };
 
     const handleOtpChange = (e) => setOtp(e.target.value);
@@ -187,8 +226,8 @@ export default function ResidentSignup() {
                 const submitResponse = await fetch('/api/Resident-Api/resident', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        ...formData, 
+                    body: JSON.stringify({
+                        ...formData,
                         phone: phoneNumber,
                         fcmToken: fcmToken // Include the FCM token
                     }),
@@ -327,7 +366,7 @@ export default function ResidentSignup() {
             </motion.header>
 
             {/* Background decoration elements */}
-            <section className="py-10 bg-slate-50 min-h-screen relative overflow-hidden">
+            <section className="py-10 bg-slate-50 min-h-screen relative">
                 <motion.div
                     className="absolute top-20 left-20 w-64 h-64 bg-indigo-200 rounded-full opacity-20"
                     animate={{
@@ -338,7 +377,7 @@ export default function ResidentSignup() {
                     transition={{ duration: 15, repeat: Infinity, repeatType: "reverse" }}
                 />
                 <motion.div
-                    className="absolute bottom-20 right-20 w-96 h-96 bg-purple-200 rounded-full opacity-20"
+                    className="absolute bottom-20 right-20 w-96 h-96 bg-indigo-200 rounded-full opacity-20"
                     animate={{
                         y: [0, 30, 0],
                         x: [0, -20, 0],
@@ -399,14 +438,14 @@ export default function ResidentSignup() {
                         </div>
                     </motion.div>
 
-                    {/* Form */}
+                    {/* Form Container */}
                     <motion.div
-                        className="max-w-3xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden"
+                        className="max-w-3xl mx-auto bg-white rounded-xl shadow-xl overflow-visible relative z-20"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.7, delay: 0.5 }}
+                        transition={{ delay: 0.4, duration: 0.6 }}
                     >
-                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 py-4 px-6">
+                        <div className="bg-gradient-to-r rounded-t-2xl from-indigo-600 to-purple-600 py-4 px-6">
                             <h3 className="text-xl font-bold text-center text-white">
                                 {currentStep === 1 && "Society Information"}
                                 {currentStep === 2 && "Personal Information"}
@@ -424,113 +463,104 @@ export default function ResidentSignup() {
                                 {/* Step 1 - Society Details */}
                                 {currentStep === 1 && (
                                     <div className="space-y-6">
-                                        {/* Society Name Input with Autocomplete */}
-                                        <motion.div className="relative" variants={itemVariants}>
-                                            <label htmlFor="societyName" className="block text-gray-700 font-medium mb-2">
-                                                <Building2 className="inline-block w-5 h-5 mr-2 text-indigo-600" />
-                                                Society Name
+                                        {/* PIN Code Input */}
+                                        <motion.div variants={itemVariants}>
+                                            <label htmlFor="pinCode" className="block text-gray-700 font-medium mb-2">
+                                                <MapPin className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                                                PIN Code
                                             </label>
                                             <input
                                                 type="text"
-                                                id="societyName"
-                                                name="societyName"
-                                                value={formData.societyName || ""}
-                                                onChange={handleChange}
-                                                required
+                                                id="pinCode"
+                                                name="pinCode"
+                                                value={formData.pinCode}
+                                                onChange={handlePincodeChange}
+                                                maxLength={6}
                                                 className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                                placeholder="Enter your society's name"
+                                                placeholder="Enter PIN code to find societies"
                                             />
-
-                                            {/* Autocomplete Suggestions */}
-                                            {filteredSocieties.length > 0 && (
-                                                <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto shadow-lg">
-                                                    {filteredSocieties.map((society) => (
-                                                        <motion.div
-                                                            key={society._id}
-                                                            onClick={() => handleSocietySelect(society)}
-                                                            className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100"
-                                                            whileHover={{ backgroundColor: "#EEF2FF" }}
-                                                        >
-                                                            {society.societyName}
-                                                        </motion.div>
-                                                    ))}
+                                            {isSearchingSocieties && (
+                                                <div className="mt-2 text-sm text-blue-600 flex items-center">
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                                    Searching for societies...
                                                 </div>
                                             )}
                                         </motion.div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {/* Street Input */}
-                                            <motion.div variants={itemVariants}>
-                                                <label htmlFor="street" className="block text-gray-700 font-medium mb-2">
-                                                    <MapPinned className="inline-block w-5 h-5 mr-2 text-indigo-600" />
-                                                    Street
+                                        {/* Society Selection */}
+                                        {isPincodeValid && (
+                                            <motion.div variants={itemVariants} className="relative">
+                                                <label htmlFor="societyName" className="block text-gray-700 font-medium mb-2">
+                                                    <Building2 className="inline-block w-5 h-5 mr-2" />
+                                                    Society Name
                                                 </label>
                                                 <input
                                                     type="text"
-                                                    id="street"
-                                                    name="street"
-                                                    value={formData.street}
-                                                    onChange={handleChange}
-                                                    required
-                                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                                    placeholder="Enter street"
+                                                    id="societyName"
+                                                    name="societyName"
+                                                    value={formData.societyName}
+                                                    onChange={handleSocietySearch}
+                                                    className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                    placeholder="Search for your society"
                                                 />
-                                            </motion.div>
 
-                                            {/* City Input */}
-                                            <motion.div variants={itemVariants}>
-                                                <label htmlFor="city" className="block text-gray-700 font-medium mb-2">
-                                                    <MapPin className="inline-block w-5 h-5 mr-2 text-indigo-600" />
-                                                    City
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="city"
-                                                    name="city"
-                                                    value={formData.city}
-                                                    onChange={handleChange}
-                                                    required
-                                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                                    placeholder="Enter city"
-                                                />
-                                            </motion.div>
+                                                {/* Society List Dropdown */}
+                                                <AnimatePresence>
+                                                    {showSocietyList && filteredSocieties.length > 0 && (
+                                                        <motion.div
+                                                            className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                                                            initial={{ opacity: 0, y: -10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -10 }}
+                                                        >
+                                                            {filteredSocieties.map((society) => (
+                                                                <motion.div
+                                                                    key={society._id}
+                                                                    onClick={() => handleSocietySelect(society)}
+                                                                    className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                                                                    whileHover={{ backgroundColor: "#f3f4f6" }}
+                                                                >
+                                                                    <div className="font-medium text-gray-800">{society.societyName}</div>
+                                                                    <div className="text-sm text-gray-600">{society.street}</div>
+                                                                    <div className="text-xs text-gray-500">{society.city}, {society.state}</div>
+                                                                </motion.div>
+                                                            ))}
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
 
-                                            {/* State Input */}
-                                            <motion.div variants={itemVariants}>
-                                                <label htmlFor="state" className="block text-gray-700 font-medium mb-2">
-                                                    <MapPin className="inline-block w-5 h-5 mr-2 text-indigo-600" />
-                                                    State
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="state"
-                                                    name="state"
-                                                    value={formData.state}
-                                                    onChange={handleChange}
-                                                    required
-                                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                                    placeholder="Enter state"
-                                                />
+                                                {showSocietyList && filteredSocieties.length === 0 && (
+                                                    <div className="mt-2 text-sm text-gray-600">
+                                                        No societies found for this PIN code
+                                                    </div>
+                                                )}
                                             </motion.div>
+                                        )}
 
-                                            {/* Pin Code Input */}
-                                            <motion.div variants={itemVariants}>
-                                                <label htmlFor="pinCode" className="block text-gray-700 font-medium mb-2">
-                                                    <MapPin className="inline-block w-5 h-5 mr-2 text-indigo-600" />
-                                                    PIN Code
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="pinCode"
-                                                    name="pinCode"
-                                                    value={formData.pinCode}
-                                                    onChange={handleChange}
-                                                    required
-                                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                                    placeholder="Enter PIN code"
-                                                />
+                                        {/* Display Selected Society Details */}
+                                        {formData.societyName && !showSocietyList && (
+                                            <motion.div
+                                                variants={itemVariants}
+                                                className="bg-indigo-50 p-4 rounded-lg border border-indigo-200"
+                                            >
+                                                <h3 className="font-medium text-indigo-800 mb-2">Selected Society</h3>
+                                                <div className="space-y-1">
+                                                    <p className="text-indigo-700">{formData.societyName}</p>
+                                                    <p className="text-indigo-600 text-sm">{formData.street}</p>
+                                                    <p className="text-indigo-600 text-sm">{formData.city}, {formData.state} - {formData.pinCode}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowSocietyList(true);
+                                                        setFormData(prev => ({ ...prev, societyName: '' }));
+                                                    }}
+                                                    className="mt-2 text-sm text-indigo-700 hover:text-indigo-800 flex items-center"
+                                                >
+                                                    <Edit className="w-4 h-4 mr-1" />
+                                                    Change Society
+                                                </button>
                                             </motion.div>
-                                        </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -560,7 +590,7 @@ export default function ResidentSignup() {
                                                     Phone Number
                                                 </label>
                                                 <div className="flex items-center border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
-                                                    <div className="bg-indigo-100 py-2 px-3 rounded-l-lg text-indigo-800 font-medium">+91</div>
+                                                    <div className="bg-indigo-100 py-3 px-3 rounded-l-lg text-indigo-800 font-medium">+91</div>
                                                     <input
                                                         type="tel"
                                                         id="phone"
@@ -730,68 +760,6 @@ export default function ResidentSignup() {
                                 </div>
                             </form>
                         </motion.div>
-                    </motion.div>
-
-                    {/* Additional Information */}
-                    <motion.div
-                        className="max-w-3xl mx-auto mt-8 bg-white rounded-xl shadow-lg overflow-hidden"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.7, delay: 0.7 }}
-                    >
-                        <div className="p-6">
-                            <h3 className="text-xl font-bold text-indigo-700 mb-4">Why Join SocietyManage?</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <motion.div
-                                    className="flex items-start"
-                                    whileHover={{ scale: 1.02 }}
-                                >
-                                    <div className="bg-indigo-100 p-3 rounded-full mr-4">
-                                        <FileText className="w-6 h-6 text-indigo-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-medium text-gray-800 mb-1">Easy Bill Management</h4>
-                                        <p className="text-gray-600 text-sm">Manage and pay your society bills online with ease and convenience.</p>
-                                    </div>
-                                </motion.div>
-                                <motion.div
-                                    className="flex items-start"
-                                    whileHover={{ scale: 1.02 }}
-                                >
-                                    <div className="bg-indigo-100 p-3 rounded-full mr-4">
-                                        <Home className="w-6 h-6 text-indigo-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-medium text-gray-800 mb-1">Stay Connected</h4>
-                                        <p className="text-gray-600 text-sm">Get important updates and notifications from your society management.</p>
-                                    </div>
-                                </motion.div>
-                                <motion.div
-                                    className="flex items-start"
-                                    whileHover={{ scale: 1.02 }}
-                                >
-                                    <div className="bg-indigo-100 p-3 rounded-full mr-4">
-                                        <MessageSquare className="w-6 h-6 text-indigo-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-medium text-gray-800 mb-1">Community Discussions</h4>
-                                        <p className="text-gray-600 text-sm">Participate in discussions and stay informed about society events.</p>
-                                    </div>
-                                </motion.div>
-                                <motion.div
-                                    className="flex items-start"
-                                    whileHover={{ scale: 1.02 }}
-                                >
-                                    <div className="bg-indigo-100 p-3 rounded-full mr-4">
-                                        <Shield className="w-6 h-6 text-indigo-600" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-medium text-gray-800 mb-1">Secure Access</h4>
-                                        <p className="text-gray-600 text-sm">Your data is protected with robust security measures and verification.</p>
-                                    </div>
-                                </motion.div>
-                            </div>
-                        </div>
                     </motion.div>
 
                     {/* Already have an account */}

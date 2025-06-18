@@ -1,76 +1,61 @@
 import connectToDatabase from "../../../lib/mongodb";
-import Society from "../../../models/Society";
 import Resident from '../../../models/Resident';
 
 export default async function handler(req, res) {
-  if (req.method === 'POST') {
-    const { 
-      societyId, 
-      name, 
-      phone, 
-      email, 
-      street, 
-      city, 
-      state, 
-      pinCode
-    } = req.body;
-
-    // Step 1: Input Validation
-    if (!societyId || !name || !phone || !email) {
-      return res.status(400).json({ message: 'Required fields are missing' });
+    if (req.method !== 'POST') {
+        return res.status(405).json({ message: 'Method not allowed' });
     }
 
     try {
-      await connectToDatabase();
+        const { db } = await connectToDatabase();
+        const {
+            name,
+            phone,
+            email,
+            societyId,
+            societyName,
+            street,
+            city,
+            state,
+            pinCode,
+            fcmToken
+        } = req.body;
 
-      const society = await Society.findOne({ societyId: societyId });
-      
-      if (!society) {
-        return res.status(400).json({ message: 'Society ID not found' });
-      }
-
-      const existingResident = await Resident.findOne({
-        $or: [{ phone }, { email }]
-      });
-
-      if (existingResident) {
-        const duplicateField = existingResident.phone === phone ? 'Mobile' : 'Email';
-        return res.status(400).json({ message: `Resident with this ${duplicateField} already exists` });
-      }
-
-      const newResident = new Resident({
-        name,
-        phone,
-        email,
-        societyCode: society.societyId,
-        societyId: society._id,
-        societyName: society.societyName,
-        address: {
-          societyName: society.societyName,
-          street: street || '',
-          city: city || '',
-          state: state || '',
-          pinCode: pinCode || ''
+        // Validate required fields
+        if (!name || !phone || !email || !societyId || !societyName) {
+            return res.status(400).json({ message: 'Missing required fields' });
         }
-      });
 
-      const savedResident = await newResident.save();
+        // Check if resident already exists with the same phone number
+        const existingResident = await Resident.findOne({ phone });
+        if (existingResident) {
+            return res.status(400).json({ message: 'A resident with this phone number already exists' });
+        }
 
-      await Society.findByIdAndUpdate(
-        society._id,
-        { $push: { residents: savedResident._id } },
-        { runValidators: false }
-      );
+        // Create new resident
+        const resident = new Resident({
+            name,
+            phone,
+            email,
+            societyId,
+            societyName,
+            address: {
+                street,
+                city,
+                state,
+                pinCode
+            },
+            fcmToken,
+            isVerified: false,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
 
-      res.status(200).json({ 
-        message: 'Resident signed up successfully!',
-        residentId: savedResident._id
-      });
+        await resident.save();
+
+        return res.status(201).json({ message: 'Resident signed up successfully!' });
     } catch (error) {
-      console.error('Error in resident signup:', error);
-      res.status(500).json({ message: 'Internal server error' });
+        console.error('Error in resident signup:', error);
+        return res.status(500).json({ message: 'Internal server error' });
     }
-  } else {
-    res.status(405).json({ message: 'Method Not Allowed' });
-  }
 }

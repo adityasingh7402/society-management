@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Building, Ticket } from 'lucide-react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 
 export default function Tickets() {
@@ -150,10 +150,15 @@ export default function Tickets() {
   const [expandedSection, setExpandedSection] = useState(null);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">Maintenance Complaints</h1>
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-gray-800 shadow-lg border-b-4 border-blue-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
+              <Ticket className="mr-3" size={32} />
+              Maintenance Tickets
+            </h1>
+          </div>
         </div>
       </header>
 

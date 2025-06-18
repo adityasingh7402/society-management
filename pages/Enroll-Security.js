@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { Building2, User, Shield, ChevronLeft, ChevronRight, Phone, Mail, MapPin, MapPinned, FileText, Clock, Home, Check, AlertCircle, X } from 'lucide-react';
+import { Building2, User, Shield, ChevronLeft, ChevronRight, Phone, Mail, MapPin, MapPinned, FileText, Clock, Home, Check, AlertCircle, X, Edit } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 export default function SecuritySignup() {
@@ -30,9 +30,12 @@ export default function SecuritySignup() {
     const [filteredSocieties, setFilteredSocieties] = useState([]);
     const [notification, setNotification] = useState({
         show: false,
-        type: 'success', // or 'error'
+        type: 'success',
         message: ''
     });
+    const [showSocietyList, setShowSocietyList] = useState(false);
+    const [isPincodeValid, setIsPincodeValid] = useState(false);
+    const [isSearchingSocieties, setIsSearchingSocieties] = useState(false);
 
     // Animation variants
     const containerVariants = {
@@ -89,29 +92,65 @@ export default function SecuritySignup() {
     const handleNext = () => setCurrentStep(currentStep + 1);
     const handleBack = () => setCurrentStep(currentStep - 1);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData({ ...formData, [name]: value });
+    const handlePincodeChange = async (e) => {
+        const { value } = e.target;
+        setFormData(prev => ({ ...prev, pinCode: value }));
+        
+        // Basic pincode validation
+        if (value.length === 6 && /^\d+$/.test(value)) {
+            setIsPincodeValid(true);
+            setIsSearchingSocieties(true);
+            try {
+                const response = await fetch(`/api/societies?pincode=${value}`);
+                const data = await response.json();
+                setSocieties(data.societies || []);
+                setFilteredSocieties(data.societies || []);
+                setShowSocietyList(true);
+            } catch (error) {
+                console.error("Failed to fetch societies", error);
+                setNotification({
+                    show: true,
+                    type: 'error',
+                    message: 'Failed to fetch societies for this pincode'
+                });
+            }
+            setIsSearchingSocieties(false);
+        } else {
+            setIsPincodeValid(false);
+            setShowSocietyList(false);
+            setSocieties([]);
+            setFilteredSocieties([]);
+        }
+    };
 
-        if (name === 'societyName' && Array.isArray(societies)) {
+    const handleSocietySearch = (e) => {
+        const { value } = e.target;
+        setFormData(prev => ({ ...prev, societyName: value }));
+        if (societies.length > 0) {
             const filtered = societies.filter(society =>
-                society?.societyName?.toLowerCase().includes(value.toLowerCase())
+                society.societyName.toLowerCase().includes(value.toLowerCase())
             );
             setFilteredSocieties(filtered);
+            setShowSocietyList(true);
         }
     };
 
     const handleSocietySelect = (society) => {
-        setFormData({
-            ...formData,
+        setFormData(prev => ({
+            ...prev,
             societyName: society.societyName,
             street: society.street,
             city: society.city,
             state: society.state,
             societyId: society.societyId,
             pinCode: society.pinCode,
-        });
-        setFilteredSocieties([]);
+        }));
+        setShowSocietyList(false);
+    };
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
     };
 
     const handleOtpChange = (e) => setOtp(e.target.value);
@@ -393,7 +432,7 @@ export default function SecuritySignup() {
                                 );
                             })}
                             {/* Progress line */}
-                            <div className="absolute top-6 left-0 h-0.5 bg-gray-200 w-full -z-10">
+                            <div className="absolute top-6 left-7 h-0.5 bg-gray-200 w-[85%] -z-10">
                                 <motion.div
                                     className="h-full bg-green-600"
                                     initial={{ width: 0 }}
@@ -420,121 +459,104 @@ export default function SecuritySignup() {
                                     initial="hidden"
                                     animate="visible"
                                 >
-                                    {/* Society Name Input with Autocomplete */}
-                                    <motion.div className="relative" variants={itemVariants}>
-                                        <label htmlFor="societyName" className="block text-gray-700 font-medium mb-2">
-                                            <Building2 className="inline-block w-5 h-5 mr-2" />
-                                            Society Name
+                                    {/* PIN Code Input */}
+                                    <motion.div variants={itemVariants}>
+                                        <label htmlFor="pinCode" className="block text-gray-700 font-medium mb-2">
+                                            <MapPin className="inline-block w-5 h-5 mr-2" />
+                                            PIN Code
                                         </label>
                                         <input
                                             type="text"
-                                            id="societyName"
-                                            name="societyName"
-                                            value={formData.societyName || ""}
-                                            onChange={handleChange}
-                                            required
+                                            id="pinCode"
+                                            name="pinCode"
+                                            value={formData.pinCode}
+                                            onChange={handlePincodeChange}
+                                            maxLength={6}
                                             className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                            placeholder="Enter your society's name"
+                                            placeholder="Enter PIN code to find societies"
                                         />
+                                        {isSearchingSocieties && (
+                                            <div className="mt-2 text-sm text-blue-600 flex items-center">
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                                Searching for societies...
+                                            </div>
+                                        )}
+                                    </motion.div>
 
-                                        {/* Autocomplete Suggestions */}
-                                        <AnimatePresence>
-                                            {filteredSocieties.length > 0 && (
-                                                <motion.div
-                                                    className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto"
-                                                    initial={{ opacity: 0, y: -10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, y: -10 }}
-                                                    transition={{ duration: 0.2 }}
-                                                >
-                                                    {filteredSocieties.map((society) => (
-                                                        <motion.div
-                                                            key={society._id}
-                                                            onClick={() => handleSocietySelect(society)}
-                                                            className="p-2 hover:bg-gray-100 cursor-pointer"
-                                                            whileHover={{ backgroundColor: "#f3f4f6" }}
-                                                        >
-                                                            {society.societyName}
-                                                        </motion.div>
-                                                    ))}
-                                                </motion.div>
+                                    {/* Society Selection */}
+                                    {isPincodeValid && (
+                                        <motion.div variants={itemVariants} className="relative">
+                                            <label htmlFor="societyName" className="block text-gray-700 font-medium mb-2">
+                                                <Building2 className="inline-block w-5 h-5 mr-2" />
+                                                Society Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="societyName"
+                                                name="societyName"
+                                                value={formData.societyName}
+                                                onChange={handleSocietySearch}
+                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                placeholder="Search for your society"
+                                            />
+
+                                            {/* Society List Dropdown */}
+                                            <AnimatePresence>
+                                                {showSocietyList && filteredSocieties.length > 0 && (
+                                                    <motion.div
+                                                        className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                                                        initial={{ opacity: 0, y: -10 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{ opacity: 0, y: -10 }}
+                                                    >
+                                                        {filteredSocieties.map((society) => (
+                                                            <motion.div
+                                                                key={society._id}
+                                                                onClick={() => handleSocietySelect(society)}
+                                                                className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                                                                whileHover={{ backgroundColor: "#f3f4f6" }}
+                                                            >
+                                                                <div className="font-medium text-gray-800">{society.societyName}</div>
+                                                                <div className="text-sm text-gray-600">{society.street}</div>
+                                                                <div className="text-xs text-gray-500">{society.city}, {society.state}</div>
+                                                            </motion.div>
+                                                        ))}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+
+                                            {showSocietyList && filteredSocieties.length === 0 && (
+                                                <div className="mt-2 text-sm text-gray-600">
+                                                    No societies found for this PIN code
+                                                </div>
                                             )}
-                                        </AnimatePresence>
-                                    </motion.div>
+                                        </motion.div>
+                                    )}
 
-                                    <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-6" variants={itemVariants}>
-                                        {/* Street Input */}
-                                        <div>
-                                            <label htmlFor="street" className="block text-gray-700 font-medium mb-2">
-                                                <MapPinned className="inline-block w-5 h-5 mr-2" />
-                                                Street
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="street"
-                                                name="street"
-                                                value={formData.street}
-                                                onChange={handleChange}
-                                                required
-                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                                placeholder="Enter street"
-                                            />
-                                        </div>
-
-                                        {/* City Input */}
-                                        <div>
-                                            <label htmlFor="city" className="block text-gray-700 font-medium mb-2">
-                                                <MapPin className="inline-block w-5 h-5 mr-2" />
-                                                City
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="city"
-                                                name="city"
-                                                value={formData.city}
-                                                onChange={handleChange}
-                                                required
-                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                                placeholder="Enter city"
-                                            />
-                                        </div>
-
-                                        {/* State Input */}
-                                        <div>
-                                            <label htmlFor="state" className="block text-gray-700 font-medium mb-2">
-                                                <MapPin className="inline-block w-5 h-5 mr-2" />
-                                                State
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="state"
-                                                name="state"
-                                                value={formData.state}
-                                                onChange={handleChange}
-                                                required
-                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                                placeholder="Enter state"
-                                            />
-                                        </div>
-
-                                        {/* Pin Code Input */}
-                                        <div>
-                                            <label htmlFor="pinCode" className="block text-gray-700 font-medium mb-2">
-                                                <MapPin className="inline-block w-5 h-5 mr-2" />
-                                                PIN Code
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="pinCode"
-                                                name="pinCode"
-                                                value={formData.pinCode}
-                                                onChange={handleChange}
-                                                required
-                                                className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                                placeholder="Enter PIN code"
-                                            />
-                                        </div>
-                                    </motion.div>
+                                    {/* Display Selected Society Details */}
+                                    {formData.societyName && !showSocietyList && (
+                                        <motion.div
+                                            variants={itemVariants}
+                                            className="bg-green-50 p-4 rounded-lg border border-green-200"
+                                        >
+                                            <h3 className="font-medium text-green-800 mb-2">Selected Society</h3>
+                                            <div className="space-y-1">
+                                                <p className="text-green-700">{formData.societyName}</p>
+                                                <p className="text-green-600 text-sm">{formData.street}</p>
+                                                <p className="text-green-600 text-sm">{formData.city}, {formData.state} - {formData.pinCode}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setShowSocietyList(true);
+                                                    setFormData(prev => ({ ...prev, societyName: '' }));
+                                                }}
+                                                className="mt-2 text-sm text-green-700 hover:text-green-800 flex items-center"
+                                            >
+                                                <Edit className="w-4 h-4 mr-1" />
+                                                Change Society
+                                            </button>
+                                        </motion.div>
+                                    )}
                                 </motion.div>
                             )}
 
