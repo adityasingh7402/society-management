@@ -209,74 +209,48 @@ export default function ChatModal({
   }, []);
   
   return (
-    <div className="flex flex-col h-screen bg-[#e5ded8] relative">
-      {/* Chat Header - Improved for mobile */}
-      <div className="bg-gradient-to-r from-teal-600 to-teal-500 text-white py-3 px-4 shadow-md">
+    <div className="flex flex-col h-screen bg-[#F8F9FE] relative">
+      {/* Chat Header - Modern Android Style */}
+      <div className="bg-white shadow-md px-4 py-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center">
+          <div className="flex items-center space-x-3">
             <button 
               onClick={onClose}
-              className="mr-2 hover:bg-white/10 p-1 rounded-full transition-colors"
+              className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
               aria-label="Go back"
             >
-              <ArrowLeft className="h-6 w-6" />
+              <ArrowLeft className="h-6 w-6 text-gray-700" />
             </button>
             
-            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center relative mr-3 border-2 border-white/30">
-              {selectedResident.userImage ? (
-                <img 
-                  src={selectedResident.userImage} 
-                  alt={selectedResident.name} 
-                  className="h-10 w-10 rounded-full object-cover"
-                  onError={(e) => {
-                    // If image fails to load and there's a fallback, use it
-                    if (selectedResident.fallbackImage) {
+            <div className="relative">
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center relative border-2 border-white shadow-md">
+                {selectedResident.userImage ? (
+                  <img 
+                    src={selectedResident.userImage} 
+                    alt={selectedResident.name} 
+                    className="h-12 w-12 rounded-full object-cover"
+                    onError={(e) => {
                       e.target.style.display = 'none';
-                      e.target.parentNode.classList.add('bg-amber-100');
-                    } else {
-                      // Otherwise show default user icon
-                      e.target.style.display = 'none';
-                    }
-                  }}
-                />
-              ) : selectedResident.fallbackImage ? (
-                // Render fallback element if provided
-                <div className="bg-amber-100 h-10 w-10 rounded-full flex items-center justify-center">
-                  {selectedResident.fallbackImage}
-                </div>
-              ) : (
-                <User className="text-white" />
-              )}
-              <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-400 rounded-full border-2 border-white"></div>
+                      e.target.parentNode.classList.add('bg-gradient-to-br', 'from-blue-400', 'to-purple-500');
+                    }}
+                  />
+                ) : (
+                  <User className="text-white h-6 w-6" />
+                )}
+                <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-400 rounded-full border-2 border-white"></div>
+              </div>
             </div>
             
             <div>
-              <h2 className="font-semibold text-lg truncate max-w-[150px] md:max-w-xs">{selectedResident.name}</h2>
-              <p className="text-xs opacity-80 truncate max-w-[150px] md:max-w-xs">
+              <h2 className="font-semibold text-gray-800 text-lg truncate max-w-[150px] md:max-w-xs">
+                {selectedResident.name}
+              </h2>
+              <p className="text-xs text-gray-500 truncate max-w-[150px] md:max-w-xs">
                 {selectedResident.flatDetails?.flatNumber ? 
                   `Flat: ${selectedResident.flatDetails?.flatNumber}` : 
                   'Online'}
               </p>
             </div>
-          </div>
-          
-          <div className="flex items-center space-x-1 md:space-x-3">
-            <button 
-              className="hover:bg-white/10 p-2 rounded-full transition-colors"
-              onClick={() => {
-                if (selectedResident.phoneNumber) {
-                  window.open(`tel:${selectedResident.phoneNumber}`);
-                } else {
-                  toast.error('No phone number available');
-                }
-              }}
-              aria-label="Call"
-            >
-              <Phone className="h-5 w-5" />
-            </button>
-            <button className="hover:bg-white/10 p-2 rounded-full transition-colors" aria-label="More options">
-              <MoreVertical className="h-5 w-5" />
-            </button>
           </div>
         </div>
       </div>
@@ -288,50 +262,52 @@ export default function ChatModal({
             `/Resident-dashboard/components/ProductDetail?id=${productRef.id}` :
             `/Resident-dashboard/components/PropertyDetail?id=${propertyRef.id}`
           }
-          className="bg-white/90 backdrop-blur-sm p-2 flex items-center shadow-md hover:bg-white/95 transition-colors"
+          className="bg-white border-b border-gray-100 p-3 flex items-center hover:bg-gray-50 transition-colors"
         >
-          <div className="mr-2 bg-blue-50 rounded-full p-2">
+          <div className="mr-3 bg-blue-50 rounded-full p-2">
             <Tag className="h-5 w-5 text-blue-600" />
           </div>
           <div className="flex-1">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 font-medium">
               {productRef?.id ? 'Product Inquiry' : 'Property Inquiry'}
             </p>
-            <p className="text-sm font-medium text-gray-800 truncate">
+            <p className="text-sm text-gray-800 font-medium truncate">
               {productRef?.title || propertyRef?.title}
             </p>
           </div>
-          <div className="ml-2 text-xs text-blue-600 font-medium">View</div>
+          <div className="ml-2 text-xs text-blue-600 font-semibold">View</div>
         </Link>
       )}
       
-      {/* Chat Messages - Enhanced styling */}
+      {/* Chat Messages - Modern Style */}
       <div 
         ref={chatContainerRef} 
-        className="flex-1 overflow-y-auto p-2 md:p-4 bg-[url('/chat-bg.png')] bg-repeat bg-opacity-30"
-        style={{backgroundImage: "url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImEiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblRyYW5zZm9ybT0icm90YXRlKDQ1KSI+PHBhdGggZD0iTTAgMTBoNDBNMTAgMHY0ME0wIDIwaDQwTTIwIDB2NDBNMCAzMGg0ME0zMCAwdjQwIiBzdHJva2U9IiNjY2MiIHN0cm9rZS1vcGFjaXR5PSIuMiIgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2EpIi8+PC9zdmc+')"}}
+        className="flex-1 overflow-y-auto p-4 space-y-6"
+        style={{
+          backgroundColor: '#ffffff'
+        }}
       >
-        {/* Initial message suggestion for product/property inquiries */}
         {chatMessages.length === 0 && (productRef?.title || propertyRef?.title) && (
-          <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 mb-4 text-sm text-gray-700 shadow-sm border border-blue-100">
-            <p className="font-medium text-blue-700 mb-1">Tip:</p>
-            <p>You're inquiring about: <span className="font-medium">{productRef?.title || propertyRef?.title}</span></p>
-            <p className="mt-1">Introduce yourself and let the {productRef?.id ? 'seller' : 'owner'} know you're interested in their listing.</p>
+          <div className="bg-gray-50 rounded-2xl p-4 shadow-sm border border-gray-100">
+            <p className="font-semibold text-blue-600 mb-2">Welcome!</p>
+            <p className="text-gray-600">You're inquiring about: <span className="font-medium text-gray-800">{productRef?.title || propertyRef?.title}</span></p>
+            <p className="mt-2 text-gray-500 text-sm">Start the conversation by introducing yourself.</p>
           </div>
         )}
       
         {chatMessages.length === 0 && !productRef && !propertyRef ? (
-          <div className="h-full flex flex-col items-center justify-center">
-            <div className="h-20 w-20 rounded-full bg-gradient-to-br from-teal-100 to-blue-100 flex items-center justify-center mb-4 shadow-md">
-              <User className="h-12 w-12 text-teal-500" />
+          <div className="h-full flex flex-col items-center justify-center text-center">
+            <div className="h-24 w-24 rounded-full bg-blue-600 flex items-center justify-center mb-6">
+              <User className="h-12 w-12 text-white" />
             </div>
-            <p className="text-gray-600 text-center font-medium">No messages yet.<br />Start the conversation!</p>
+            <p className="text-gray-800 font-medium text-lg">No messages yet</p>
+            <p className="text-gray-500 mt-1">Start a conversation!</p>
           </div>
         ) : (
           Object.entries(groupMessagesByDay()).map(([day, dayMessages]) => (
-            <div key={day} className="mb-6">
-              <div className="flex justify-center mb-4">
-                <div className="bg-white/80 backdrop-blur-sm text-gray-600 text-xs px-4 py-1.5 rounded-full shadow-sm font-medium">
+            <div key={day} className="space-y-4">
+              <div className="flex justify-center">
+                <div className="bg-gray-100 text-gray-500 text-xs px-4 py-1.5 rounded-full font-medium">
                   {day}
                 </div>
               </div>
@@ -339,10 +315,10 @@ export default function ChatModal({
               {dayMessages.map((message, index) => (
                 <div
                   key={message.id || index}
-                  className={`mb-3 flex ${message.isIncoming ? 'justify-start' : 'justify-end'}`}
+                  className={`flex ${message.isIncoming ? 'justify-start' : 'justify-end'} items-end space-x-2`}
                 >
                   {message.isIncoming && shouldShowAvatar(message, index) && (
-                    <div className="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center self-end mr-2">
+                    <div className="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center">
                       {selectedResident.userImage ? (
                         <img 
                           src={selectedResident.userImage} 
@@ -356,37 +332,31 @@ export default function ChatModal({
                   )}
                   
                   {message.isIncoming && !shouldShowAvatar(message, index) && (
-                    <div className="w-8 mr-2"></div>
+                    <div className="w-8"></div>
                   )}
                   
-                  <div className={`max-w-[85%] md:max-w-[70%] space-y-1 ${message.isIncoming ? '' : 'ml-auto'}`}>
+                  <div className={`max-w-[85%] md:max-w-[70%] space-y-1`}>
                     <div
-                      className={`px-4 py-2 rounded-lg shadow-sm ${
+                      className={`px-4 py-2.5 rounded-[20px] ${
                         message.isIncoming
-                          ? 'bg-white text-gray-800 rounded-tl-none'
-                          : 'bg-[#DCF8C6] text-black rounded-tr-none'
-                      } transition-all hover:shadow-md`}
+                          ? 'bg-gray-100 text-gray-800'
+                          : 'bg-[#0D6EFD] text-white'
+                      }`}
                     >
                       {message.media && (
                         <div className="mb-2">
                           {message.media.type?.startsWith('image/') ? (
-                            <div className="rounded-lg overflow-hidden">
+                            <div className="rounded-xl overflow-hidden">
                               <img 
                                 src={message.media.url} 
                                 alt="Shared image" 
                                 className="w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
                                 loading="lazy"
                                 onClick={() => openImageViewer(message.media.url)}
-                                onLoad={() => {
-                                  // Ensure we scroll to bottom when images load
-                                  if (messagesEndRef.current) {
-                                    messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-                                  }
-                                }}
                               />
                             </div>
                           ) : (
-                            <div className="flex items-center p-2 bg-gray-100 rounded-lg">
+                            <div className="flex items-center p-2 bg-gray-50 rounded-xl">
                               <Paperclip className="mr-2 text-gray-500" />
                               <a 
                                 href={message.media.url} 
@@ -404,7 +374,7 @@ export default function ChatModal({
                     </div>
                     
                     <div className={`flex items-center text-xs ${message.isIncoming ? '' : 'justify-end'}`}>
-                      <span className="text-gray-500">
+                      <span className="text-gray-400">
                         {formatMessageTime(message.timestamp)}
                       </span>
                       {!message.isIncoming && (
@@ -425,49 +395,45 @@ export default function ChatModal({
         <div ref={messagesEndRef} />
       </div>
       
-      {/* Selected Files Preview - Improved UI */}
+      {/* Selected Files Preview */}
       {selectedFiles.length > 0 && (
-        <div className="bg-white/90 backdrop-blur-sm p-2 flex overflow-x-auto">
+        <div className="bg-white border-t border-gray-100 p-3 flex overflow-x-auto space-x-2">
           {selectedFiles.map((file, index) => (
-            <div key={index} className="relative mr-2 flex-shrink-0 group">
-              {file.type.startsWith('image/') ? (
-                <div className="h-16 w-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shadow-sm">
+            <div key={index} className="relative flex-shrink-0 group">
+              <div className="h-16 w-16 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 shadow-sm">
+                {file.type.startsWith('image/') ? (
                   <img 
                     src={URL.createObjectURL(file)} 
                     alt={`Preview ${index}`}
+                    className="h-full w-full object-cover"
                   />
-                </div>
-              ) : (
-                <div className="h-16 w-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 shadow-sm">
-                  <Paperclip className="h-8 w-8 text-gray-500" />
-                </div>
-              )}
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center">
+                    <Paperclip className="h-8 w-8 text-gray-400" />
+                  </div>
+                )}
+              </div>
               <button 
                 onClick={() => removeSelectedFile(index)}
-                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 shadow-md opacity-90 hover:opacity-100 transition-opacity"
+                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 shadow-lg opacity-90 hover:opacity-100 transition-opacity"
                 disabled={sending}
-                aria-label="Remove file"
               >
                 <X className="h-3 w-3" />
               </button>
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                <span className="text-white text-xs truncate max-w-[90%] px-1">{file.name}</span>
-              </div>
             </div>
           ))}
         </div>
       )}
       
-      {/* Message Input - Enhanced UI */}
-      <div className="p-3 bg-[#f0f0f0] shadow-md">
-        <div className="flex items-center bg-white rounded-full overflow-hidden pr-2 shadow-inner border border-gray-200">
+      {/* Message Input - Modern Style */}
+      <div className="p-4 bg-white border-t border-gray-100">
+        <div className="flex items-center bg-gray-50 rounded-full overflow-hidden shadow-inner">
           <button
             onClick={() => fileInputRef.current.click()}
-            className="p-3 text-gray-500 hover:text-teal-500 transition-colors"
+            className="p-3 text-gray-500 hover:text-blue-500 transition-colors"
             disabled={sending}
-            aria-label="Attach file"
           >
-            <Image size={20} />
+            <Image size={22} />
             <input
               type="file"
               ref={fileInputRef}
@@ -485,33 +451,32 @@ export default function ChatModal({
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && !sending && handleSendClick()}
             placeholder="Type a message..."
-            className="flex-1 py-3 px-3 bg-transparent focus:outline-none text-gray-700"
+            className="flex-1 py-3 px-3 bg-transparent focus:outline-none text-gray-700 placeholder-gray-400"
             disabled={sending}
           />
           
           <button
             onClick={handleSendClick}
             disabled={sending || (!newMessage.trim() && !selectedFiles.length)}
-            className={`p-2 rounded-full ${
+            className={`p-3 ${
               sending || (!newMessage.trim() && !selectedFiles.length)
-                ? 'text-gray-400 cursor-not-allowed'
-                : 'text-white bg-teal-600 hover:bg-teal-700 transform hover:scale-105 transition-all'
-            }`}
-            aria-label="Send message"
+                ? 'text-gray-400'
+                : 'text-[#0D6EFD] hover:text-blue-700'
+            } transition-colors`}
           >
             {sending ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
-              <Send size={18} />
+              <Send size={22} />
             )}
           </button>
         </div>
       </div>
 
-      {/* Full Screen Image Viewer - Enhanced UI */}
+      {/* Image Viewer - Keep existing code but update styling */}
       {viewerOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center"
+          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center"
           onClick={closeImageViewer}
         >
           <div 

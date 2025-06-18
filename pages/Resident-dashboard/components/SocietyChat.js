@@ -358,179 +358,190 @@ export default function SocietyChat() {
   };
 
   return (
-    <div className="min-h-screen bg-[#e5ded8] flex flex-col">
+    <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <div className="sticky top-0 bg-teal-600 shadow-md z-50">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => window.location.href = '/Resident-dashboard'}
-            className="text-white p-1 rounded-full"
+      <div className="bg-white shadow-md px-4 py-3">
+        <div className="flex items-center space-x-3">
+          <button 
+            onClick={() => router.back()}
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
           >
-            <ArrowLeft size={24} />
+            <ArrowLeft className="h-6 w-6 text-gray-700" />
           </button>
-          <h1 className="text-xl font-semibold text-white flex items-center">
-            <MessageCircle className="mr-2" size={22} />
-            Society Chat
-          </h1>
-          <div className="w-8">
-            {socketLoading && (
-              <Loader2 className="h-5 w-5 text-white animate-spin" />
-            )}
+          
+          <div className="flex items-center">
+            <div className="h-12 w-12 rounded-full bg-blue-600 flex items-center justify-center relative border-2 border-white shadow-md">
+              <MessageCircle className="h-6 w-6 text-white" />
+            </div>
+            
+            <div className="ml-3">
+              <h2 className="font-semibold text-gray-800 text-lg">Society Chat</h2>
+              <p className="text-xs text-gray-500">
+                {socketLoading ? 'Connecting...' : 'Connected'}
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Chat Container */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-4 space-y-4">
-          {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
-            <div key={date} className="space-y-3">
-              <div className="flex justify-center sticky top-2 z-10">
-                <span className="bg-[#DCF8C6] text-gray-600 text-xs px-4 py-1 rounded-full shadow-sm">
-                  {formatDateHeader(date)}
-                </span>
+      {/* Messages Area */}
+      <div 
+        className="flex-1 overflow-y-auto p-4 space-y-6 bg-white"
+        ref={messagesEndRef}
+      >
+        {loading ? (
+          <div className="h-full flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+        ) : error ? (
+          <div className="h-full flex items-center justify-center text-center px-4">
+            <div>
+              <p className="text-red-500 font-medium mb-2">Error loading messages</p>
+              <p className="text-gray-500 text-sm">{error}</p>
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center">
+            <div className="h-24 w-24 rounded-full bg-blue-600 flex items-center justify-center mb-6">
+              <MessageCircle className="h-12 w-12 text-white" />
+            </div>
+            <p className="text-gray-800 font-medium text-lg">No messages yet</p>
+            <p className="text-gray-500 mt-1">Start a conversation!</p>
+          </div>
+        ) : (
+          Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
+            <div key={date} className="space-y-4">
+              <div className="flex justify-center">
+                <div className="bg-gray-100 text-gray-500 text-xs px-4 py-1.5 rounded-full font-medium">
+                  {formatDateHeader(new Date(date))}
+                </div>
               </div>
-              
-              {dateMessages.map((message) => (
-                <div
-                  key={message._id}
-                  className={`flex items-start ${
-                    message.senderId === currentUser?.id
-                      ? 'justify-end'
-                      : 'justify-start'
-                  }`}
-                >
-                  {message.senderId !== currentUser?.id && (
-                    <div 
-                      className="h-8 w-8 rounded-full mr-2 overflow-hidden flex-shrink-0 flex items-center justify-center"
-                      style={{ backgroundColor: generateResidentColor(message.senderId) }}
-                    >
-                      <User className="h-4 w-4 text-white" />
-                    </div>
-                  )}
-                  
-                  <div className="max-w-[75%]">
-                    {/* Sender name */}
-                    {message.senderId !== currentUser?.id && (
-                      <div className="text-xs text-gray-600 mb-1 ml-1 font-medium">
-                        {message.senderName}
+
+              {dateMessages.map((message) => {
+                const isCurrentUser = message.senderId === currentUser?.id;
+                return (
+                  <div
+                    key={message._id}
+                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} items-end space-x-2`}
+                  >
+                    {!isCurrentUser && (
+                      <div 
+                        className="h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center"
+                        style={{ backgroundColor: generateResidentColor(message.senderId) }}
+                      >
+                        <span className="text-white text-sm font-medium">
+                          {message.senderName?.charAt(0).toUpperCase()}
+                        </span>
                       </div>
                     )}
-                    
-                    <div className="flex items-end">
+
+                    <div className={`max-w-[85%] md:max-w-[70%] space-y-1 ${!isCurrentUser && 'ml-2'}`}>
+                      {!isCurrentUser && (
+                        <span className="text-xs text-gray-500 font-medium ml-1">
+                          {message.senderName}
+                        </span>
+                      )}
+                      
                       <div
-                        className={`px-4 py-2 rounded-lg ${
-                          message.senderId === currentUser?.id
-                            ? 'bg-[#DCF8C6] text-black rounded-tr-none'
-                            : 'bg-white text-black rounded-tl-none'
-                        } ${message.isDeleted ? 'italic opacity-60' : ''} shadow-sm`}
+                        className={`px-4 py-2.5 rounded-[20px] ${
+                          isCurrentUser
+                            ? 'bg-[#0D6EFD] text-white'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
                       >
                         {renderMessageContent(message)}
                       </div>
-                      
-                      {!message.isDeleted && message.senderId === currentUser?.id && (
-                        <button
-                          onClick={() => handleDeleteMessage(message._id)}
-                          className="ml-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
-                    </div>
-                    
-                    <div className="text-xs text-gray-500 mt-1 flex items-center justify-end">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {formatMessageTime(message.timestamp)}
-                      <MessageStatus messageId={message._id} senderId={message.senderId} />
+
+                      <div className={`flex items-center text-xs ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                        <span className="text-gray-400">
+                          {formatMessageTime(message.timestamp)}
+                        </span>
+                        {isCurrentUser && (
+                          <MessageStatus messageId={message._id} senderId={message.senderId} />
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          ))}
-          {/* Invisible element for auto-scrolling */}
-          <div ref={messagesEndRef} />
-        </div>
+          ))
+        )}
       </div>
-      
+
       {/* Message Input */}
-      <div className="sticky bottom-0 w-full bg-[#f0f0f0] py-2 px-2 border-t border-gray-200">
-        <div className="flex items-center bg-white rounded-full max-w-4xl mx-auto">
+      <div className="p-4 bg-white border-t border-gray-100">
+        <div className="flex items-center bg-gray-50 rounded-full overflow-hidden shadow-inner">
           <input
+            ref={inputRef}
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-            ref={inputRef}
-            placeholder="Type your message..."
-            className="flex-1 py-3 px-4 bg-white rounded-l-full focus:outline-none"
+            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            placeholder="Type a message..."
+            className="flex-1 py-3 px-4 bg-transparent focus:outline-none text-gray-700 placeholder-gray-400"
           />
+          
           <button
             onClick={handleSendMessage}
             disabled={!newMessage.trim()}
-            className={`w-12 h-12 flex items-center justify-center rounded-full ${
+            className={`p-3 ${
               !newMessage.trim()
-                ? 'text-gray-400 cursor-not-allowed'
-                : 'text-white bg-teal-600 hover:bg-teal-700'
-            } transition-colors mr-1`}
+                ? 'text-gray-400'
+                : 'text-[#0D6EFD] hover:text-blue-700'
+            } transition-colors`}
           >
-            <Send size={20} />
+            <Send size={22} />
           </button>
         </div>
       </div>
 
-      {/* Full Screen Image Viewer */}
+      {/* Image Viewer */}
       {viewerOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
+          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center"
           onClick={closeImageViewer}
         >
           <div 
             className="relative w-full h-full flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close button */}
             <button 
               onClick={closeImageViewer}
               className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
             >
-              <X size={28} />
+              <X size={24} />
             </button>
-            
-            {/* Zoom controls */}
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 rounded-full py-2 px-4 flex items-center space-x-4 z-10">
+
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 rounded-full py-2 px-4 flex items-center space-x-4">
               <button 
                 onClick={() => handleZoom(-0.2)}
                 className="text-white hover:text-gray-300"
                 disabled={zoomLevel <= 0.5}
               >
-                <ZoomOut size={24} />
+                <ZoomOut size={20} />
               </button>
               
-              <span className="text-white text-sm">{Math.round(zoomLevel * 100)}%</span>
+              <span className="text-white text-sm font-medium">
+                {Math.round(zoomLevel * 100)}%
+              </span>
               
               <button 
                 onClick={() => handleZoom(0.2)}
                 className="text-white hover:text-gray-300"
                 disabled={zoomLevel >= 3}
               >
-                <ZoomIn size={24} />
+                <ZoomIn size={20} />
               </button>
               
               <button 
                 onClick={() => setZoomLevel(1)}
                 className="text-white hover:text-gray-300 ml-2"
               >
-                {zoomLevel > 1 ? <Minimize2 size={24} /> : <Maximize2 size={24} />}
+                {zoomLevel > 1 ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
               </button>
             </div>
-            
-            {/* The image */}
+
             <div 
               ref={imageRef}
               className={`transform transition-transform duration-200 ${isDragging ? 'cursor-grabbing' : zoomLevel > 1 ? 'cursor-grab' : 'cursor-default'}`}

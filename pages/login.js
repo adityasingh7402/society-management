@@ -263,14 +263,12 @@ export default function Login() {
         transition={{ type: 'spring', stiffness: 120 }}
       >
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href={"/"}>
             <motion.h1 
               className="sm:text-xl md:text-3xl font-bold"
               whileHover={{ scale: 1.05 }}
             >
               SocietyManage
             </motion.h1>
-          </Link>
           <nav>
             <ul className="flex space-x-6">
               <motion.li whileHover={{ scale: 1.1 }}>
@@ -453,7 +451,6 @@ export default function Login() {
                 className="text-center flex justify-end items-center mt-6"
                 variants={itemVariants}
               >
-                <p className="text-gray-700">Not registered yet? </p>
                 <Link
                   href={userType === 'resident' ? '/Enroll-Resident' : '/Enroll-Tenants'}
                 >
@@ -481,7 +478,7 @@ export default function Login() {
         <div className="container mx-auto px-6 text-center">
           <p>&copy; {new Date().getFullYear()} SocietyManage. All rights reserved.</p>
           <motion.nav className="flex justify-center space-x-6 mt-4">
-            <Link href="/">
+            <Link href="/login">
               <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
                 <Home size={16} className="mr-1" />
                 Home

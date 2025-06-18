@@ -1,40 +1,196 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# Society Management System
 
-## Getting Started
+A comprehensive web application for managing residential societies, built with Next.js and MongoDB.
 
-First, run the development server:
+## 🌟 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### 1. User Management
+- Resident Management
+- Security Staff Management
+- Tenant Management
+- Role-based Access Control
+
+### 2. Communication
+- Real-time Chat System (using Socket.io)
+- Help Desk Support
+- Announcements
+- Notices
+- Community Forums
+
+### 3. Financial Management
+- Maintenance Bill Generation
+- Utility Bill Management
+- Payment Tracking
+- Penalty Calculation
+
+### 4. Property Management
+- Property Listings
+- Marketplace for Items
+- Interest Management
+- Comments and Likes System
+
+### 5. Security Features
+- Visitor Management
+- Entry/Exit Tracking
+- Real-time Notifications
+- Image Upload and Verification
+
+### 6. Community Features
+- Polls and Surveys
+- Community Chat
+- Emergency Alerts
+- Incident Logs
+
+## 🛠️ Technology Stack
+
+### Frontend
+- **Next.js** (v15.1.2) - React framework for production
+- **React** (v19.0.0) - UI library
+- **TailwindCSS** (v3.4.1) - Utility-first CSS framework
+- **Framer Motion** - Animation library
+- **Lucide React** - Icon library
+- **React Hot Toast** - Notifications
+- **Swiper** - Touch slider
+- **React Webcam** - Camera integration
+
+### Backend
+- **MongoDB** - Database
+- **Mongoose** - MongoDB ODM
+- **Socket.io** - Real-time communication
+- **Twilio** - SMS services
+- **Firebase** - Cloud services
+- **Cloudinary** - Image management
+- **JWT** - Authentication
+
+## 📁 Project Structure
+
+```
+society-management/
+├── components/           # Reusable UI components
+│   ├── Chat/            # Chat related components
+│   └── Community/       # Community related components
+├── lib/                 # Core utilities
+│   ├── mongodb.js       # MongoDB configuration
+│   └── twilio.js        # Twilio configuration
+├── models/              # MongoDB models
+├── pages/               # Next.js pages and API routes
+│   ├── api/            # Backend API endpoints
+│   └── components/     # Page-specific components
+├── public/             # Static assets
+└── styles/             # Global styles
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔗 Key File Relationships
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+1. **Authentication Flow**
+   - `pages/login.js` → `api/verify-otp.js` → `api/send-otp.js`
+   - Uses JWT and OTP verification
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.js`.
+2. **Chat System**
+   - `components/Chat/` ↔ `api/chat/` ↔ `models/Message.js`
+   - Real-time using Socket.io
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+3. **Billing System**
+   - `api/MaintenanceBill-Api/` ↔ `models/MaintenanceBill.js`
+   - `api/UtilityBill-Api/` ↔ `models/UtilityBill.js`
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Community Features**
+   - `components/Community/` ↔ `api/PollSurvey-Api/` ↔ `models/PollSurvey.js`
+   - `api/Announcement-Api/` ↔ `models/Announcement.js`
 
-## Learn More
+## 🚀 Getting Started
 
-To learn more about Next.js, take a look at the following resources:
+1. **Prerequisites**
+   ```bash
+   Node.js >= 20.0.0
+   MongoDB
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+2. **Environment Variables**
+   ```env
+   MONGODB_URI=your_mongodb_uri
+   JWT_SECRET=your_jwt_secret
+   TWILIO_ACCOUNT_SID=your_twilio_sid
+   TWILIO_AUTH_TOKEN=your_twilio_token
+   CLOUDINARY_URL=your_cloudinary_url
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Installation**
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-## Deploy on Vercel
+## 📱 Dashboard Features
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The resident dashboard (`pages/Resident-dashboard/components/DashboardDefault.js`) includes:
+- Quick stats cards
+- Service categories
+- Real-time notifications
+- Emergency alerts
+- Maintenance requests
+- Bill payments
+- Community updates
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+## 🔄 API Integration
+
+1. **External Services**
+   - Twilio for SMS
+   - Cloudinary for images
+   - Firebase for notifications
+
+2. **Internal APIs**
+   - RESTful endpoints in `pages/api/`
+   - WebSocket for real-time features
+
+## 🛡️ Security Considerations
+
+1. **Authentication**
+   - JWT-based authentication
+   - OTP verification
+   - Role-based access control
+
+2. **Data Protection**
+   - Encrypted sensitive data
+   - Secure file uploads
+   - Input validation
+
+## 🎨 UI/UX Features
+
+1. **Modern Design**
+   - Responsive layout
+   - Animated transitions
+   - Interactive components
+   - Toast notifications
+
+2. **User Experience**
+   - Real-time updates
+   - Intuitive navigation
+   - Loading states
+   - Error handling
+
+## 🔧 Maintenance
+
+Regular tasks to keep in mind:
+1. Update dependencies regularly
+2. Monitor MongoDB performance
+3. Check Socket.io connections
+4. Verify Twilio integration
+5. Test authentication flow
+6. Update security rules
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a pull request
+
+## 📝 Notes
+
+- Keep MongoDB indexes optimized
+- Monitor real-time connections
+- Regular security audits
+- Backup database regularly
+- Test all features after updates

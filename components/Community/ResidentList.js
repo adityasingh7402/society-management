@@ -483,14 +483,14 @@ export default function ResidentList({
                                               <MessageSquare size={16} />
                                             </button>
                                             
-                                            <button
+                                            {/* <button
                                               onClick={(e) => handleCall(resident, e)}
                                               className="bg-green-100 text-green-600 rounded-full p-2 flex items-center justify-center"
                                               title={resident.phoneNumber ? `Call ${resident.phoneNumber}` : "Start call"}
                                               aria-label={`Call ${resident.name}`}
                                             >
                                               <Phone size={16} />
-                                            </button>
+                                            </button> */}
                                           </div>
                                         </div>
                                       );

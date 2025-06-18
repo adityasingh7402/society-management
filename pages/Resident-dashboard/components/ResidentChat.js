@@ -669,20 +669,6 @@ export default function ResidentChat() {
                 </div>
               </div>
             </div>
-            
-            {/* Search Bar */}
-            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-              <div className="bg-white rounded-full px-4 py-2 flex items-center shadow-sm border border-gray-200">
-                <Search className="h-4 w-4 text-gray-500 mr-2" />
-                <input
-                  type="text"
-                  placeholder="Search residents"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 outline-none text-sm"
-                />
-              </div>
-            </div>
 
             {/* Residents List */}
             <div className="h-[calc(100vh-120px)] overflow-y-auto">

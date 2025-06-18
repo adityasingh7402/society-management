@@ -44,38 +44,18 @@ router.use(authMiddleware);
 router.get(async (req, res) => {
   try {
     await connectToDatabase();
-    const { residentId, limit = 50 } = req.query;
-
-    // Validate parameters
-    if (!residentId) {
-      return res.status(400).json({ success: false, message: 'Resident ID is required' });
+    const { residentId, societyId } = req.query;
+    
+    if (!residentId || !societyId) {
+      return res.status(400).json({ message: 'Resident ID and Society ID are required' });
     }
 
-    // Verify user authorization (only the resident can access their own messages)
-    if (req.user.id !== residentId) {
-      return res.status(403).json({ success: false, message: 'Unauthorized access to messages' });
-    }
+    const messages = await HelpDeskMessage.find({
+      residentId,
+      societyId
+    }).sort({ timestamp: 1 });
 
-    // Find the resident to get their society ID
-    const resident = await Resident.findById(residentId);
-    if (!resident) {
-      return res.status(404).json({ success: false, message: 'Resident not found' });
-    }
-
-    // Fetch messages
-    const messages = await HelpDeskMessage.find({ 
-      residentId, 
-      societyId: resident.societyCode 
-    })
-    .sort({ timestamp: -1 })
-    .limit(parseInt(limit))
-    .lean();
-
-    // Return messages in correct order (oldest first)
-    return res.status(200).json({
-      success: true,
-      messages: messages.reverse()
-    });
+    return res.status(200).json({ success: true, messages });
   } catch (error) {
     console.error('Error fetching help desk messages:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -99,11 +79,11 @@ router.post(async (req, res) => {
       });
     });
 
-    const { residentId, message } = fields;
+    const { residentId, societyId, message, isFromResident } = fields;
 
     // Validate required fields
-    if (!residentId) {
-      return res.status(400).json({ success: false, message: 'Resident ID is required' });
+    if (!residentId || !societyId || !message) {
+      return res.status(400).json({ message: 'Missing required fields' });
     }
 
     // Verify user authorization
@@ -142,9 +122,11 @@ router.post(async (req, res) => {
     // Create a new message
     const newMessage = new HelpDeskMessage({
       residentId,
-      message: message || '',
-      societyId: resident.societyCode,
-      isFromResident: true,
+      societyId,
+      message,
+      isFromResident,
+      timestamp: new Date(),
+      status: 'sent',
       media: mediaData,
     });
 

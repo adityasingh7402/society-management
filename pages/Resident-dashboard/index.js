@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import DashboardDefault from "./components/DashboardDefault";
 import {
@@ -28,6 +28,15 @@ export default function Home() {
     const [imagesLoaded, setImagesLoaded] = useState(false);
     const [dashboardLoaded, setDashboardLoaded] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
+
+    // Add new states and refs for drag functionality
+    const [dragStartX, setDragStartX] = useState(null);
+    const [dragging, setDragging] = useState(false);
+    const [menuPosition, setMenuPosition] = useState(0);
+    const menuRef = useRef(null);
+    const dragAreaRef = useRef(null);
+    const MENU_WIDTH = 320; // Width of the menu in pixels
+    const DRAG_THRESHOLD = 50; // Minimum drag distance to trigger menu action
 
     // Dummy notifications data
     const notifications = [
@@ -178,6 +187,84 @@ export default function Home() {
         setShowNotifications(!showNotifications);
     };
 
+    // Handle drag start
+    const handleDragStart = (e) => {
+        const pageX = e.type.includes('mouse') ? e.pageX : e.touches[0].pageX;
+        
+        // Only allow drag start from left edge when menu is closed
+        if (!isSidebarOpen && pageX > 30) return;
+        
+        setDragging(true);
+        setDragStartX(pageX);
+    };
+
+    // Handle drag move
+    const handleDragMove = (e) => {
+        if (!dragging) return;
+        
+        const pageX = e.type.includes('mouse') ? e.pageX : e.touches[0].pageX;
+        const diff = pageX - dragStartX;
+        
+        if (isSidebarOpen) {
+            // When menu is open, drag from left to right
+            const newPosition = Math.max(-MENU_WIDTH, Math.min(0, diff));
+            setMenuPosition(newPosition);
+        } else {
+            // When menu is closed, drag from right to left
+            const newPosition = Math.max(-MENU_WIDTH, Math.min(0, -MENU_WIDTH + diff));
+            setMenuPosition(newPosition);
+        }
+    };
+
+    // Handle drag end
+    const handleDragEnd = () => {
+        if (!dragging) return;
+        
+        setDragging(false);
+        const threshold = MENU_WIDTH * 0.3; // 30% of menu width
+        
+        if (isSidebarOpen) {
+            // If dragged far enough to close
+            if (Math.abs(menuPosition) > threshold) {
+                setIsSidebarOpen(false);
+            }
+        } else {
+            // If dragged far enough to open
+            if (Math.abs(MENU_WIDTH + menuPosition) < threshold) {
+                setIsSidebarOpen(true);
+            }
+        }
+        
+        // Reset position
+        setMenuPosition(0);
+    };
+
+    // Update menu position when sidebar state changes
+    useEffect(() => {
+        if (!dragging) {
+            setMenuPosition(0);
+        }
+    }, [isSidebarOpen]);
+
+    // Add event listeners for edge dragging
+    useEffect(() => {
+        const handleTouchStart = (e) => {
+            if (e.touches[0].pageX < 20) {
+                handleDragStart(e);
+            }
+        };
+
+        document.addEventListener('touchstart', handleTouchStart);
+        document.addEventListener('touchmove', handleDragMove, { passive: false });
+        document.addEventListener('touchend', handleDragEnd);
+
+        return () => {
+            document.removeEventListener('touchstart', handleTouchStart);
+            document.removeEventListener('touchmove', handleDragMove);
+            document.removeEventListener('touchend', handleDragEnd);
+        };
+    }, [dragging, dragStartX, isSidebarOpen]);
+
     return (
         <div className="relative flex flex-col min-h-screen  text-gray-900 bg-gradient-to-r from-indigo-100 to-purple-50">
             {/* Background pattern overlay */}
@@ -190,20 +277,30 @@ export default function Home() {
             
             {loading ? <Preloader /> : (
                 <>
+                    {/* Edge drag area for opening menu */}
+                    <div
+                        ref={dragAreaRef}
+                        className="fixed left-0 top-0 w-5 h-full z-30"
+                        onMouseDown={handleDragStart}
+                        onTouchStart={handleDragStart}
+                    />
+
                     {/* Overlay when sidebar is open */}
-                    {isSidebarOpen && (
+                    {(isSidebarOpen || dragging) && (
                         <div
-                            className="fixed inset-0 bg-black opacity-50 z-30"
+                            className={`fixed inset-0 bg-black transition-opacity duration-300 z-30 ${
+                                isSidebarOpen ? 'opacity-50' : 'opacity-0'
+                            }`}
                             onClick={() => setIsSidebarOpen(false)}
-                        ></div>
+                        />
                     )}
 
-                    {/* App Bar - Updated with modern design */}
-                    <div className="flex justify-between items-center mt-1 mx-1 rounded-full h-14 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg backdrop-blur-md top-0 z-20 border border-white/20">
+                    {/* App Bar - Updated without blur */}
+                    <div className="flex justify-between items-center mt-1 mx-1 rounded-full h-14 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg top-0 z-20 border border-white/20">
                         <div className="flex items-center space-x-3">
                             <button
                                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors transform hover:scale-105 duration-200"
+                                className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors transform hover:scale-105 duration-200"
                             >
                                 <UserCircle className="w-5 h-5 text-white" />
                             </button>
@@ -214,7 +311,7 @@ export default function Home() {
 
                         <button
                             onClick={handleNotification}
-                            className="relative w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors transform hover:scale-105 duration-200"
+                            className="relative w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors transform hover:scale-105 duration-200"
                         >
                             <Bell className="w-5 h-5 text-white" />
                             <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-indigo-600 flex items-center justify-center animate-pulse">
@@ -223,11 +320,11 @@ export default function Home() {
                         </button>
                     </div>
 
-                    {/* Notification Popup */}
+                    {/* Notification Popup - Without blur */}
                     <div className={`fixed inset-0 z-50 flex items-start justify-end pt-16 px-4 transition-opacity duration-300 ${showNotifications ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                        {/* Backdrop with blur effect */}
+                        {/* Backdrop without blur */}
                         <div 
-                            className={`fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 ${showNotifications ? 'opacity-100' : 'opacity-0'}`}
+                            className={`fixed inset-0 bg-black/20 transition-opacity duration-300 ${showNotifications ? 'opacity-100' : 'opacity-0'}`}
                             onClick={() => setShowNotifications(false)}
                         ></div>
                         
@@ -237,7 +334,7 @@ export default function Home() {
                             <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-t-2xl">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-3">
-                                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                                             <Bell className="w-5 h-5 text-white" />
                                         </div>
                                         <div>
@@ -247,7 +344,7 @@ export default function Home() {
                                     </div>
                                     <button 
                                         onClick={() => setShowNotifications(false)}
-                                        className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-sm"
+                                        className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
                                     >
                                         <X className="w-4 h-4 text-white" />
                                     </button>
@@ -287,10 +384,23 @@ export default function Home() {
                         </div>
                     </div>
 
-                    {/* Side Navigation Drawer - Mobile Style */}
-                    <div className={`fixed inset-y-0 left-0 w-80 z-40 transform transition-transform duration-300 ease-in-out 
-                        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-                        bg-white text-gray-900 shadow-xl border-r border-indigo-100`}
+                    {/* Side Navigation Drawer - With drag functionality */}
+                    <div
+                        ref={menuRef}
+                        className={`fixed inset-y-0 left-0 w-80 z-40 transform transition-transform duration-300 ease-out bg-white shadow-xl border-r border-indigo-100
+                            ${!dragging ? (isSidebarOpen ? 'translate-x-0' : '-translate-x-full') : ''}`}
+                        style={{
+                            transform: dragging ? `translateX(${menuPosition}px)` : undefined,
+                            transition: dragging ? 'none' : undefined,
+                            backgroundColor: 'white'
+                        }}
+                        onMouseDown={handleDragStart}
+                        onMouseMove={handleDragMove}
+                        onMouseUp={handleDragEnd}
+                        onMouseLeave={handleDragEnd}
+                        onTouchStart={handleDragStart}
+                        onTouchMove={handleDragMove}
+                        onTouchEnd={handleDragEnd}
                     >
                         <div className="flex flex-col h-full">
                             {/* Drawer Header */}
@@ -304,16 +414,8 @@ export default function Home() {
                                 </button>
                             </div>
 
-                            {/* User Profile Section - Enhanced */}
+                            {/* User Profile Section - Without blur */}
                             <div className="p-4 pb-5 bg-gradient-to-r from-indigo-100 to-purple-50 border-b border-gray-200 relative overflow-hidden">
-                                {/* Background pattern for profile section */}
-                                <div className="absolute inset-0 opacity-10" 
-                                    style={{ 
-                                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%235C54F4' fill-opacity='0.25' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-                                        backgroundSize: '100px 100px'
-                                    }}>
-                                </div>
-                                
                                 <div className="flex flex-col items-center relative">
                                     {/* Profile Image with Upload Button */}
                                     <div className="relative mb-3">
@@ -342,7 +444,7 @@ export default function Home() {
                                         <div className="mt-1 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 shadow-sm">
                                             {flatNumber !== 'N/A' ? `Flat: ${flatNumber}` : 'No flat assigned'}
                                         </div>
-                                        <p className="mt-2 text-xs text-gray-500 bg-white/70 backdrop-blur-sm rounded-md py-1 px-2 inline-block shadow-sm">
+                                        <p className="mt-2 text-xs text-gray-500 bg-white/70 rounded-md py-1 px-2 inline-block shadow-sm">
                                             ID: {residentDetails?.residentId?.substring(0, 8) || 'N/A'}
                                         </p>
                                     </div>
@@ -470,6 +572,12 @@ export default function Home() {
 
                 .animate-fade-out {
                     animation: fade-out 0.2s ease-out forwards;
+                }
+
+                /* Add smooth drag transition */
+                @keyframes slide-menu {
+                    from { transform: translateX(-100%); }
+                    to { transform: translateX(0); }
                 }
             `}</style>
         </div>

@@ -397,7 +397,6 @@ export default function SocietyLogin() {
                 className="text-center flex justify-end items-center mt-6"
                 variants={itemVariants}
               >
-                <p className="text-gray-700">Not registered yet? </p>
                 <Link href={'/Enroll-society'}>
                   <motion.span
                     className="text-blue-600 hover:underline font-medium ml-1 inline-flex items-center"
