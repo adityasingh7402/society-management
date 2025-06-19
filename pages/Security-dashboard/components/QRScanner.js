@@ -7,6 +7,12 @@ const QRScanner = () => {
   const [error, setError] = useState(null);
   const [scanner, setScanner] = useState(null);
   const [securityDetails, setSecurityDetails] = useState(null);
+  const [mode, setMode] = useState('select'); // 'select', 'scan', or 'manual'
+  const [manualCode, setManualCode] = useState({
+    type: 'vehicle', // or 'guest'
+    id: '',
+    societyId: ''
+  });
   const router = useRouter();
 
   // First effect for fetching security details
@@ -31,13 +37,13 @@ const QRScanner = () => {
 
         const data = await response.json();
 
-        // Check if we have the required security data
         if (!data || !data._id || !data.societyId || !data.guardName) {
           console.error("Invalid security data:", data);
           throw new Error("Invalid security details");
         }
 
         setSecurityDetails(data);
+        setManualCode(prev => ({ ...prev, societyId: data.societyId }));
       } catch (err) {
         console.error('Error fetching security details:', err);
         setError(err.message);
@@ -45,11 +51,11 @@ const QRScanner = () => {
     };
 
     fetchSecurityDetails();
-  }, []); // Empty dependency array means this effect runs once on mount
+  }, []);
 
   // Second effect for initializing scanner after security details are loaded
   useEffect(() => {
-    if (!securityDetails) return; // Don't initialize scanner until we have security details
+    if (!securityDetails || mode !== 'scan') return;
 
     const initializeScanner = () => {
       try {
@@ -88,7 +94,7 @@ const QRScanner = () => {
         scanner.clear();
       }
     };
-  }, [securityDetails]); // Depend on securityDetails
+  }, [securityDetails, mode]);
 
   const handleScanSuccess = async (decodedText) => {
     try {
@@ -106,7 +112,6 @@ const QRScanner = () => {
         throw new Error('Authentication token missing. Please log in again.');
       }
 
-      // Call the scan-qr API with security details
       const response = await fetch('/api/scan-qr', {
         method: 'POST',
         headers: {
@@ -115,7 +120,7 @@ const QRScanner = () => {
         },
         body: JSON.stringify({ 
           qrData: decodedText,
-          securitySocietyId: securityDetails.societyId.toString() // Convert ObjectId to string
+          securitySocietyId: securityDetails.societyId.toString()
         }),
       });
 
@@ -132,14 +137,12 @@ const QRScanner = () => {
       setError(err.message || 'Failed to process QR code');
       setScanResult(null);
       
-      // If it's an authentication error, redirect to login
       if (err.message.toLowerCase().includes('authentication')) {
         setTimeout(() => {
           localStorage.removeItem("Security");
           router.push("/SecurityLogin");
         }, 2000);
       } else {
-        // Resume scanning after error if it's not an authentication error
         if (scanner) {
           scanner.resume();
         }
@@ -148,43 +151,156 @@ const QRScanner = () => {
   };
 
   const handleScanError = (errorMessage) => {
-    // Ignore common scanning status messages
     const ignoredErrors = [
       'No MultiFormat Readers were able to detect the code',
       'Found no MultiFormat Readers',
       'No QR code found'
     ];
 
-    // Only set error for actual errors, not status messages
     if (!ignoredErrors.some(msg => errorMessage.includes(msg))) {
       setError('Failed to scan QR code: ' + errorMessage);
+    }
+  };
+
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (!securityDetails || !securityDetails.societyId) {
+        throw new Error('Security authentication required. Please log in again.');
+      }
+
+      const token = localStorage.getItem("Security");
+      if (!token) {
+        throw new Error('Authentication token missing. Please log in again.');
+      }
+
+      // Create QR data format similar to scanned QR
+      const qrData = JSON.stringify({
+        tagType: manualCode.type,
+        [manualCode.type === 'vehicle' ? 'tagId' : 'passId']: manualCode.id,
+        societyId: manualCode.societyId
+      });
+
+      const response = await fetch('/api/scan-qr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          qrData,
+          securitySocietyId: securityDetails.societyId.toString()
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to process code');
+      }
+
+      setScanResult(data.data);
+      setError(null);
+    } catch (err) {
+      console.error('Manual entry error:', err);
+      setError(err.message || 'Failed to process code');
+      setScanResult(null);
+
+      if (err.message.toLowerCase().includes('authentication')) {
+        setTimeout(() => {
+          localStorage.removeItem("Security");
+          router.push("/SecurityLogin");
+        }, 2000);
+      }
     }
   };
 
   const resetScanner = () => {
     setScanResult(null);
     setError(null);
+    setMode('select');
+    setManualCode({
+      type: 'vehicle',
+      id: '',
+      societyId: securityDetails?.societyId || ''
+    });
 
-    // Re-initialize scanner
     if (scanner) {
       scanner.clear();
     }
-
-    const qrScanner = new Html5QrcodeScanner('qr-reader', {
-      qrbox: {
-        width: 250,
-        height: 250,
-      },
-      fps: 10,
-      aspectRatio: 1.0,
-      showTorchButtonIfSupported: true,
-      showZoomSliderIfSupported: true,
-      defaultZoomValueIfSupported: 2
-    });
-
-    setScanner(qrScanner);
-    qrScanner.render(handleScanSuccess, handleScanError);
   };
+
+  const renderModeSelection = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <button
+          onClick={() => setMode('scan')}
+          className="bg-blue-500 text-white px-6 py-4 rounded-lg hover:bg-blue-600 transition-colors flex flex-col items-center justify-center"
+        >
+          <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Scan QR Code
+        </button>
+        <button
+          onClick={() => setMode('manual')}
+          className="bg-green-500 text-white px-6 py-4 rounded-lg hover:bg-green-600 transition-colors flex flex-col items-center justify-center"
+        >
+          <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          Enter Code
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderManualEntry = () => (
+    <form onSubmit={handleManualSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Type
+        </label>
+        <select
+          value={manualCode.type}
+          onChange={(e) => setManualCode({ ...manualCode, type: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="vehicle">Vehicle Tag</option>
+          <option value="guest">Guest Pass</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {manualCode.type === 'vehicle' ? 'Tag ID' : 'Pass ID'}
+        </label>
+        <input
+          type="text"
+          value={manualCode.id}
+          onChange={(e) => setManualCode({ ...manualCode, id: e.target.value })}
+          placeholder={`Enter ${manualCode.type === 'vehicle' ? 'tag' : 'pass'} ID`}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          required
+        />
+      </div>
+      <div className="flex space-x-3">
+        <button
+          type="submit"
+          className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
+        >
+          Submit
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('select')}
+          className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors"
+        >
+          Back
+        </button>
+      </div>
+    </form>
+  );
 
   const renderScanResult = () => {
     if (!scanResult) return null;
@@ -235,14 +351,14 @@ const QRScanner = () => {
               <p>Phone: {scanResult.guestDetails.phone}</p>
             </div>
           )}
-        </div>
 
-        <button 
-          onClick={resetScanner}
-          className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
-        >
-          Scan Another
-        </button>
+          <button 
+            onClick={resetScanner}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+          >
+            Back to Scanner
+          </button>
+        </div>
       </div>
     );
   };
@@ -259,15 +375,26 @@ const QRScanner = () => {
         </div>
       )}
 
-      {!scanResult && (
+      {!scanResult && mode === 'select' && renderModeSelection()}
+      
+      {!scanResult && mode === 'scan' && (
         <>
           <div id="qr-reader" className="w-full max-w-lg mx-auto"></div>
           <p className="text-sm text-gray-600 mt-2 text-center">
             Position the QR code within the frame to scan. Make sure the code is well-lit and clearly visible.
           </p>
+          <button
+            onClick={() => setMode('select')}
+            className="mt-4 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors w-full"
+          >
+            Back
+          </button>
         </>
       )}
-      {renderScanResult()}
+
+      {!scanResult && mode === 'manual' && renderManualEntry()}
+      
+      {scanResult && renderScanResult()}
     </div>
   );
 };
