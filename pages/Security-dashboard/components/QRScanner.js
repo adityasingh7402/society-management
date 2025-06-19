@@ -13,34 +13,42 @@ const QRScanner = () => {
   const [scanResult, setScanResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const handleScan = async (data) => {
-    if (data && !loading) {
+  const handleScan = async (result) => {
+    if (result && !loading) {
       setLoading(true);
-      setScanning(false);
+      console.log('Scanned data:', result); // Debug log
 
       try {
+        // Send the scanned data to our API
         const response = await fetch('/api/scan-qr', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ qrData: data }),
+          body: JSON.stringify({ qrData: result }),
         });
 
-        const result = await response.json();
-
         if (!response.ok) {
-          throw new Error(result.message || 'Failed to validate QR code');
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to validate QR code');
         }
 
-        setScanResult(result.data);
-        
-        // Play success/error sound based on status
-        const audio = new Audio(result.data.isExpired ? '/error.mp3' : '/success.mp3');
-        audio.play();
+        const data = await response.json();
+        console.log('API response:', data); // Debug log
 
+        if (data.data) {
+          setScanning(false);
+          setScanResult(data.data);
+          
+          // Play success/error sound based on status
+          const audio = new Audio(data.data.isExpired ? '/error.mp3' : '/success.mp3');
+          audio.play().catch(console.error); // Handle audio play error
+        } else {
+          throw new Error('Invalid response format');
+        }
       } catch (error) {
-        toast.error(error.message);
+        console.error('Scanning error:', error);
+        toast.error(error.message || 'Failed to scan QR code');
         setScanResult(null);
       } finally {
         setLoading(false);
@@ -49,13 +57,14 @@ const QRScanner = () => {
   };
 
   const handleError = (error) => {
-    console.error(error);
-    toast.error('Failed to access camera');
+    console.error('Camera error:', error);
+    toast.error('Failed to access camera. Please check camera permissions.');
   };
 
   const resetScanner = () => {
     setScanResult(null);
     setScanning(true);
+    setLoading(false);
   };
 
   const renderScanResult = () => {
@@ -89,47 +98,37 @@ const QRScanner = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-4 mt-4">
-          {scanResult.type === 'guest' ? (
-            <>
-              <div className="flex items-center gap-2">
-                <User className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Guest Name</p>
-                  <p className="text-sm text-gray-600">{scanResult.guestDetails.name}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <User className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Guest Phone</p>
-                  <p className="text-sm text-gray-600">{scanResult.guestDetails.phone}</p>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
-                <Car className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Vehicle Type</p>
-                  <p className="text-sm text-gray-600">{scanResult.vehicleDetails.vehicleType}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Car className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Registration</p>
-                  <p className="text-sm text-gray-600">{scanResult.vehicleDetails.registrationNumber}</p>
-                </div>
-              </div>
-            </>
-          )}
+          <div className="flex items-center gap-2">
+            <Car className="w-5 h-5 text-gray-400" />
+            <div>
+              <p className="text-sm font-medium text-gray-700">Vehicle Type</p>
+              <p className="text-sm text-gray-600">{scanResult.vehicleType}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Car className="w-5 h-5 text-gray-400" />
+            <div>
+              <p className="text-sm font-medium text-gray-700">Registration</p>
+              <p className="text-sm text-gray-600">{scanResult.vehicleDetails.registrationNumber}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Car className="w-5 h-5 text-gray-400" />
+            <div>
+              <p className="text-sm font-medium text-gray-700">Vehicle Details</p>
+              <p className="text-sm text-gray-600">
+                {scanResult.vehicleDetails.brand} {scanResult.vehicleDetails.model} ({scanResult.vehicleDetails.color})
+              </p>
+            </div>
+          </div>
 
           <div className="flex items-center gap-2">
             <User className="w-5 h-5 text-gray-400" />
             <div>
               <p className="text-sm font-medium text-gray-700">Resident</p>
               <p className="text-sm text-gray-600">{scanResult.resident.name}</p>
+              <p className="text-xs text-gray-500">Flat: {scanResult.resident.flat}</p>
             </div>
           </div>
 
@@ -159,8 +158,14 @@ const QRScanner = () => {
               constraints={{
                 facingMode: 'environment',
                 audio: false,
-                video: { facingMode: "environment" }
+                video: { 
+                  facingMode: "environment",
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 }
+                }
               }}
+              scanDelay={500}
+              captureSize={{ width: 1280, height: 720 }}
             />
             <div className="absolute inset-0 border-2 border-blue-500 rounded-xl pointer-events-none">
               <div className="absolute inset-0 border-4 border-blue-500 rounded-xl opacity-50 animate-pulse"></div>
@@ -174,7 +179,7 @@ const QRScanner = () => {
       {scanning && (
         <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
-            Position the QR code within the frame to scan
+            {loading ? 'Processing...' : 'Position the QR code within the frame to scan'}
           </p>
         </div>
       )}

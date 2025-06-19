@@ -17,7 +17,8 @@ export default async function handler(req, res) {
     if (scannedData.tagId) {
       // This is a vehicle tag
       const vehicleTag = await VehicleTag.findById(scannedData.tagId)
-        .populate('resident', 'name flat')
+        .populate('residentId', 'name flat')
+        .populate('societyId', 'societyName')
         .lean();
 
       if (!vehicleTag) {
@@ -26,23 +27,30 @@ export default async function handler(req, res) {
 
       const isExpired = new Date(vehicleTag.validUntil) < new Date();
 
+      // If tag is expired, update its status
+      if (isExpired && vehicleTag.status !== 'Expired') {
+        await VehicleTag.findByIdAndUpdate(scannedData.tagId, { status: 'Expired' });
+        vehicleTag.status = 'Expired';
+      }
+
       return res.status(200).json({
         data: {
           type: 'vehicle',
           status: vehicleTag.status,
           isExpired,
-          vehicleDetails: {
-            vehicleType: vehicleTag.vehicleType,
-            registrationNumber: vehicleTag.registrationNumber
-          },
-          resident: vehicleTag.resident,
+          vehicleType: vehicleTag.vehicleType,
+          vehicleDetails: vehicleTag.vehicleDetails,
+          resident: vehicleTag.residentId,
+          society: vehicleTag.societyId,
+          validFrom: vehicleTag.validFrom,
           validUntil: vehicleTag.validUntil
         }
       });
     } else if (scannedData.passId) {
       // This is a guest pass
       const guestPass = await GuestPass.findById(scannedData.passId)
-        .populate('resident', 'name flat')
+        .populate('residentId', 'name flat')
+        .populate('societyId', 'societyName')
         .lean();
 
       if (!guestPass) {
@@ -50,6 +58,12 @@ export default async function handler(req, res) {
       }
 
       const isExpired = new Date(guestPass.validUntil) < new Date();
+
+      // If pass is expired, update its status
+      if (isExpired && guestPass.status !== 'Expired') {
+        await GuestPass.findByIdAndUpdate(scannedData.passId, { status: 'Expired' });
+        guestPass.status = 'Expired';
+      }
 
       return res.status(200).json({
         data: {
@@ -60,7 +74,9 @@ export default async function handler(req, res) {
             name: guestPass.guestName,
             phone: guestPass.guestPhone
           },
-          resident: guestPass.resident,
+          resident: guestPass.residentId,
+          society: guestPass.societyId,
+          validFrom: guestPass.validFrom,
           validUntil: guestPass.validUntil
         }
       });
