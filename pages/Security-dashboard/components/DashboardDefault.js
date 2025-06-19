@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import React, { useState } from 'react';
 import {
-  UserCircle, ClipboardList, Bell, Users, Wrench, PieChart, FileText, Home, Package, Pencil, Lightbulb, History, Hammer, Search, Megaphone, BarChart, ShieldAlert, Siren
+  UserCircle, ClipboardList, Bell, Users, Wrench, PieChart, FileText, Home, Package, 
+  Pencil, Lightbulb, History, Hammer, Search, Megaphone, BarChart, ShieldAlert, Siren,
+  QrCode
 } from 'lucide-react';
 
 const SecurityDashboardDefault = () => {
@@ -14,6 +16,7 @@ const SecurityDashboardDefault = () => {
   const menuItems = [
     { icon: UserCircle, label: 'Profile', href: '/Security-dashboard/components/Profile' },
     { icon: ClipboardList, label: 'Visitor Entry', href: '/Security-dashboard/components/VisitorEntry' },
+    { icon: QrCode, label: 'QR Scanner', href: '/Security-dashboard/components/QRScanner' },
     { icon: Wrench, label: 'Approve/Visitor', href: '/Security-dashboard/components/ApproveVisitor' },
     { icon: Siren, label: 'Emergency', href: '/Security-dashboard/components/EmergencyAlerts' },
     { icon: Bell, label: 'Incident Log', href: '/Security-dashboard/components/IncidentLog' },
@@ -32,6 +35,7 @@ const SecurityDashboardDefault = () => {
       title: 'Visitor Management',
       items: [
         { icon: ClipboardList, label: 'Visitor Entry', href: '/Security-dashboard/components/VisitorEntry' },
+        { icon: QrCode, label: 'QR Scanner', href: '/Security-dashboard/components/QRScanner' },
         { icon: Users, label: 'Approve/Reject', href: '/Security-dashboard/components/ApproveVisitor' },
         { icon: History, label: 'Visitor Log', href: '/Security-dashboard/components/VisitorLog' },
       ]
@@ -117,7 +121,7 @@ const SecurityDashboardDefault = () => {
             <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-3xl">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {menuItems.map((item, index) => (
-                  <a
+                  <Link
                     key={index}
                     href={item.href || '#'}
                     className="group flex flex-col items-center p-3 rounded-xl transition-all duration-300 hover:bg-green-50 hover:shadow-md"
@@ -128,7 +132,7 @@ const SecurityDashboardDefault = () => {
                     <span className="text-sm font-medium text-gray-700 group-hover:text-green-600 transition-colors duration-300">
                       {item.label}
                     </span>
-                  </a>
+                  </Link>
                 ))}
               </div>
             </div>

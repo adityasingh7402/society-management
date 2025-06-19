@@ -2,11 +2,17 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import DashboardDefault from "./components/DashboardDefault";
 import Profile from "./components/Profile";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { CiLogout } from "react-icons/ci";
-import { FaUser, FaHome, FaClipboardList, FaIdBadge, FaExclamationTriangle, FaUserShield, FaVideo, FaHistory, FaClipboard, FaFileAlt } from "react-icons/fa";
+import { FaUser, FaHome, FaClipboardList, FaIdBadge, FaExclamationTriangle, FaUserShield, FaVideo, FaHistory, FaClipboard, FaFileAlt, FaQrcode } from "react-icons/fa";
 import { IoCloseOutline, IoCameraReverseOutline } from "react-icons/io5";
 import Preloader from "../components/Preloader";
+
+// Dynamically import QRScanner with no SSR to avoid camera access issues
+const QRScanner = dynamic(() => import("./components/QRScanner"), {
+  ssr: false
+});
 
 export default function Home() {
     const router = useRouter();
@@ -80,6 +86,8 @@ export default function Home() {
         switch (component) {
             case "Profile":
                 return <Profile />;
+            case "QRScanner":
+                return <QRScanner />;
             case "DashboardDefault":
             default:
                 return <DashboardDefault />;
@@ -139,6 +147,7 @@ export default function Home() {
                             <Link href={"./Security-dashboard/components/VisitorEntry"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-green-600"><FaIdBadge className="mr-2" /> Visitor Entry</li></Link>
                             <Link href={"./Security-dashboard/components/VisitorLog"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-green-600"><FaClipboardList className="mr-2" /> Visitor Log</li></Link>
                             <Link href={"./Security-dashboard/components/PreApprovals"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-green-600"><FaClipboard className="mr-2" /> Pre-Approvals</li></Link>
+                            <li onClick={() => handleComponent("QRScanner", "QR Scanner")} className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-green-600"><FaQrcode className="mr-2" /> QR Scanner</li>
                             
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Security Operations</li>
                             <Link href={"./Security-dashboard/components/Patrols"}><li className="mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all hover:bg-gray-800 hover:border-r-4 hover:border-green-600"><FaUserShield className="mr-2" /> Patrols</li></Link>

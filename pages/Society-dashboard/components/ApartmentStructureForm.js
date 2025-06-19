@@ -373,9 +373,16 @@ export default function ApartmentStructureForm() {
         <PreloaderSociety />
       ) : (
         <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-lg p-6 mb-10">
-          <h1 className="text-2xl font-bold text-center mb-6 text-gray-800 flex items-center justify-center">
-            <Building className="mr-2" size={28} /> Apartment Structure Management
-          </h1>
+          <header className="bg-gray-800 shadow-lg border-b-4 border-blue-500 mb-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
+                  <Building className="mr-3" size={32} />
+                  Apartment Structure Management
+                </h1>
+              </div>
+            </div>
+          </header>
 
           {/* Structure Type Information */}
           <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
