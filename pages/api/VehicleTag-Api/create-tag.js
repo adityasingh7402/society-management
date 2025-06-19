@@ -38,13 +38,23 @@ export default async function handler(req, res) {
     // Generate a unique identifier for the tag
     const tagId = nanoid(10);
 
-    // Create QR code data
-    const qrData = JSON.stringify({
-      tagId,
-      type: 'vehicle',
+    // Create new vehicle tag first
+    const vehicleTag = new VehicleTag({
+      residentId,
+      societyId,
       vehicleType,
-      registrationNumber,
-      validUntil
+      vehicleDetails,
+      validFrom: new Date(),
+      validUntil: new Date(validUntil),
+      status: 'Pending'
+    });
+
+    // Save to get the _id
+    await vehicleTag.save();
+
+    // Now create QR code data with the saved tag's ID
+    const qrData = JSON.stringify({
+      tagId: vehicleTag._id
     });
 
     // Generate QR code with custom styling
@@ -56,20 +66,10 @@ export default async function handler(req, res) {
         light: '#FFFFFF'  // White background
       },
       width: 400
-    });
+    }); 
 
-    // Create new vehicle tag
-    const vehicleTag = new VehicleTag({
-      residentId,
-      societyId,
-      vehicleType,
-      vehicleDetails,
-      validFrom: new Date(),
-      validUntil: new Date(validUntil),
-      qrCode: qrCodeImage,
-      status: 'Pending'
-    });
-
+    // Update the tag with the QR code
+    vehicleTag.qrCode = qrCodeImage;
     await vehicleTag.save();
 
     res.status(201).json({

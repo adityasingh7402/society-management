@@ -1,119 +1,75 @@
-import connectToDatabase from "../../lib/mongodb";
-import VehicleTag from "../../models/VehicleTag";
-import GuestPass from "../../models/GuestPass";
+import { connectToDatabase } from '../../lib/mongodb';
+import VehicleTag from '../../models/VehicleTag';
+import GuestPass from '../../models/GuestPass';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
+    return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
     await connectToDatabase();
-
     const { qrData } = req.body;
-
-    if (!qrData) {
-      return res.status(400).json({ message: 'QR data is required' });
-    }
-
-    let decodedData;
-    try {
-      decodedData = JSON.parse(qrData);
-    } catch (error) {
-      return res.status(400).json({ message: 'Invalid QR code format' });
-    }
-
-    const { type, tagId, passId } = decodedData;
-
-    if (!type || (!tagId && !passId)) {
-      return res.status(400).json({ message: 'Invalid QR code data' });
-    }
-
-    let result;
-    const currentDate = new Date();
-
-    if (type === 'vehicle') {
-      const vehicleTag = await VehicleTag.findById(tagId)
-        .populate('residentId', 'name phone flatDetails')
-        .populate('societyId', 'societyName');
+    
+    // Parse the QR data
+    const scannedData = JSON.parse(qrData);
+    
+    if (scannedData.tagId) {
+      // This is a vehicle tag
+      const vehicleTag = await VehicleTag.findById(scannedData.tagId)
+        .populate('resident', 'name flat')
+        .lean();
 
       if (!vehicleTag) {
         return res.status(404).json({ message: 'Vehicle tag not found' });
       }
 
-      // Check if tag is expired
-      if (new Date(vehicleTag.validUntil) < currentDate) {
-        vehicleTag.status = 'Expired';
-        await vehicleTag.save();
-        return res.status(400).json({ 
-          message: 'Vehicle tag has expired',
-          data: {
-            ...vehicleTag.toObject(),
-            isExpired: true
-          }
-        });
-      }
+      const isExpired = new Date(vehicleTag.validUntil) < new Date();
 
-      result = {
-        type: 'vehicle',
-        status: vehicleTag.status,
-        validUntil: vehicleTag.validUntil,
-        vehicleDetails: vehicleTag.vehicleDetails,
-        resident: vehicleTag.residentId,
-        society: vehicleTag.societyId,
-        isExpired: false
-      };
-
-    } else if (type === 'guest') {
-      const guestPass = await GuestPass.findById(passId)
-        .populate('residentId', 'name phone flatDetails')
-        .populate('societyId', 'societyName');
+      return res.status(200).json({
+        data: {
+          type: 'vehicle',
+          status: vehicleTag.status,
+          isExpired,
+          vehicleDetails: {
+            vehicleType: vehicleTag.vehicleType,
+            registrationNumber: vehicleTag.registrationNumber
+          },
+          resident: vehicleTag.resident,
+          validUntil: vehicleTag.validUntil
+        }
+      });
+    } else if (scannedData.passId) {
+      // This is a guest pass
+      const guestPass = await GuestPass.findById(scannedData.passId)
+        .populate('resident', 'name flat')
+        .lean();
 
       if (!guestPass) {
         return res.status(404).json({ message: 'Guest pass not found' });
       }
 
-      // Check if pass is expired
-      if (new Date(guestPass.validUntil) < currentDate) {
-        guestPass.status = 'Expired';
-        await guestPass.save();
-        return res.status(400).json({ 
-          message: 'Guest pass has expired',
-          data: {
-            ...guestPass.toObject(),
-            isExpired: true
-          }
-        });
-      }
+      const isExpired = new Date(guestPass.validUntil) < new Date();
 
-      // If pass is being used for the first time
-      if (guestPass.status === 'Approved' && !guestPass.usedAt) {
-        guestPass.usedAt = currentDate;
-        guestPass.status = 'Used';
-        await guestPass.save();
-      }
-
-      result = {
-        type: 'guest',
-        status: guestPass.status,
-        validFrom: guestPass.validFrom,
-        validUntil: guestPass.validUntil,
-        guestDetails: guestPass.guestDetails,
-        vehicleDetails: guestPass.vehicleDetails,
-        resident: guestPass.residentId,
-        society: guestPass.societyId,
-        isExpired: false,
-        usedAt: guestPass.usedAt
-      };
+      return res.status(200).json({
+        data: {
+          type: 'guest',
+          status: guestPass.status,
+          isExpired,
+          guestDetails: {
+            name: guestPass.guestName,
+            phone: guestPass.guestPhone
+          },
+          resident: guestPass.resident,
+          validUntil: guestPass.validUntil
+        }
+      });
     }
 
-    res.status(200).json({
-      message: 'QR code validated successfully',
-      data: result
-    });
+    return res.status(400).json({ message: 'Invalid QR code data' });
 
   } catch (error) {
-    console.error('Error scanning QR code:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error scanning QR:', error);
+    return res.status(500).json({ message: 'Failed to scan QR code' });
   }
 } 
