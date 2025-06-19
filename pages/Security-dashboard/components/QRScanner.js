@@ -8,6 +8,7 @@ const QRScanner = () => {
   const [scanner, setScanner] = useState(null);
   const [securityDetails, setSecurityDetails] = useState(null);
   const [mode, setMode] = useState('select'); // 'select', 'scan', or 'manual'
+  const [cameraPermission, setCameraPermission] = useState(null);
   const [manualCode, setManualCode] = useState({
     type: 'vehicle', // or 'guest'
     id: '',
@@ -53,13 +54,12 @@ const QRScanner = () => {
     fetchSecurityDetails();
   }, []);
 
-  // Second effect for initializing scanner after security details are loaded
+  // Initialize scanner after camera permission is granted
   useEffect(() => {
-    if (!securityDetails || mode !== 'scan') return;
+    if (!securityDetails || mode !== 'scan' || cameraPermission !== true) return;
 
     const initializeScanner = () => {
       try {
-        // Clear existing scanner if it exists
         if (scanner) {
           scanner.clear();
         }
@@ -84,21 +84,46 @@ const QRScanner = () => {
       }
     };
 
-    // Small delay to ensure DOM element is ready
     const timeoutId = setTimeout(initializeScanner, 100);
 
-    // Cleanup function
     return () => {
       clearTimeout(timeoutId);
       if (scanner) {
         scanner.clear();
       }
     };
-  }, [securityDetails, mode]);
+  }, [securityDetails, mode, cameraPermission]);
+
+  // Handle camera permission request
+  const requestCameraPermission = async () => {
+    try {
+      setError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      
+      // Stop the stream immediately as scanner will request it again
+      stream.getTracks().forEach(track => track.stop());
+      
+      setCameraPermission(true);
+      setMode('scan');
+    } catch (err) {
+      console.error('Camera permission error:', err);
+      setCameraPermission(false);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setError('Camera access denied. Please allow camera access in your browser settings and try again.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setError('No camera found. Please ensure your device has a working camera.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setError('Could not access camera. Please ensure no other application is using the camera.');
+      } else {
+        setError('Failed to access camera. Please check your camera settings and try again.');
+      }
+    }
+  };
 
   const handleScanSuccess = async (decodedText) => {
     try {
-      // Stop scanning after successful scan
       if (scanner) {
         scanner.pause();
       }
@@ -219,6 +244,7 @@ const QRScanner = () => {
     setScanResult(null);
     setError(null);
     setMode('select');
+    setCameraPermission(null);
     setManualCode({
       type: 'vehicle',
       id: '',
@@ -234,7 +260,7 @@ const QRScanner = () => {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <button
-          onClick={() => setMode('scan')}
+          onClick={requestCameraPermission}
           className="bg-blue-500 text-white px-6 py-4 rounded-lg hover:bg-blue-600 transition-colors flex flex-col items-center justify-center"
         >
           <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -377,19 +403,52 @@ const QRScanner = () => {
 
       {!scanResult && mode === 'select' && renderModeSelection()}
       
-      {!scanResult && mode === 'scan' && (
+      {!scanResult && mode === 'scan' && cameraPermission === true && (
         <>
           <div id="qr-reader" className="w-full max-w-lg mx-auto"></div>
           <p className="text-sm text-gray-600 mt-2 text-center">
             Position the QR code within the frame to scan. Make sure the code is well-lit and clearly visible.
           </p>
           <button
-            onClick={() => setMode('select')}
+            onClick={() => {
+              setMode('select');
+              setCameraPermission(null);
+              if (scanner) {
+                scanner.clear();
+              }
+            }}
             className="mt-4 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors w-full"
           >
             Back
           </button>
         </>
+      )}
+
+      {!scanResult && mode === 'scan' && cameraPermission === false && (
+        <div className="text-center p-6 bg-red-50 rounded-lg">
+          <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">Camera Access Required</h3>
+          <p className="text-gray-600 mb-4">Please allow camera access in your browser settings to use the QR scanner.</p>
+          <div className="space-x-3">
+            <button
+              onClick={requestCameraPermission}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => {
+                setMode('select');
+                setCameraPermission(null);
+              }}
+              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
+            >
+              Back
+            </button>
+          </div>
+        </div>
       )}
 
       {!scanResult && mode === 'manual' && renderManualEntry()}
