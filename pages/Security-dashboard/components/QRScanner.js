@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import { useRouter } from 'next/router';
 
 const QRScanner = () => {
@@ -58,29 +58,53 @@ const QRScanner = () => {
   useEffect(() => {
     if (!securityDetails || mode !== 'scan' || cameraPermission !== true) return;
 
-    const initializeScanner = () => {
+    const initializeScanner = async () => {
       try {
         if (scanner) {
           scanner.clear();
         }
 
-        const qrScanner = new Html5QrcodeScanner('qr-reader', {
-          qrbox: {
-            width: 250,
-            height: 250,
-          },
+        const html5QrCode = new Html5Qrcode("qr-reader");
+        
+        const config = {
           fps: 10,
+          qrbox: { width: 250, height: 250 },
           aspectRatio: 1.0,
           showTorchButtonIfSupported: true,
           showZoomSliderIfSupported: true,
           defaultZoomValueIfSupported: 2
-        });
+        };
 
-        setScanner(qrScanner);
-        qrScanner.render(handleScanSuccess, handleScanError);
+        try {
+          // Get available cameras
+          const devices = await Html5Qrcode.getCameras();
+          if (devices && devices.length) {
+            // Prefer back camera on mobile
+            const backCamera = devices.find(device => 
+              device.label.toLowerCase().includes('back') || 
+              device.label.toLowerCase().includes('rear')
+            );
+            
+            const cameraId = backCamera ? backCamera.id : devices[0].id;
+            
+            await html5QrCode.start(
+              cameraId,
+              config,
+              handleScanSuccess,
+              handleScanError
+            );
+            
+            setScanner(html5QrCode);
+          } else {
+            throw new Error('No cameras found on the device.');
+          }
+        } catch (err) {
+          console.error('Camera start error:', err);
+          throw new Error('Failed to start camera. Please ensure camera permissions are granted.');
+        }
       } catch (err) {
         console.error('Error initializing scanner:', err);
-        setError('Failed to initialize QR scanner. Please refresh the page.');
+        setError(err.message || 'Failed to initialize QR scanner. Please refresh the page.');
       }
     };
 
@@ -89,7 +113,7 @@ const QRScanner = () => {
     return () => {
       clearTimeout(timeoutId);
       if (scanner) {
-        scanner.clear();
+        scanner.stop().catch(console.error);
       }
     };
   }, [securityDetails, mode, cameraPermission]);
@@ -99,7 +123,9 @@ const QRScanner = () => {
     try {
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+        video: { 
+          facingMode: { exact: "environment" } // Force back camera on mobile
+        } 
       });
       
       // Stop the stream immediately as scanner will request it again
@@ -108,16 +134,26 @@ const QRScanner = () => {
       setCameraPermission(true);
       setMode('scan');
     } catch (err) {
-      console.error('Camera permission error:', err);
-      setCameraPermission(false);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setError('Camera access denied. Please allow camera access in your browser settings and try again.');
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setError('No camera found. Please ensure your device has a working camera.');
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        setError('Could not access camera. Please ensure no other application is using the camera.');
-      } else {
-        setError('Failed to access camera. Please check your camera settings and try again.');
+      // If environment camera fails, try any available camera
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true 
+        });
+        stream.getTracks().forEach(track => track.stop());
+        setCameraPermission(true);
+        setMode('scan');
+      } catch (fallbackErr) {
+        console.error('Camera permission error:', fallbackErr);
+        setCameraPermission(false);
+        if (fallbackErr.name === 'NotAllowedError' || fallbackErr.name === 'PermissionDeniedError') {
+          setError('Camera access denied. Please allow camera access in your browser settings and try again.');
+        } else if (fallbackErr.name === 'NotFoundError' || fallbackErr.name === 'DevicesNotFoundError') {
+          setError('No camera found. Please ensure your device has a working camera.');
+        } else if (fallbackErr.name === 'NotReadableError' || fallbackErr.name === 'TrackStartError') {
+          setError('Could not access camera. Please ensure no other application is using the camera.');
+        } else {
+          setError('Failed to access camera. Please check your camera settings and try again.');
+        }
       }
     }
   };
@@ -252,7 +288,8 @@ const QRScanner = () => {
     });
 
     if (scanner) {
-      scanner.clear();
+      scanner.stop().catch(console.error);
+      setScanner(null);
     }
   };
 
@@ -350,6 +387,13 @@ const QRScanner = () => {
             <p className={statusColor}>{scanResult.status}</p>
           </div>
 
+          {isVehicle && scanResult.pinCode && (
+            <div>
+              <h3 className="font-medium text-gray-700">PIN Code</h3>
+              <p className="font-mono text-lg">{scanResult.pinCode}</p>
+            </div>
+          )}
+
           <div>
             <h3 className="font-medium text-gray-700">Valid Until</h3>
             <p>{new Date(scanResult.validUntil).toLocaleDateString()}</p>
@@ -405,7 +449,7 @@ const QRScanner = () => {
       
       {!scanResult && mode === 'scan' && cameraPermission === true && (
         <>
-          <div id="qr-reader" className="w-full max-w-lg mx-auto"></div>
+          <div id="qr-reader" className="w-full max-w-lg mx-auto overflow-hidden rounded-lg"></div>
           <p className="text-sm text-gray-600 mt-2 text-center">
             Position the QR code within the frame to scan. Make sure the code is well-lit and clearly visible.
           </p>
@@ -414,7 +458,8 @@ const QRScanner = () => {
               setMode('select');
               setCameraPermission(null);
               if (scanner) {
-                scanner.clear();
+                scanner.stop().catch(console.error);
+                setScanner(null);
               }
             }}
             className="mt-4 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors w-full"

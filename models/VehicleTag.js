@@ -25,6 +25,12 @@ const vehicleTagSchema = new mongoose.Schema({
       required: true
     }
   },
+  pinCode: {
+    type: String,
+    required: true,
+    unique: true,
+    length: 6
+  },
   status: {
     type: String,
     enum: ['Pending', 'Approved', 'Rejected', 'Expired'],
