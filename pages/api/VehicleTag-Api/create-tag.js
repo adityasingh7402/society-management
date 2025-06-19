@@ -52,9 +52,11 @@ export default async function handler(req, res) {
     // Save to get the _id
     await vehicleTag.save();
 
-    // Now create QR code data with the saved tag's ID
+    // Now create QR code data with additional fields
     const qrData = JSON.stringify({
-      tagId: vehicleTag._id
+      tagId: vehicleTag._id,
+      tagType: 'vehicle',
+      societyId: societyId
     });
 
     // Generate QR code with custom styling

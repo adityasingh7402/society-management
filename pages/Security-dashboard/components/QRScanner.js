@@ -1,272 +1,273 @@
-import React, { useState, useRef } from 'react';
-import dynamic from 'next/dynamic';
-import { CheckCircle, XCircle, AlertTriangle, User, Car, Calendar, Camera, Scan } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-import jsQR from 'jsqr';
-
-// Dynamically import QrScanner with no SSR
-const QrScannerComponent = dynamic(() => import('@yudiel/react-qr-scanner').then(mod => mod.Scanner), {
-  ssr: false
-});
+import React, { useState, useEffect } from 'react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
+import { useRouter } from 'next/router';
 
 const QRScanner = () => {
-  const [scanning, setScanning] = useState(true);
   const [scanResult, setScanResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('live'); // 'live' or 'picture'
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  const [error, setError] = useState(null);
+  const [scanner, setScanner] = useState(null);
+  const [securityDetails, setSecurityDetails] = useState(null);
+  const router = useRouter();
 
-  const handleScan = async (result) => {
-    if (result && !loading) {
-      setLoading(true);
-      console.log('Scanned data:', result);
-
+  // First effect for fetching security details
+  useEffect(() => {
+    const fetchSecurityDetails = async () => {
       try {
-        const response = await fetch('/api/scan-qr', {
-          method: 'POST',
+        const token = localStorage.getItem("Security");
+        if (!token) {
+          router.push("/SecurityLogin");
+          return;
+        }
+
+        const response = await fetch("/api/Security-Api/get-security-details", {
           headers: {
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ qrData: result }),
         });
 
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to validate QR code');
+          throw new Error("Failed to fetch security details");
         }
 
         const data = await response.json();
-        console.log('API response:', data);
 
-        if (data.data) {
-          setScanning(false);
-          setScanResult(data.data);
-          
-          const audio = new Audio(data.data.isExpired ? '/error.mp3' : '/success.mp3');
-          audio.play().catch(console.error);
-        } else {
-          throw new Error('Invalid response format');
+        // Check if we have the required security data
+        if (!data || !data._id || !data.societyId || !data.guardName) {
+          console.error("Invalid security data:", data);
+          throw new Error("Invalid security details");
         }
-      } catch (error) {
-        console.error('Scanning error:', error);
-        toast.error(error.message || 'Failed to scan QR code');
-        setScanResult(null);
-      } finally {
-        setLoading(false);
+
+        setSecurityDetails(data);
+      } catch (err) {
+        console.error('Error fetching security details:', err);
+        setError(err.message);
+      }
+    };
+
+    fetchSecurityDetails();
+  }, []); // Empty dependency array means this effect runs once on mount
+
+  // Second effect for initializing scanner after security details are loaded
+  useEffect(() => {
+    if (!securityDetails) return; // Don't initialize scanner until we have security details
+
+    const initializeScanner = () => {
+      try {
+        // Clear existing scanner if it exists
+        if (scanner) {
+          scanner.clear();
+        }
+
+        const qrScanner = new Html5QrcodeScanner('qr-reader', {
+          qrbox: {
+            width: 250,
+            height: 250,
+          },
+          fps: 10,
+          aspectRatio: 1.0,
+          showTorchButtonIfSupported: true,
+          showZoomSliderIfSupported: true,
+          defaultZoomValueIfSupported: 2
+        });
+
+        setScanner(qrScanner);
+        qrScanner.render(handleScanSuccess, handleScanError);
+      } catch (err) {
+        console.error('Error initializing scanner:', err);
+        setError('Failed to initialize QR scanner. Please refresh the page.');
+      }
+    };
+
+    // Small delay to ensure DOM element is ready
+    const timeoutId = setTimeout(initializeScanner, 100);
+
+    // Cleanup function
+    return () => {
+      clearTimeout(timeoutId);
+      if (scanner) {
+        scanner.clear();
+      }
+    };
+  }, [securityDetails]); // Depend on securityDetails
+
+  const handleScanSuccess = async (decodedText) => {
+    try {
+      // Stop scanning after successful scan
+      if (scanner) {
+        scanner.pause();
+      }
+
+      if (!securityDetails || !securityDetails.societyId) {
+        throw new Error('Security authentication required. Please log in again.');
+      }
+
+      const token = localStorage.getItem("Security");
+      if (!token) {
+        throw new Error('Authentication token missing. Please log in again.');
+      }
+
+      // Call the scan-qr API with security details
+      const response = await fetch('/api/scan-qr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          qrData: decodedText,
+          securitySocietyId: securityDetails.societyId.toString() // Convert ObjectId to string
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to process QR code');
+      }
+
+      setScanResult(data.data);
+      setError(null);
+    } catch (err) {
+      console.error('Scan error:', err);
+      setError(err.message || 'Failed to process QR code');
+      setScanResult(null);
+      
+      // If it's an authentication error, redirect to login
+      if (err.message.toLowerCase().includes('authentication')) {
+        setTimeout(() => {
+          localStorage.removeItem("Security");
+          router.push("/SecurityLogin");
+        }, 2000);
+      } else {
+        // Resume scanning after error if it's not an authentication error
+        if (scanner) {
+          scanner.resume();
+        }
       }
     }
   };
 
-  const handleError = (error) => {
-    console.error('Camera error:', error);
-    toast.error('Failed to access camera. Please check camera permissions.');
+  const handleScanError = (errorMessage) => {
+    // Ignore common scanning status messages
+    const ignoredErrors = [
+      'No MultiFormat Readers were able to detect the code',
+      'Found no MultiFormat Readers',
+      'No QR code found'
+    ];
+
+    // Only set error for actual errors, not status messages
+    if (!ignoredErrors.some(msg => errorMessage.includes(msg))) {
+      setError('Failed to scan QR code: ' + errorMessage);
+    }
   };
 
   const resetScanner = () => {
     setScanResult(null);
-    setScanning(true);
-    setLoading(false);
-  };
+    setError(null);
 
-  const takePicture = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    try {
-      setLoading(true);
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
-
-      // Set canvas dimensions to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      // Draw video frame to canvas
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Get image data for QR code scanning
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-      if (code) {
-        await handleScan(code.data);
-      } else {
-        toast.error('No QR code found in image');
-      }
-    } catch (error) {
-      console.error('Error taking picture:', error);
-      toast.error('Failed to capture and scan image');
-    } finally {
-      setLoading(false);
+    // Re-initialize scanner
+    if (scanner) {
+      scanner.clear();
     }
-  };
 
-  const renderScanButtons = () => (
-    <div className="flex gap-4 justify-center mb-4">
-      <button
-        onClick={() => setMode('live')}
-        className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-          mode === 'live' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
-        }`}
-      >
-        <Scan className="w-5 h-5" />
-        Live Scan
-      </button>
-      <button
-        onClick={() => setMode('picture')}
-        className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-          mode === 'picture' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
-        }`}
-      >
-        <Camera className="w-5 h-5" />
-        Take Picture
-      </button>
-    </div>
-  );
+    const qrScanner = new Html5QrcodeScanner('qr-reader', {
+      qrbox: {
+        width: 250,
+        height: 250,
+      },
+      fps: 10,
+      aspectRatio: 1.0,
+      showTorchButtonIfSupported: true,
+      showZoomSliderIfSupported: true,
+      defaultZoomValueIfSupported: 2
+    });
+
+    setScanner(qrScanner);
+    qrScanner.render(handleScanSuccess, handleScanError);
+  };
 
   const renderScanResult = () => {
     if (!scanResult) return null;
 
-    const isValid = !scanResult.isExpired && ['Approved', 'Used'].includes(scanResult.status);
-    const statusColor = isValid ? 'text-green-500' : 'text-red-500';
-    const bgColor = isValid ? 'bg-green-50' : 'bg-red-50';
-    const StatusIcon = isValid ? CheckCircle : scanResult.isExpired ? AlertTriangle : XCircle;
+    const isVehicle = scanResult.type === 'vehicle';
+    const statusColor = scanResult.status === 'Approved' 
+      ? 'text-green-500' 
+      : scanResult.status === 'Pending' 
+        ? 'text-yellow-500' 
+        : 'text-red-500';
 
     return (
-      <div className={`p-6 rounded-xl ${bgColor} space-y-4`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <StatusIcon className={`w-8 h-8 ${statusColor}`} />
-            <div>
-              <h3 className={`font-semibold ${statusColor}`}>
-                {isValid ? 'Access Granted' : 'Access Denied'}
-              </h3>
-              <p className="text-sm text-gray-600">
-                {scanResult.isExpired ? 'Pass Expired' : `Status: ${scanResult.status}`}
-              </p>
-            </div>
+      <div className="bg-white rounded-lg shadow-md p-6 mt-4">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">
+          {isVehicle ? 'Vehicle Tag Details' : 'Guest Pass Details'}
+        </h2>
+
+        <div className="space-y-3">
+          <div>
+            <h3 className="font-medium text-gray-700">Status</h3>
+            <p className={statusColor}>{scanResult.status}</p>
           </div>
-          <button
-            onClick={resetScanner}
-            className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
-          >
-            Scan Again
-          </button>
+
+          <div>
+            <h3 className="font-medium text-gray-700">Valid Until</h3>
+            <p>{new Date(scanResult.validUntil).toLocaleDateString()}</p>
+          </div>
+
+          <div>
+            <h3 className="font-medium text-gray-700">Resident Details</h3>
+            <p>Name: {scanResult.resident.name}</p>
+            <p>Flat: {scanResult.resident.flat}</p>
+          </div>
+
+          {isVehicle ? (
+            <div>
+              <h3 className="font-medium text-gray-700">Vehicle Details</h3>
+              <p>Type: {scanResult.vehicleType}</p>
+              <p>Brand: {scanResult.vehicleDetails.brand}</p>
+              <p>Model: {scanResult.vehicleDetails.model}</p>
+              <p>Color: {scanResult.vehicleDetails.color}</p>
+              <p>Registration: {scanResult.vehicleDetails.registrationNumber}</p>
+            </div>
+          ) : (
+            <div>
+              <h3 className="font-medium text-gray-700">Guest Details</h3>
+              <p>Name: {scanResult.guestDetails.name}</p>
+              <p>Phone: {scanResult.guestDetails.phone}</p>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <div className="flex items-center gap-2">
-            <Car className="w-5 h-5 text-gray-400" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Vehicle Type</p>
-              <p className="text-sm text-gray-600">{scanResult.vehicleType}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Car className="w-5 h-5 text-gray-400" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Registration</p>
-              <p className="text-sm text-gray-600">{scanResult.vehicleDetails.registrationNumber}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Car className="w-5 h-5 text-gray-400" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Vehicle Details</p>
-              <p className="text-sm text-gray-600">
-                {scanResult.vehicleDetails.brand} {scanResult.vehicleDetails.model} ({scanResult.vehicleDetails.color})
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <User className="w-5 h-5 text-gray-400" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Resident</p>
-              <p className="text-sm text-gray-600">{scanResult.resident.name}</p>
-              <p className="text-xs text-gray-500">Flat: {scanResult.resident.flat}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-gray-400" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Valid Until</p>
-              <p className="text-sm text-gray-600">
-                {new Date(scanResult.validUntil).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-        </div>
+        <button 
+          onClick={resetScanner}
+          className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+        >
+          Scan Another
+        </button>
       </div>
     );
   };
 
   return (
-    <div className="max-w-md mx-auto p-4">
-      {scanning && renderScanButtons()}
-      
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        {scanning ? (
-          <div className="aspect-square relative">
-            {mode === 'live' ? (
-              <QrScannerComponent
-                onDecode={handleScan}
-                onError={handleError}
-                containerStyle={{ borderRadius: '0.75rem' }}
-                constraints={{
-                  facingMode: 'environment',
-                  audio: false,
-                  video: { 
-                    facingMode: "environment",
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                  }
-                }}
-                scanDelay={500}
-                captureSize={{ width: 1280, height: 720 }}
-              />
-            ) : (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover rounded-xl"
-                  style={{ transform: 'scaleX(-1)' }}
-                />
-                <canvas ref={canvasRef} className="hidden" />
-                <button
-                  onClick={takePicture}
-                  disabled={loading}
-                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-blue-600 text-white rounded-full flex items-center gap-2 disabled:opacity-50"
-                >
-                  <Camera className="w-5 h-5" />
-                  {loading ? 'Processing...' : 'Take Picture'}
-                </button>
-              </>
-            )}
-            <div className="absolute inset-0 border-2 border-blue-500 rounded-xl pointer-events-none">
-              <div className="absolute inset-0 border-4 border-blue-500 rounded-xl opacity-50 animate-pulse"></div>
-            </div>
-          </div>
-        ) : (
-          renderScanResult()
-        )}
-      </div>
+    <div className="max-w-2xl mx-auto p-4">
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">
+        QR Code Scanner
+      </h1>
 
-      {scanning && (
-        <div className="mt-4 text-center">
-          <p className="text-sm text-gray-600">
-            {loading ? 'Processing...' : mode === 'live' 
-              ? 'Position the QR code within the frame to scan'
-              : 'Click the button to take a picture of the QR code'
-            }
-          </p>
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
         </div>
       )}
+
+      {!scanResult && (
+        <>
+          <div id="qr-reader" className="w-full max-w-lg mx-auto"></div>
+          <p className="text-sm text-gray-600 mt-2 text-center">
+            Position the QR code within the frame to scan. Make sure the code is well-lit and clearly visible.
+          </p>
+        </>
+      )}
+      {renderScanResult()}
     </div>
   );
 };
