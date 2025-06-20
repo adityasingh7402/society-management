@@ -613,7 +613,7 @@ const VehicleTagRequest = () => {
                       <img
                         src={tag.qrCode}
                         alt="QR Code"
-                        className="w-48 h-48 object-contain"
+                        className=""
                       />
                     </div>
                   </div>
