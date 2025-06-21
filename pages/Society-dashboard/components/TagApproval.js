@@ -496,17 +496,6 @@ const TagApproval = () => {
                           </button>
                         </div>
                       )}
-
-                      {/* QR Code Display for Approved Tags */}
-                      {tag.status === 'Approved' && !isExpired && tag.qrCode && (
-                        <div className="mt-4 flex justify-center">
-                          <img
-                            src={tag.qrCode}
-                            alt="QR Code"
-                            className="w-48 h-48 object-contain"
-                          />
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>

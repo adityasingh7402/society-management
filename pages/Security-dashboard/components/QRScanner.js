@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import { useRouter } from 'next/router';
-import { X, Camera, Keyboard, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { 
+  X, Camera, Keyboard, AlertCircle, CheckCircle2,
+  Car, Bike, Clock, CheckCircle, XCircle, ArrowLeft
+} from 'lucide-react';
+import { FaMotorcycle } from "react-icons/fa";
 
 const QRScanner = () => {
   const [scanResult, setScanResult] = useState(null);
@@ -9,13 +13,11 @@ const QRScanner = () => {
   const [scanner, setScanner] = useState(null);
   const [securityDetails, setSecurityDetails] = useState(null);
   const [showScanModal, setShowScanModal] = useState(false);
-  const [showManualModal, setShowManualModal] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
   const [cameraPermission, setCameraPermission] = useState(null);
-  const [manualCode, setManualCode] = useState({
-    type: 'vehicle',
-    id: '',
-    societyId: ''
-  });
+  const [pinCode, setPinCode] = useState('');
+  const [scannedQRData, setScannedQRData] = useState(null);
+  const [selectedType, setSelectedType] = useState('vehicle'); // Add type selection state
   const router = useRouter();
 
   // First effect for fetching security details
@@ -40,7 +42,6 @@ const QRScanner = () => {
 
         const data = await response.json();
         setSecurityDetails(data);
-        setManualCode(prev => ({ ...prev, societyId: data.societyId }));
       } catch (err) {
         console.error('Error fetching security details:', err);
         setError(err.message);
@@ -136,31 +137,10 @@ const QRScanner = () => {
         scanner.pause();
       }
 
-      const token = localStorage.getItem("Security");
-      if (!token) {
-        throw new Error('Authentication token missing. Please log in again.');
-      }
-
-      const response = await fetch('/api/scan-qr', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          qrData: decodedText,
-          securitySocietyId: securityDetails.societyId.toString()
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to process QR code');
-      }
-
-      setScanResult(data.data);
-      setError(null);
+      // Parse the QR data
+      const qrData = JSON.parse(decodedText);
+      setScannedQRData(qrData);
+      setShowPinModal(true);
       setShowScanModal(false);
       
       if (scanner) {
@@ -168,14 +148,7 @@ const QRScanner = () => {
       }
     } catch (err) {
       console.error('Scan error:', err);
-      setError(err.message || 'Failed to process QR code');
-      
-      if (err.message.toLowerCase().includes('authentication')) {
-        setTimeout(() => {
-          localStorage.removeItem("Security");
-          router.push("/SecurityLogin");
-        }, 2000);
-      }
+      setError('Invalid QR code format');
     }
   };
 
@@ -191,7 +164,7 @@ const QRScanner = () => {
     }
   };
 
-  const handleManualSubmit = async (e) => {
+  const handlePinSubmit = async (e) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("Security");
@@ -199,11 +172,37 @@ const QRScanner = () => {
         throw new Error('Authentication token missing. Please log in again.');
       }
 
-      const qrData = JSON.stringify({
-        tagType: manualCode.type,
-        [manualCode.type === 'vehicle' ? 'tagId' : 'passId']: manualCode.id,
-        societyId: manualCode.societyId
-      });
+      if (!securityDetails?.societyId) {
+        throw new Error('Security society details not found. Please log in again.');
+      }
+
+      // Create request data based on whether we have scanned QR data or not
+      let requestData;
+      if (scannedQRData) {
+        // If we have scanned QR data, verify society ID matches
+        if (scannedQRData.societyId !== securityDetails.societyId) {
+          throw new Error('This QR code belongs to a different society');
+        }
+        
+        requestData = {
+          qrData: JSON.stringify({
+            ...scannedQRData,
+            pinCode: pinCode,
+            societyId: securityDetails.societyId // Ensure society ID is included
+          }),
+          securitySocietyId: securityDetails.societyId.toString()
+        };
+      } else {
+        // If no scanned data, just send type and PIN for manual verification
+        requestData = {
+          qrData: JSON.stringify({
+            tagType: selectedType,
+            pinCode: pinCode,
+            societyId: securityDetails.societyId // Ensure society ID is included
+          }),
+          securitySocietyId: securityDetails.societyId.toString()
+        };
+      }
 
       const response = await fetch('/api/scan-qr', {
         method: 'POST',
@@ -211,10 +210,7 @@ const QRScanner = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          qrData,
-          securitySocietyId: securityDetails.societyId.toString()
-        }),
+        body: JSON.stringify(requestData),
       });
 
       const data = await response.json();
@@ -225,12 +221,16 @@ const QRScanner = () => {
 
       setScanResult(data.data);
       setError(null);
-      setShowManualModal(false);
+      setShowPinModal(false);
+      setPinCode('');
+      setSelectedType('vehicle');
+      setScannedQRData(null);
     } catch (err) {
-      console.error('Manual entry error:', err);
-      setError(err.message || 'Failed to process code');
+      console.error('Verification error:', err);
+      setError(err.message || 'Failed to verify code');
 
-      if (err.message.toLowerCase().includes('authentication')) {
+      if (err.message.toLowerCase().includes('authentication') || 
+          err.message.includes('society details not found')) {
         setTimeout(() => {
           localStorage.removeItem("Security");
           router.push("/SecurityLogin");
@@ -244,12 +244,9 @@ const QRScanner = () => {
     setError(null);
     setCameraPermission(null);
     setShowScanModal(false);
-    setShowManualModal(false);
-    setManualCode({
-      type: 'vehicle',
-      id: '',
-      societyId: securityDetails?.societyId || ''
-    });
+    setShowPinModal(false);
+    setPinCode('');
+    setScannedQRData(null);
 
     if (scanner) {
       scanner.stop().catch(console.error);
@@ -257,60 +254,69 @@ const QRScanner = () => {
     }
   };
 
+  const getStatusColor = (status, isExpired) => {
+    if (isExpired) return 'bg-gray-100 text-gray-600';
+    switch (status) {
+      case 'Approved':
+        return 'bg-green-100 text-green-600';
+      case 'Pending':
+        return 'bg-yellow-100 text-yellow-600';
+      case 'Rejected':
+        return 'bg-red-100 text-red-600';
+      default:
+        return 'bg-gray-100 text-gray-600';
+    }
+  };
+
+  const getStatusIcon = (status, isExpired) => {
+    if (isExpired) return Clock;
+    switch (status) {
+      case 'Approved':
+        return CheckCircle;
+      case 'Pending':
+        return Clock;
+      case 'Rejected':
+        return XCircle;
+      default:
+        return AlertCircle;
+    }
+  };
+
   const renderScanResult = () => {
     if (!scanResult) return null;
 
     const isVehicle = scanResult.type === 'vehicle';
-    const statusColor = scanResult.status === 'Approved' 
-      ? 'text-green-500' 
-      : scanResult.status === 'Pending' 
-        ? 'text-yellow-500' 
-        : 'text-red-500';
+    const isExpired = new Date(scanResult.validUntil) <= new Date();
+    const StatusIcon = getStatusIcon(scanResult.status, isExpired);
+    const statusColor = getStatusColor(scanResult.status, isExpired);
 
     return (
-      <div className="bg-white rounded-lg shadow-xl p-6 mt-4 border border-gray-200">
-        <div className="flex justify-between items-start mb-4">
-          <h2 className="text-xl font-semibold text-gray-800">
-            {isVehicle ? 'Vehicle Tag Details' : 'Guest Pass Details'}
-          </h2>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColor} bg-opacity-10`}>
-            {scanResult.status}
+      <div className="bg-white rounded-xl shadow-lg p-6 animate-fade-in-up">
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              {scanResult.vehicleType === 'Car' && <Car className="w-6 h-6 text-blue-500" />}
+              {scanResult.vehicleType === 'Motor Bike' && <FaMotorcycle className="w-6 h-6 text-blue-500" />}
+              {scanResult.vehicleType === 'Bike' && <Bike className="w-6 h-6 text-blue-500" />}
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {isVehicle ? scanResult.vehicleDetails.registrationNumber : scanResult.guestDetails.name}
+              </h2>
+              {isVehicle && (
+                <p className="text-gray-600">
+                  {scanResult.vehicleDetails.brand} {scanResult.vehicleDetails.model} • {scanResult.vehicleDetails.color}
+                </p>
+              )}
+            </div>
+          </div>
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColor}`}>
+            <StatusIcon className="w-4 h-4 inline-block mr-1" />
+            {isExpired ? 'Expired' : scanResult.status}
           </span>
         </div>
 
         <div className="space-y-4">
-          {isVehicle ? (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Vehicle Type</h3>
-                  <p className="text-gray-900">{scanResult.vehicleType}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Registration</h3>
-                  <p className="text-gray-900">{scanResult.vehicleDetails.registrationNumber}</p>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Vehicle Details</h3>
-                <p className="text-gray-900">
-                  {scanResult.vehicleDetails.brand} {scanResult.vehicleDetails.model} - {scanResult.vehicleDetails.color}
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Guest Name</h3>
-                <p className="text-gray-900">{scanResult.guestDetails.name}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Phone</h3>
-                <p className="text-gray-900">{scanResult.guestDetails.phone}</p>
-              </div>
-            </div>
-          )}
-
           <div className="border-t border-gray-200 pt-4">
             <h3 className="text-sm font-medium text-gray-500">Resident Details</h3>
             <p className="text-gray-900">{scanResult.resident.name} - Flat {scanResult.resident.flat}</p>
@@ -335,7 +341,21 @@ const QRScanner = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
+    <div className="min-h-screen bg-gray-50 p-4">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            onClick={() => router.back()}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-600" />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">QR Scanner</h1>
+        </div>
+        <p className="text-gray-600">Scan vehicle tags and guest passes</p>
+      </div>
+
       {/* Main Content */}
       {!scanResult && (
         <div className="space-y-4">
@@ -348,11 +368,11 @@ const QRScanner = () => {
               Scan QR Code
             </button>
             <button
-              onClick={() => setShowManualModal(true)}
+              onClick={() => setShowPinModal(true)}
               className="bg-green-500 text-white px-6 py-4 rounded-lg hover:bg-green-600 transition-colors flex flex-col items-center justify-center"
             >
               <Keyboard className="w-8 h-8 mb-2" />
-              Enter Code
+              Enter PIN
             </button>
           </div>
 
@@ -373,7 +393,7 @@ const QRScanner = () => {
       {/* QR Scanner Modal */}
       {showScanModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-lg mx-4">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Scan QR Code</h2>
               <button
@@ -398,54 +418,81 @@ const QRScanner = () => {
         </div>
       )}
 
-      {/* Manual Entry Modal */}
-      {showManualModal && (
+      {/* PIN Entry Modal */}
+      {showPinModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-lg mx-4">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Enter Code Manually</h2>
+              <h2 className="text-xl font-semibold text-gray-800">Enter Details</h2>
               <button
-                onClick={() => setShowManualModal(false)}
+                onClick={() => {
+                  setShowPinModal(false);
+                  setPinCode('');
+                  setSelectedType('vehicle');
+                  setScannedQRData(null);
+                }}
                 className="p-2 hover:bg-gray-100 rounded-full"
               >
                 <X className="w-6 h-6 text-gray-500" />
               </button>
             </div>
 
-            <form onSubmit={handleManualSubmit} className="space-y-4">
+            <form onSubmit={handlePinSubmit} className="space-y-4">
+              {/* Type Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Type
                 </label>
-                <select
-                  value={manualCode.type}
-                  onChange={(e) => setManualCode({ ...manualCode, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="vehicle">Vehicle Tag</option>
-                  <option value="guest">Guest Pass</option>
-                </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedType('vehicle')}
+                    className={`p-4 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                      selectedType === 'vehicle'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-200'
+                    }`}
+                  >
+                    <Car className={selectedType === 'vehicle' ? 'text-blue-500' : 'text-gray-400'} />
+                    <span className={selectedType === 'vehicle' ? 'text-blue-500' : 'text-gray-500'}>Vehicle Tag</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedType('guest')}
+                    className={`p-4 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                      selectedType === 'guest'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-200'
+                    }`}
+                  >
+                    <AlertCircle className={selectedType === 'guest' ? 'text-blue-500' : 'text-gray-400'} />
+                    <span className={selectedType === 'guest' ? 'text-blue-500' : 'text-gray-500'}>Guest Pass</span>
+                  </button>
+                </div>
               </div>
-              
+
+              {/* PIN Code Input */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {manualCode.type === 'vehicle' ? 'Tag ID' : 'Pass ID'}
+                  PIN Code
                 </label>
                 <input
                   type="text"
-                  value={manualCode.id}
-                  onChange={(e) => setManualCode({ ...manualCode, id: e.target.value })}
-                  placeholder={`Enter ${manualCode.type === 'vehicle' ? 'tag' : 'pass'} ID`}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={pinCode}
+                  onChange={(e) => setPinCode(e.target.value)}
+                  placeholder="Enter 6-digit PIN code"
+                  maxLength={6}
+                  pattern="\d{6}"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                className="w-full py-3 px-4 rounded-lg text-white font-medium bg-blue-500 hover:bg-blue-600 active:bg-blue-700 transition-all"
               >
-                Verify Code
+                Verify
               </button>
             </form>
           </div>

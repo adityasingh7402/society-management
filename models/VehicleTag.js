@@ -13,7 +13,7 @@ const vehicleTagSchema = new mongoose.Schema({
   },
   vehicleType: {
     type: String,
-    enum: ['Car', 'Bike', 'Bicycle'],
+    enum: ['Car', 'Motor Bike', 'Bike'],
     required: true
   },
   vehicleDetails: {

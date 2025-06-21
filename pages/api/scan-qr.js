@@ -24,36 +24,55 @@ export default async function handler(req, res) {
     }
 
     // Validate required fields in QR data
-    if (!scannedData.tagType || !scannedData.societyId) {
+    if (!scannedData.tagType || !scannedData.societyId || !scannedData.pinCode) {
       return res.status(400).json({ message: 'Invalid QR code: Missing required fields' });
     }
 
-    // Validate that the security guard belongs to the same society as the QR code
+    // Strict society ID validation
     if (scannedData.societyId !== securitySocietyId) {
       return res.status(403).json({ 
-        message: 'Access denied: This QR code belongs to a different society' 
+        message: 'Access denied: Security guard can only verify passes/tags from their own society' 
       });
     }
     
-    if (scannedData.tagType === 'vehicle' && scannedData.tagId) {
-      // This is a vehicle tag
-      const vehicleTag = await VehicleTag.findOne({
-        _id: scannedData.tagId,
-        societyId: scannedData.societyId
-      })
-      .populate('residentId', 'name flat')
-      .populate('societyId', 'societyName')
-      .lean();
+    if (scannedData.tagType === 'vehicle') {
+      // Build query based on available data
+      const query = {
+        societyId: securitySocietyId, // Use security's society ID for verification
+        pinCode: scannedData.pinCode
+      };
+
+      // Add tagId to query if available
+      if (scannedData.tagId) {
+        query._id = scannedData.tagId;
+      }
+
+      // Find vehicle tag with matching criteria
+      const vehicleTag = await VehicleTag.findOne(query)
+        .populate('residentId', 'name flat')
+        .populate('societyId', 'societyName')
+        .lean();
 
       if (!vehicleTag) {
-        return res.status(404).json({ message: 'Vehicle tag not found or does not belong to this society' });
+        return res.status(401).json({ 
+          message: scannedData.tagId 
+            ? 'Invalid tag ID or PIN code' 
+            : 'Invalid PIN code or tag does not belong to this society'
+        });
+      }
+
+      // Double-check society match
+      if (vehicleTag.societyId._id.toString() !== securitySocietyId) {
+        return res.status(403).json({ 
+          message: 'Access denied: Tag belongs to a different society' 
+        });
       }
 
       const isExpired = new Date(vehicleTag.validUntil) < new Date();
 
       // If tag is expired, update its status
       if (isExpired && vehicleTag.status !== 'Expired') {
-        await VehicleTag.findByIdAndUpdate(scannedData.tagId, { status: 'Expired' });
+        await VehicleTag.findByIdAndUpdate(vehicleTag._id, { status: 'Expired' });
         vehicleTag.status = 'Expired';
       }
 
@@ -70,25 +89,44 @@ export default async function handler(req, res) {
           validUntil: vehicleTag.validUntil
         }
       });
-    } else if (scannedData.tagType === 'guest' && scannedData.passId) {
-      // This is a guest pass
-      const guestPass = await GuestPass.findOne({
-        _id: scannedData.passId,
-        societyId: scannedData.societyId
-      })
-      .populate('residentId', 'name flat')
-      .populate('societyId', 'societyName')
-      .lean();
+    } else if (scannedData.tagType === 'guest') {
+      // Build query based on available data
+      const query = {
+        societyId: securitySocietyId, // Use security's society ID for verification
+        pinCode: scannedData.pinCode
+      };
+
+      // Add passId to query if available
+      if (scannedData.passId) {
+        query._id = scannedData.passId;
+      }
+
+      // Find guest pass with matching criteria
+      const guestPass = await GuestPass.findOne(query)
+        .populate('residentId', 'name flat')
+        .populate('societyId', 'societyName')
+        .lean();
 
       if (!guestPass) {
-        return res.status(404).json({ message: 'Guest pass not found or does not belong to this society' });
+        return res.status(401).json({ 
+          message: scannedData.passId 
+            ? 'Invalid pass ID or PIN code' 
+            : 'Invalid PIN code or pass does not belong to this society'
+        });
+      }
+
+      // Double-check society match
+      if (guestPass.societyId._id.toString() !== securitySocietyId) {
+        return res.status(403).json({ 
+          message: 'Access denied: Pass belongs to a different society' 
+        });
       }
 
       const isExpired = new Date(guestPass.validUntil) < new Date();
 
       // If pass is expired, update its status
       if (isExpired && guestPass.status !== 'Expired') {
-        await GuestPass.findByIdAndUpdate(scannedData.passId, { status: 'Expired' });
+        await GuestPass.findByIdAndUpdate(guestPass._id, { status: 'Expired' });
         guestPass.status = 'Expired';
       }
 

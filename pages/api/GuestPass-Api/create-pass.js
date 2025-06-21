@@ -1,6 +1,6 @@
 import connectToDatabase from "../../../lib/mongodb";
 import GuestPass from "../../../models/GuestPass";
-import QRCode from 'qrcode';
+import QRCodeStyling from "qr-code-styling";
 import { nanoid } from 'nanoid';
 
 export default async function handler(req, res) {
@@ -40,15 +40,34 @@ export default async function handler(req, res) {
     });
 
     // Generate QR code with custom styling
-    const qrCodeImage = await QRCode.toDataURL(qrData, {
-      errorCorrectionLevel: 'H',
-      margin: 2,
-      color: {
-        dark: '#34C759',  // Green dots
-        light: '#FFFFFF'  // White background
+    const qrCode = new QRCodeStyling({
+      width: 400,
+      height: 400,
+      data: qrData,
+      dotsOptions: {
+        color: "#4A90E2",
+        type: "rounded"
       },
-      width: 400
+      backgroundOptions: {
+        color: "#ffffff"
+      },
+      cornersSquareOptions: {
+        color: "#4A90E2",
+        type: "extra-rounded"
+      },
+      gradient: {
+        type: "linear",
+        rotation: 0,
+        colorStops: [
+          { offset: 0, color: "#6a11cb" },
+          { offset: 1, color: "#2575fc" }
+        ]
+      }
     });
+
+    // Convert QR code to data URL
+    const canvas = await qrCode.getCanvas();
+    const qrCodeImage = canvas.toDataURL();
 
     // Create new guest pass
     const guestPass = new GuestPass({

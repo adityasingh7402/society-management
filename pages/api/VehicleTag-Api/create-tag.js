@@ -1,6 +1,5 @@
 import connectToDatabase from "../../../lib/mongodb";
 import VehicleTag from "../../../models/VehicleTag";
-import QRCode from 'qrcode';
 import { nanoid } from 'nanoid';
 
 // Function to generate a random 6-digit PIN
@@ -50,7 +49,8 @@ export default async function handler(req, res) {
       model,
       color,
       registrationNumber,
-      validUntil
+      validUntil,
+      qrCodeDataUrl // Accept QR code data URL from frontend
     } = req.body;
 
     // Validate required fields
@@ -78,38 +78,17 @@ export default async function handler(req, res) {
       pinCode,
       validFrom: new Date(),
       validUntil: new Date(validUntil),
-      status: 'Pending'
+      status: 'Pending',
+      qrCode: qrCodeDataUrl // Store the QR code data URL
     });
 
-    // Save to get the _id
-    await vehicleTag.save();
-
-    // Create QR code data with additional fields
-    const qrData = JSON.stringify({
-      tagId: vehicleTag._id,
-      tagType: 'vehicle',
-      societyId: societyId,
-      pinCode: pinCode // Include PIN in QR data
-    });
-
-    // Generate QR code with custom styling
-    const qrCodeImage = await QRCode.toDataURL(qrData, {
-      errorCorrectionLevel: 'H',
-      margin: 2,
-      color: {
-        dark: '#4A90E2',  // Blue dots
-        light: '#FFFFFF'  // White background
-      },
-      width: 400
-    }); 
-
-    // Update the tag with the QR code
-    vehicleTag.qrCode = qrCodeImage;
+    // Save to database
     await vehicleTag.save();
 
     res.status(201).json({
       message: 'Vehicle tag created successfully',
-      data: vehicleTag
+      data: vehicleTag,
+      pinCode: pinCode // Return the PIN code to frontend
     });
 
   } catch (error) {

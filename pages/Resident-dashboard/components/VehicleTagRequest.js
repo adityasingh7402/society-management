@@ -4,9 +4,11 @@ import axios from 'axios';
 import { 
   Car, Bike, Truck, Calendar, Filter, Search, 
   Plus, RefreshCw, Trash2, AlertTriangle, ArrowLeft,
-  CheckCircle, XCircle, Clock, X
+  CheckCircle, XCircle, Clock, X, ChevronDown, ChevronUp
 } from 'lucide-react';
+import { FaMotorcycle } from "react-icons/fa";
 import Head from 'next/head';
+import QRCodeStyling from 'qr-code-styling';
 
 // Define CSS animations
 const animationStyles = `
@@ -37,6 +39,21 @@ const animationStyles = `
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slideDown 0.2s ease-out;
+}
 `;
 
 const VehicleTagRequest = () => {
@@ -46,6 +63,7 @@ const VehicleTagRequest = () => {
   const [residentData, setResidentData] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [expandedTag, setExpandedTag] = useState(null);
   const [filters, setFilters] = useState({
     status: '',
     vehicleType: '',
@@ -207,7 +225,9 @@ const VehicleTagRequest = () => {
 
     try {
       const token = localStorage.getItem('Resident');
-      const response = await axios.post('/api/VehicleTag-Api/create-tag', 
+
+      // First create the vehicle tag and get the PIN
+      const createResponse = await axios.post('/api/VehicleTag-Api/create-tag', 
         {
           residentId: residentData._id,
           societyId: residentData.societyId,
@@ -226,9 +246,77 @@ const VehicleTagRequest = () => {
         }
       );
 
+      const { pinCode, data: vehicleTag } = createResponse.data;
+
+      // Generate QR code data with PIN
+      const qrData = JSON.stringify({
+        tagId: vehicleTag._id,
+        tagType: 'vehicle',
+        societyId: residentData.societyId,
+        vehicleType: formData.vehicleType,
+        registrationNumber: formData.registrationNumber,
+        pinCode: pinCode // Include the PIN in QR data
+      });
+
+      // Create QR code with styling
+      const qrCode = new QRCodeStyling({
+        width: 400,
+        height: 400,
+        type: "canvas",
+        data: qrData,
+        image: "/profile.png",
+        dotsOptions: {
+          color: "#4A90E2",
+          type: "rounded"
+        },
+        backgroundOptions: {
+          color: "#ffffff"
+        },
+        imageOptions: {
+          crossOrigin: "anonymous",
+          margin: 20
+        },
+        qrOptions: {
+          errorCorrectionLevel: 'H'
+        },
+        cornersSquareOptions: {
+          color: "#4A90E2",
+          type: "extra-rounded"
+        }
+      });
+
+      // Create a temporary div to hold the QR code
+      const tempDiv = document.createElement('div');
+      
+      // Create QR code canvas
+      await qrCode.append(tempDiv);
+      
+      // Wait a bit for the QR code to render
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const canvas = tempDiv.querySelector('canvas');
+      if (!canvas) {
+        throw new Error('Failed to generate QR code');
+      }
+      
+      const qrCodeDataUrl = canvas.toDataURL('image/png');
+
+      // Update the vehicle tag with the QR code
+      const updateResponse = await axios.patch(`/api/VehicleTag-Api/update-tag/${vehicleTag._id}`, 
+        {
+          qrCode: qrCodeDataUrl
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          }
+        }
+      );
+
       // Add new tag to state
-      setVehicleTags(prev => [response.data.data, ...prev]);
-      setFormattedTags(prev => [response.data.data, ...prev]);
+      setVehicleTags(prev => [updateResponse.data.data, ...prev]);
+      setFormattedTags(prev => [updateResponse.data.data, ...prev]);
       
       // Reset form and close it
       setFormData({
@@ -309,6 +397,10 @@ const VehicleTagRequest = () => {
     }).format(new Date(dateString));
   };
 
+  const toggleTagExpansion = (tagId) => {
+    setExpandedTag(expandedTag === tagId ? null : tagId);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <Head>
@@ -345,7 +437,7 @@ const VehicleTagRequest = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Vehicle Type Selection */}
             <div className="grid grid-cols-3 gap-4">
-              {['Car', 'Bike', 'Bicycle'].map((type) => (
+              {['Car', 'Motor Bike', 'Bike'].map((type) => (
                 <button
                   key={type}
                   type="button"
@@ -357,9 +449,9 @@ const VehicleTagRequest = () => {
                   }`}
                 >
                   {type === 'Car' && <Car className={formData.vehicleType === type ? 'text-blue-500' : 'text-gray-400'} />}
+                  {type === 'Motor Bike' && <FaMotorcycle  className={formData.vehicleType === type ? 'text-blue-500' : 'text-gray-400'} />}
                   {type === 'Bike' && <Bike className={formData.vehicleType === type ? 'text-blue-500' : 'text-gray-400'} />}
-                  {type === 'Bicycle' && <Truck className={formData.vehicleType === type ? 'text-blue-500' : 'text-gray-400'} />}
-                  <span className={formData.vehicleType === type ? 'text-blue-500' : 'text-gray-500'}>{type}</span>
+                  <span className={formData.vehicleType === type ? 'text-blue-500' : 'text-gray-500 text-sm'}>{type}</span>
                 </button>
               ))}
             </div>
@@ -425,10 +517,9 @@ const VehicleTagRequest = () => {
                   value={formData.validUntil}
                   onChange={(e) => setFormData(prev => ({ ...prev, validUntil: e.target.value }))}
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-2"
                   required
                 />
-                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
             </div>
 
@@ -486,8 +577,8 @@ const VehicleTagRequest = () => {
               >
                 <option value="">All Types</option>
                 <option value="Car">Car</option>
+                <option value="Motor Bike">Motor Bike</option>
                 <option value="Bike">Bike</option>
-                <option value="Bicycle">Bicycle</option>
               </select>
             </div>
 
@@ -561,18 +652,22 @@ const VehicleTagRequest = () => {
             const StatusIcon = getStatusIcon(tag.status, tag.validUntil);
             const statusColor = getStatusColor(tag.status, tag.validUntil);
             const isExpired = new Date(tag.validUntil) <= new Date();
+            const isExpanded = expandedTag === tag._id;
 
             return (
               <div
                 key={tag._id}
-                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow animate-fade-in-up"
+                onClick={() => tag.status === 'Approved' && toggleTagExpansion(tag._id)}
+                className={`bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow animate-fade-in-up ${
+                  tag.status === 'Approved' ? 'cursor-pointer' : ''
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                       {tag.vehicleType === 'Car' && <Car className="w-6 h-6 text-blue-500" />}
+                      {tag.vehicleType === 'Motor Bike' && <FaMotorcycle className="w-6 h-6 text-blue-500" />}
                       {tag.vehicleType === 'Bike' && <Bike className="w-6 h-6 text-blue-500" />}
-                      {tag.vehicleType === 'Bicycle' && <Truck className="w-6 h-6 text-blue-500" />}
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-900">{tag.vehicleDetails.registrationNumber}</h3>
@@ -583,23 +678,27 @@ const VehicleTagRequest = () => {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${statusColor}`}>
-                        <StatusIcon className="w-4 h-4" />
-                        <span>{isExpired ? 'Expired' : tag.status}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Valid until: {formatDate(tag.validUntil)}
-                      </p>
+                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${statusColor}`}>
+                      <StatusIcon className="w-4 h-4 inline-block mr-1" />
+                      {isExpired ? 'Expired' : tag.status}
                     </div>
-
-                    {!isExpired && tag.status === 'Pending' && (
+                    {tag.status === 'Approved' && (
+                      <div className="text-gray-500">
+                        {isExpanded ? (
+                          <ChevronUp className="w-5 h-5" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5" />
+                        )}
+                      </div>
+                    )}
+                    {!isExpired && tag.status !== 'Approved' && (
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setTagToDelete(tag);
                           setShowDeleteModal(true);
                         }}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                        className="text-red-500 hover:text-red-700 transition-colors"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
@@ -607,14 +706,56 @@ const VehicleTagRequest = () => {
                   </div>
                 </div>
 
-                {tag.qrCode && tag.status === 'Approved' && !isExpired && (
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex justify-center">
-                      <img
-                        src={tag.qrCode}
-                        alt="QR Code"
-                        className=""
-                      />
+                {/* Expanded Content - Only show for approved tags */}
+                {isExpanded && tag.status === 'Approved' && (
+                  <div className="mt-6 pt-6 border-t border-gray-100 animate-slide-down">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* QR Code Section */}
+                      <div className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-lg">
+                        {tag.qrCode ? (
+                          <div className="flex flex-col items-center">
+                            <img 
+                              src={tag.qrCode} 
+                              alt="Vehicle Tag QR Code"
+                              className="mb-4"
+                            />
+                            <p className="text-sm text-gray-600 text-center">
+                              Scan this QR code at the entrance
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="text-center text-gray-500">
+                            <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
+                            <p>QR Code not available</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Details Section */}
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-500">Validity Period</h4>
+                          <p className="text-gray-900">
+                            {formatDate(tag.validFrom)} - {formatDate(tag.validUntil)}
+                          </p>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-500">PIN Code</h4>
+                          <p className="text-gray-900">{tag.pinCode}</p>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-500">Status</h4>
+                          <p className="text-green-600">
+                            {isExpired ? 'Expired' : tag.status}
+                          </p>
+                        </div>
+                        {tag.remarks && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-500">Remarks</h4>
+                            <p className="text-gray-900">{tag.remarks}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

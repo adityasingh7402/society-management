@@ -38,7 +38,7 @@ export default function Home() {
     }, []);
 
     return (
-        <div className="relative flex flex-col min-h-screen  text-gray-900 bg-gradient-to-r from-indigo-100 to-purple-50">
+        <div className="relative flex flex-col min-h-screen  text-gray-900 bg-gradient-to-br from-slate-50 via-gray-50 to-indigo-50">
             {/* Background pattern overlay */}
             <div className="absolute inset-0 z-0 opacity-10" 
                 style={{ 

@@ -19,6 +19,10 @@ import {
   Sparkles,
   Zap,
   Layout,
+  Car,
+  Dog,
+  Key,
+  UserCog,
 } from 'lucide-react';
 
 const AndroidDashboard = ({ onLoaded }) => {
@@ -351,7 +355,7 @@ const AndroidDashboard = ({ onLoaded }) => {
     { icon: Siren, label: 'Emergency', color: 'bg-red-500', href: '/Resident-dashboard/components/Emergency' },
     { icon: Wrench, label: 'Maintenance', color: 'bg-orange-500', href: '/Resident-dashboard/components/Maintenance' },
     { icon: ShoppingCart, label: 'Marketplace', color: 'bg-green-500', href: '/Resident-dashboard/components/Marketplace' },
-    { icon: PieChart, label: 'Polls', color: 'bg-purple-500', href: '/Resident-dashboard/components/Polls' },
+    { icon: Layout, label: 'Tags', color: 'bg-purple-500', href: '/Resident-dashboard/components/Tags' }
   ];
 
   // Popup handlers with proper open and close animations
@@ -419,6 +423,18 @@ const AndroidDashboard = ({ onLoaded }) => {
       ]
     },
     {
+      id: 'access',
+      title: 'Access Tags',
+      icon: Layout,
+      color: 'bg-purple-500',
+      items: [
+        { icon: Car, label: 'Vehicle Tag', href: '/Resident-dashboard/components/VehicleTagRequest' },
+        { icon: Dog, label: 'Animal Tag', href: '/Resident-dashboard/components/AnimalTagRequest' },
+        { icon: Key, label: 'Gate Pass', href: '/Resident-dashboard/components/GatePassRequest' },
+        { icon: UserCog, label: 'Service Personnel', href: '/Resident-dashboard/components/ServicePersonnelRequest' }
+      ]
+    },
+    {
       id: 'directory',
       title: 'Directory',
       icon: Users,
@@ -478,7 +494,7 @@ const AndroidDashboard = ({ onLoaded }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 pb-20 relative">
+    <div className="min-h-screen bg-gradient-to-br from-[#1A75FF]/5 via-[#1A75FF]/10 to-[#1A75FF]/20 pb-20 relative">
       {/* Background pattern overlay */}
       <div
         className="fixed inset-0 pointer-events-none"
@@ -521,11 +537,7 @@ const AndroidDashboard = ({ onLoaded }) => {
       )}
 
       {/* Enhanced Header with better gradient and styling */}
-      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white px-4 py-8 rounded-b-[2rem] shadow-2xl relative overflow-hidden backdrop-blur-sm">
-        {/* Background pattern */}
-        <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-8 translate-x-8"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
+      <div className="text-gray-800 px-4 py-8 relative overflow-hidden backdrop-blur-sm">
 
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-6">
@@ -537,14 +549,11 @@ const AndroidDashboard = ({ onLoaded }) => {
                 <Menu size={20} />
               </button>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">Good Morning!</h1>
-                <p className="text-blue-100/90 text-sm font-medium">Welcome to Harmony Heights</p>
+                <h1 className="text-xl font-semibold bg-gradient-to-r from-gray-700 to-gray-800 bg-clip-text text-transparent">Good Morning</h1>
+                <p className="from-gray-700 to-gray-800 text-sm">Welcome to Harmony Heights</p>
               </div>
             </div>
             <div className="flex space-x-3">
-              <button className="p-3 bg-white/15 backdrop-blur-sm rounded-xl hover:bg-white/25 transition-all duration-200 shadow-lg">
-                <Search size={20} />
-              </button>
               <button
                 onClick={handleNotification}
                 className="p-3 bg-white/15 backdrop-blur-sm rounded-xl hover:bg-white/25 transition-all duration-200 shadow-lg relative"
@@ -724,6 +733,18 @@ const AndroidDashboard = ({ onLoaded }) => {
               <li>
                 <button
                   onClick={() => {
+                    router.push("./Resident-dashboard/components/Tags");
+                    setIsSidebarOpen(false);
+                  }}
+                  className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 hover:bg-indigo-50 hover:translate-x-1"
+                >
+                  <Layout className="mr-3" size={20} />
+                  <span>Access Tags</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
                     router.push("./Resident-dashboard/components/Emergency");
                     setIsSidebarOpen(false);
                   }}
@@ -763,8 +784,8 @@ const AndroidDashboard = ({ onLoaded }) => {
 
       {/* Content with enhanced spacing and backgrounds */}
       <div className="relative -mt-7 z-10">
-        <div className="relative bg-white rounded-2xl shadow-lg overflow-hidden animate-fade-in mx-4">
-          <div className="relative h-48 overflow-hidden">
+        <div className="relative overflow-hidden animate-fade-in mx-4">
+          <div className="relative h-48 overflow-hidden rounded-2xl">
             <div
               className="flex transition-transform duration-500 ease-in-out"
               style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -788,13 +809,13 @@ const AndroidDashboard = ({ onLoaded }) => {
             {/* Navigation Arrows */}
             <button
               onClick={prevSlide}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 rounded-full p-1 transition-colors"
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/30 rounded-full p-1 transition-colors"
             >
               <ChevronLeft size={20} className="text-white" />
             </button>
             <button
               onClick={nextSlide}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 rounded-full p-1 transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/30 rounded-full p-1 transition-colors"
             >
               <ChevronRight size={20} className="text-white" />
             </button>
@@ -806,7 +827,7 @@ const AndroidDashboard = ({ onLoaded }) => {
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`w-2 h-2 rounded-full transition-colors ${index === currentSlide ? 'bg-blue-600' : 'bg-gray-300'
+                className={`w-2 h-2 rounded-full transition-colors ${index === currentSlide ? 'bg-[#1A75FF]' : 'bg-white/50'
                   }`}
               />
             ))}
@@ -1117,7 +1138,18 @@ const AndroidDashboard = ({ onLoaded }) => {
 
       {/* Custom CSS for animations */}
       <style jsx>{`
-        @keyframes fade-in-up-delayed {
+        /* Basic Animations */
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes fade-out {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+
+        @keyframes fade-in-up {
           0% { 
             opacity: 0; 
             transform: translateY(20px); 
@@ -1127,7 +1159,7 @@ const AndroidDashboard = ({ onLoaded }) => {
             transform: translateY(0); 
           }
         }
-        
+
         @keyframes fade-out-down {
           from { 
             opacity: 1; 
@@ -1138,34 +1170,36 @@ const AndroidDashboard = ({ onLoaded }) => {
             transform: translateY(20px); 
           }
         }
-        
-        .animate-fade-in-up-delayed {
-          animation: fade-in-up-delayed 0.1s ease-out;
-          opacity: 0;
-          animation-fill-mode: forwards;
-        }
-        
-        .animate-fade-out-down {
-          animation: fade-out-down 0.2s ease-out forwards;
-        }
 
-        @keyframes gradient-shift {
-          0% {
-            background-position: 0% 50%;
+        /* Slide Animations */
+        @keyframes slide-in-left {
+          from {
+            opacity: 0;
+            transform: translateX(100%) scale(0.95);
           }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
+          to {
+            opacity: 1;
+            transform: translateX(0) scale(1);
           }
         }
 
-        .animated-gradient {
-          background-size: 200% 200%;
-          animation: gradient-shift 3s ease infinite;
+        @keyframes slide-out-right {
+          from {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+          }
+          to {
+            opacity: 0;
+            transform: translateX(100%) scale(0.95);
+          }
         }
 
+        @keyframes slide-menu {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
+        }
+
+        /* Float Animations */
         @keyframes float {
           0% {
             transform: translateY(0px) rotate(0deg);
@@ -1178,6 +1212,41 @@ const AndroidDashboard = ({ onLoaded }) => {
           }
         }
 
+        /* Gradient Animation */
+        @keyframes gradient-shift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        /* Animation Classes */
+        .animate-fade-in {
+          animation: fade-in 0.2s ease-out forwards;
+        }
+
+        .animate-fade-out {
+          animation: fade-out 0.2s ease-out forwards;
+        }
+
+        .animate-fade-in-up-delayed {
+          animation: fade-in-up 0.3s ease-out;
+          opacity: 0;
+          animation-fill-mode: forwards;
+        }
+
+        .animate-fade-out-down {
+          animation: fade-out-down 0.2s ease-out forwards;
+        }
+
+        .animate-slide-in-left {
+          animation: slide-in-left 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-slide-out-right {
+          animation: slide-out-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Float Animation Variants */
         .float-animation {
           animation: float 8s ease-in-out infinite;
         }
@@ -1189,71 +1258,18 @@ const AndroidDashboard = ({ onLoaded }) => {
         .float-animation-slow {
           animation: float 10s ease-in-out infinite;
         }
-        @keyframes slide-in-left {
-                    from {
-                        opacity: 0;
-                        transform: translateX(100%) scale(0.95);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateX(0) scale(1);
-                    }
-                }
 
-                @keyframes slide-out-right {
-                    from {
-                        opacity: 1;
-                        transform: translateX(0) scale(1);
-                    }
-                    to {
-                        opacity: 0;
-                        transform: translateX(100%) scale(0.95);
-                    }
-                }
+        /* Gradient Animation */
+        .animated-gradient {
+          background-size: 200% 200%;
+          animation: gradient-shift 3s ease infinite;
+        }
 
-                @keyframes fade-in {
-                    from {
-                        opacity: 0;
-                    }
-                    to {
-                        opacity: 1;
-                    }
-                }
-
-                @keyframes fade-out {
-                    from {
-                        opacity: 1;
-                    }
-                    to {
-                        opacity: 0;
-                    }
-                }
-
-                .animate-slide-in-left {
-                    animation: slide-in-left 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                }
-
-                .animate-slide-out-right {
-                    animation: slide-out-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                }
-
-                .animate-fade-in {
-                    animation: fade-in 0.2s ease-out forwards;
-                }
-
-                .animate-fade-out {
-                    animation: fade-out 0.2s ease-out forwards;
-                }
-
-                /* Add smooth drag transition */
-                @keyframes slide-menu {
-                    from { transform: translateX(-100%); }
-                    to { transform: translateX(0); }
-                }
-
+        /* Utility Classes */
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
+
         .scrollbar-hide {
           -ms-overflow-style: none;
           scrollbar-width: none;
