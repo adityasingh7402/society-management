@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
       // Find vehicle tag with matching criteria
       const vehicleTag = await VehicleTag.findOne(query)
-        .populate('residentId', 'name flat')
+        .populate('residentId', 'name flatDetails')
         .populate('societyId', 'societyName')
         .lean();
 
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
 
       // Find guest pass with matching criteria
       const guestPass = await GuestPass.findOne(query)
-        .populate('residentId', 'name flat')
+        .populate('residentId', 'name flatDetails')
         .populate('societyId', 'societyName')
         .lean();
 

@@ -27,7 +27,7 @@ const Tags = () => {
       title: 'Gate Pass Tag',
       description: 'Generate gate passes for visitors',
       icon: Key,
-      route: '/GatePassRequest',
+      route: '/GuestPassRequest',
       color: 'purple'
     },
     {

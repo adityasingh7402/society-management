@@ -7,6 +7,18 @@ import {
 } from 'lucide-react';
 import { FaMotorcycle } from "react-icons/fa";
 
+// Helper function to get the correct suffix for floor numbers
+const getFloorSuffix = (floor) => {
+  if (floor >= 11 && floor <= 13) return 'th';
+  const lastDigit = floor % 10;
+  switch (lastDigit) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+};
+
 const QRScanner = () => {
   const [scanResult, setScanResult] = useState(null);
   const [error, setError] = useState(null);
@@ -17,7 +29,9 @@ const QRScanner = () => {
   const [cameraPermission, setCameraPermission] = useState(null);
   const [pinCode, setPinCode] = useState('');
   const [scannedQRData, setScannedQRData] = useState(null);
-  const [selectedType, setSelectedType] = useState('vehicle'); // Add type selection state
+  const [selectedType, setSelectedType] = useState('vehicle');
+  const hasProcessedRef = React.useRef(false);
+  const scannerRef = React.useRef(null);
   const router = useRouter();
 
   // First effect for fetching security details
@@ -57,11 +71,25 @@ const QRScanner = () => {
 
     const initializeScanner = async () => {
       try {
-        if (scanner) {
-          scanner.clear();
+        // Reset the processed flag when starting new scan
+        hasProcessedRef.current = false;
+
+        // Clear any existing scanner instance
+        if (scannerRef.current) {
+          await scannerRef.current.stop();
+          await scannerRef.current.clear();
+          scannerRef.current = null;
+        }
+        setScanner(null);
+
+        // Clean up the scanner element
+        const element = document.getElementById('qr-reader');
+        if (element) {
+          element.innerHTML = '';
         }
 
         const html5QrCode = new Html5Qrcode("qr-reader");
+        scannerRef.current = html5QrCode;
         
         const config = {
           fps: 10,
@@ -102,9 +130,19 @@ const QRScanner = () => {
 
     return () => {
       clearTimeout(timeoutId);
-      if (scanner) {
-        scanner.stop().catch(console.error);
+      if (scannerRef.current) {
+        scannerRef.current.stop().then(() => {
+          scannerRef.current.clear();
+          const element = document.getElementById('qr-reader');
+          if (element) {
+            element.innerHTML = '';
+          }
+          scannerRef.current = null;
+          setScanner(null);
+        }).catch(console.error);
       }
+      // Reset the processed flag on cleanup
+      hasProcessedRef.current = false;
     };
   }, [securityDetails, showScanModal, cameraPermission]);
 
@@ -132,23 +170,85 @@ const QRScanner = () => {
   };
 
   const handleScanSuccess = async (decodedText) => {
+    // Prevent multiple scans using ref
+    if (hasProcessedRef.current) return;
+    hasProcessedRef.current = true;
+    
     try {
-      if (scanner) {
-        scanner.pause();
+      // Immediately cleanup and stop scanner
+      if (scannerRef.current) {
+        await scannerRef.current.stop();
+        await scannerRef.current.clear();
+        scannerRef.current = null;
+      }
+      setScanner(null);
+      setShowScanModal(false);
+
+      // Clean up the scanner element
+      const element = document.getElementById('qr-reader');
+      if (element) {
+        element.innerHTML = '';
       }
 
       // Parse the QR data
       const qrData = JSON.parse(decodedText);
       setScannedQRData(qrData);
-      setShowPinModal(true);
-      setShowScanModal(false);
-      
-      if (scanner) {
-        scanner.stop().catch(console.error);
+
+      // If QR data contains pinCode, verify directly
+      if (qrData.pinCode) {
+        const token = localStorage.getItem("Security");
+        if (!token) {
+          throw new Error('Authentication token missing. Please log in again.');
+        }
+
+        if (!securityDetails?.societyId) {
+          throw new Error('Security society details not found. Please log in again.');
+        }
+
+        // Verify society ID matches
+        if (qrData.societyId !== securityDetails.societyId) {
+          throw new Error('This QR code belongs to a different society');
+        }
+
+        const response = await fetch('/api/scan-qr', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            qrData: JSON.stringify(qrData),
+            securitySocietyId: securityDetails.societyId.toString()
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to process code');
+        }
+
+        setScanResult(data.data);
+        setError(null);
+        setScannedQRData(null);
+      } else {
+        // If no pinCode in QR data, show PIN entry modal
+        setShowPinModal(true);
       }
     } catch (err) {
       console.error('Scan error:', err);
-      setError('Invalid QR code format');
+      setError(err.message || 'Invalid QR code format');
+      
+      if (err.message.toLowerCase().includes('authentication') || 
+          err.message.includes('society details not found')) {
+        setTimeout(() => {
+          localStorage.removeItem("Security");
+          router.push("/SecurityLogin");
+        }, 2000);
+      }
+    } finally {
+      // Reset processing flag whether successful or not
+      hasProcessedRef.current = false;
     }
   };
 
@@ -247,10 +347,18 @@ const QRScanner = () => {
     setShowPinModal(false);
     setPinCode('');
     setScannedQRData(null);
+    hasProcessedRef.current = false;
 
-    if (scanner) {
-      scanner.stop().catch(console.error);
-      setScanner(null);
+    if (scannerRef.current) {
+      scannerRef.current.stop().then(() => {
+        scannerRef.current.clear();
+        const element = document.getElementById('qr-reader');
+        if (element) {
+          element.innerHTML = '';
+        }
+        scannerRef.current = null;
+        setScanner(null);
+      }).catch(console.error);
     }
   };
 
@@ -318,8 +426,33 @@ const QRScanner = () => {
 
         <div className="space-y-4">
           <div className="border-t border-gray-200 pt-4">
-            <h3 className="text-sm font-medium text-gray-500">Resident Details</h3>
-            <p className="text-gray-900">{scanResult.resident.name} - Flat {scanResult.resident.flat}</p>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Resident Details</h3>
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <span className="text-gray-600 w-24">Name:</span>
+                <span className="text-gray-900 font-medium">{scanResult.resident.name}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-gray-600 w-24">Block:</span>
+                <span className="text-gray-900 font-medium">
+                  {scanResult.resident.flatDetails?.blockName || 'N/A'}
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-gray-600 w-24">Floor:</span>
+                <span className="text-gray-900 font-medium">
+                  {scanResult.resident.flatDetails?.floorIndex !== undefined 
+                    ? `${scanResult.resident.flatDetails.floorIndex}${getFloorSuffix(scanResult.resident.flatDetails.floorIndex)} Floor` 
+                    : 'N/A'}
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-gray-600 w-24">Flat No:</span>
+                <span className="text-gray-900 font-medium">
+                  {scanResult.resident.flatDetails?.flatNumber || 'N/A'}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="border-t border-gray-200 pt-4">

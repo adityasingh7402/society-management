@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Car, AlertCircle, ChevronDown, ChevronUp, RefreshCw, Plus, X } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/router';
+import axios from 'axios';
+import { 
+  Calendar, Filter, Search, Plus, RefreshCw, 
+  Trash2, AlertTriangle, ArrowLeft, Clock, X, 
+  ChevronDown, ChevronUp, Share2, Download,
+  Car, Bike
+} from 'lucide-react';
+import { FaMotorcycle } from "react-icons/fa";
+import Head from 'next/head';
+import QRCodeStyling from 'qr-code-styling';
 
 // Define CSS animations
 const animationStyles = `
@@ -19,6 +28,19 @@ const animationStyles = `
   animation: fadeInUp 0.3s ease-out;
 }
 
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -35,425 +57,872 @@ const animationStyles = `
 }
 `;
 
-const GuestPassRequest = ({ residentId, societyId }) => {
-  const [formData, setFormData] = useState({
-    guestName: '',
-    guestPhone: '',
-    guestEmail: '',
-    purpose: '',
-    numberOfGuests: 1,
-    validFrom: '',
-    validUntil: '',
-    hasVehicle: false,
-    vehicleNumber: '',
-    vehicleType: 'None'
-  });
-  const [loading, setLoading] = useState(false);
-  const [guestPasses, setGuestPasses] = useState([]);
+const GuestPassRequest = () => {
+  const router = useRouter();
+  const [gatePasses, setGatePasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [residentData, setResidentData] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [expandedPass, setExpandedPass] = useState(null);
-  const [loadingPasses, setLoadingPasses] = useState(true);
+  const [filters, setFilters] = useState({
+    status: '',
+    hasVehicle: '',
+    startDate: '',
+    endDate: ''
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [formattedPasses, setFormattedPasses] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [passToDelete, setPassToDelete] = useState(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [selectedPassForShare, setSelectedPassForShare] = useState(null);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  // Add this helper function to calculate end date
+  const calculateEndDate = (startDate, days) => {
+    if (!startDate || !days) return '';
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + parseInt(days));
+    return date.toISOString().split('T')[0];
+  };
 
+  // Update form state
+  const [formData, setFormData] = useState({
+    guestDetails: {
+      name: '',
+      phone: '',
+      purpose: ''
+    },
+    duration: {
+      startDate: new Date().toISOString().split('T')[0], // Set default to today
+      endDate: calculateEndDate(new Date().toISOString().split('T')[0], 1), // Calculate based on default values
+      days: 1
+    },
+    hasVehicle: false,
+    vehicleDetails: {
+      vehicleType: '',
+      registrationNumber: ''
+    }
+  });
+  const [formLoading, setFormLoading] = useState(false);
+
+  useEffect(() => {
+    fetchResidentData();
+  }, []);
+
+  const fetchResidentData = async () => {
     try {
-      const response = await fetch('/api/GuestPass-Api/create-pass', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          residentId,
-          societyId,
-          guestDetails: {
-            name: formData.guestName,
-            phone: formData.guestPhone,
-            email: formData.guestEmail,
-            purpose: formData.purpose,
-            numberOfGuests: parseInt(formData.numberOfGuests)
-          },
-          validFrom: formData.validFrom,
-          validUntil: formData.validUntil,
-          vehicleDetails: formData.hasVehicle ? {
-            vehicleNumber: formData.vehicleNumber,
-            vehicleType: formData.vehicleType
-          } : undefined
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
+      const token = localStorage.getItem('Resident');
+      if (!token) {
+        router.push('/login');
+        return;
       }
 
-      toast.success('Guest pass request submitted successfully');
-      setFormData({
-        guestName: '',
-        guestPhone: '',
-        guestEmail: '',
-        purpose: '',
-        numberOfGuests: 1,
-        validFrom: '',
-        validUntil: '',
-        hasVehicle: false,
-        vehicleNumber: '',
-        vehicleType: 'None'
+      const response = await fetch('/api/Resident-Api/get-resident-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
-      fetchGuestPasses(); // Refresh the list
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch resident details');
+      }
+
+      const data = await response.json();
+      setResidentData(data);
+      
+      // Fetch gate passes after resident data is loaded
+      fetchGatePasses(data._id);
     } catch (error) {
-      toast.error(error.message);
+      console.error('Error fetching resident details:', error);
+    }
+  };
+
+  const fetchGatePasses = async (residentId) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('Resident');
+      const response = await axios.get('/api/GatePass-Api/get-passes', {
+        params: { residentId },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      setGatePasses(response.data);
+      setFormattedPasses(response.data);
+    } catch (error) {
+      console.error('Error fetching gate passes:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  const fetchGuestPasses = async () => {
-    try {
-      const response = await fetch(`/api/GuestPass-Api/get-passes?residentId=${residentId}`);
-      const data = await response.json();
-      if (response.ok) {
-        setGuestPasses(data.passes);
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error) {
-      toast.error('Failed to fetch guest passes');
-    } finally {
-      setLoadingPasses(false);
+  const handleRefresh = () => {
+    if (residentData?._id) {
+      fetchGatePasses(residentData._id);
     }
   };
 
-  useEffect(() => {
-    fetchGuestPasses();
-  }, [residentId]);
+  const toggleForm = () => {
+    setShowForm(!showForm);
+    if (!showForm) {
+      setFormData({
+        guestDetails: {
+          name: '',
+          phone: '',
+          purpose: ''
+        },
+        duration: {
+          startDate: new Date().toISOString().split('T')[0], // Set default to today
+          endDate: calculateEndDate(new Date().toISOString().split('T')[0], 1), // Calculate based on default values
+          days: 1
+        },
+        hasVehicle: false,
+        vehicleDetails: {
+          vehicleType: '',
+          registrationNumber: ''
+        }
+      });
+    }
+  };
+
+  // Add handler for duration changes
+  const handleDurationChange = (e) => {
+    const { name, value } = e.target;
+    
+    setFormData(prev => {
+      const newDuration = { ...prev.duration };
+
+      if (name === 'startDate') {
+        newDuration.startDate = value;
+        newDuration.endDate = calculateEndDate(value, newDuration.days);
+      } else if (name === 'days') {
+        const days = Math.min(Math.max(parseInt(value) || 1, 1), 10); // Ensure between 1 and 10
+        newDuration.days = days;
+        newDuration.endDate = calculateEndDate(newDuration.startDate, days);
+      }
+
+      return {
+        ...prev,
+        duration: newDuration
+      };
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setFormLoading(true);
+
+    try {
+      const token = localStorage.getItem('Resident');
+
+      // First create the gate pass
+      const response = await axios.post('/api/GatePass-Api/create-pass', 
+        {
+          residentId: residentData._id,
+          societyId: residentData.societyId,
+          societyName: residentData.societyName,
+          flatDetails: residentData.flatDetails,
+          guestDetails: formData.guestDetails,
+          duration: formData.duration,
+          hasVehicle: formData.hasVehicle,
+          vehicleDetails: formData.vehicleDetails
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          }
+        }
+      );
+
+      const { pinCode, data: gatePass } = response.data;
+
+      // Generate QR code data
+      const qrData = {
+        passId: gatePass._id,
+        passType: 'guest',
+        societyId: residentData.societyId,
+        guestName: formData.guestDetails.name,
+        pinCode,
+        validUntil: formData.duration.endDate
+      };
+
+      // Store as simple JSON string
+      const encodedData = JSON.stringify(qrData);
+
+      // Create QR code with styling
+      const qrCode = new QRCodeStyling({
+        width: 800,
+        height: 800,
+        type: "canvas",
+        data: encodedData,
+        image: "/logo_web.png",
+        dotsOptions: {
+          color: "#1A75FF",
+          type: "dots"
+        },
+        backgroundOptions: {
+          color: "#ffffff"
+        },
+        imageOptions: {
+          crossOrigin: "anonymous",
+          margin: 15,
+          imageSize: 0.3
+        },
+        qrOptions: {
+          errorCorrectionLevel: 'M',
+          quality: 0.95,
+          margin: 5
+        },
+        cornersSquareOptions: {
+          color: "#1A75FF",
+          type: "square"
+        },
+        cornersDotOptions: {
+          color: "#1A75FF",
+          type: "square"
+        }
+      });
+
+      // Create a temporary div to hold the QR code
+      const tempDiv = document.createElement('div');
+      
+      // Create QR code canvas
+      await qrCode.append(tempDiv);
+      
+      // Wait a bit for the QR code to render
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const canvas = tempDiv.querySelector('canvas');
+      if (!canvas) {
+        throw new Error('Failed to generate QR code');
+      }
+      
+      const qrCodeDataUrl = canvas.toDataURL('image/png');
+
+      // Create shareable image with society details
+      const shareableCanvas = document.createElement('canvas');
+      shareableCanvas.width = 1200;
+      shareableCanvas.height = 1600;
+      const ctx = shareableCanvas.getContext('2d');
+
+      // Set background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 1200, 1600);
+
+      // Add QR code
+      const qrImage = new Image();
+      qrImage.src = qrCodeDataUrl;
+      await new Promise((resolve) => {
+        qrImage.onload = resolve;
+      });
+      ctx.drawImage(qrImage, 200, 200, 800, 800);
+
+      // Add text details
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 48px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(residentData.societyName, 600, 1100);
+
+      ctx.font = '36px Arial';
+      ctx.fillText(`Flat ${residentData.flatDetails.flatNumber}`, 600, 1160);
+      ctx.fillText(`Guest: ${formData.guestDetails.name}`, 600, 1220);
+      ctx.fillText(`Valid until: ${new Date(formData.duration.endDate).toLocaleDateString()}`, 600, 1280);
+
+      if (formData.hasVehicle) {
+        ctx.fillText(`Vehicle: ${formData.vehicleDetails.vehicleType} - ${formData.vehicleDetails.registrationNumber}`, 600, 1340);
+      }
+
+      const shareableImageDataUrl = shareableCanvas.toDataURL('image/png');
+
+      // Update the gate pass with QR code and shareable image
+      await axios.patch(`/api/GatePass-Api/update-pass/${gatePass._id}`, 
+        {
+          qrCode: qrCodeDataUrl,
+          shareableImage: shareableImageDataUrl
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          }
+        }
+      );
+
+      // Add new pass to state with QR code and shareable image
+      const updatedPass = {
+        ...gatePass,
+        qrCode: qrCodeDataUrl,
+        shareableImage: shareableImageDataUrl
+      };
+      setGatePasses(prev => [updatedPass, ...prev]);
+      setFormattedPasses(prev => [updatedPass, ...prev]);
+      
+      // Reset form and close it
+      setFormData({
+        guestDetails: {
+          name: '',
+          phone: '',
+          purpose: ''
+        },
+        duration: {
+          startDate: new Date().toISOString().split('T')[0], // Set default to today
+          endDate: calculateEndDate(new Date().toISOString().split('T')[0], 1), // Calculate based on default values
+          days: 1
+        },
+        hasVehicle: false,
+        vehicleDetails: {
+          vehicleType: '',
+          registrationNumber: ''
+        }
+      });
+      setShowForm(false);
+
+      // Show the share modal for the new pass
+      setSelectedPassForShare(updatedPass);
+      setShowShareModal(true);
+
+    } catch (error) {
+      console.error('Error creating gate pass:', error);
+      alert(error.response?.data?.message || 'Failed to create gate pass');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleShare = async (pass) => {
+    try {
+      // Create a blob from the shareable image
+      const response = await fetch(pass.shareableImage);
+      const blob = await response.blob();
+      
+      // Check if the Web Share API is available
+      if (navigator.share) {
+        const file = new File([blob], 'gate-pass.png', { type: 'image/png' });
+        await navigator.share({
+          title: 'Gate Pass',
+          text: `Gate pass for ${pass.guestDetails.name}`,
+          files: [file]
+        });
+      } else {
+        // Fallback to downloading the image
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'gate-pass.png';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('Error sharing gate pass:', error);
+      alert('Failed to share gate pass');
+    }
+  };
+
+  const handleDownload = async (pass) => {
+    try {
+      const response = await fetch(pass.shareableImage);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'gate-pass.png';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading gate pass:', error);
+      alert('Failed to download gate pass');
+    }
+  };
+
+  const formatDate = (dateString) => {
+    try {
+      if (!dateString) return 'N/A';
+      
+      // First try parsing as is
+      let date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        // If invalid, try parsing as ISO string
+        date = new Date(dateString + 'T00:00:00.000Z');
+        
+        // If still invalid, return N/A
+        if (isNaN(date.getTime())) {
+          return 'N/A';
+        }
+      }
+      
+      return new Intl.DateTimeFormat('en-IN', { 
+        day: 'numeric', 
+        month: 'short',
+        year: 'numeric'
+      }).format(date);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'N/A';
+    }
+  };
 
   const togglePassExpansion = (passId) => {
     setExpandedPass(expandedPass === passId ? null : passId);
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    });
-  };
+  const handleDeletePass = async (passId) => {
+    try {
+      const token = localStorage.getItem('Resident');
+      await axios.delete(`/api/GatePass-Api/delete-pass/${passId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
 
-  const getStatusColor = (status, validUntil) => {
-    const isExpired = new Date(validUntil) <= new Date();
-    if (isExpired) return 'bg-gray-100 text-gray-600';
-    switch (status) {
-      case 'Approved': return 'bg-green-100 text-green-600';
-      case 'Pending': return 'bg-yellow-100 text-yellow-600';
-      case 'Rejected': return 'bg-red-100 text-red-600';
-      default: return 'bg-gray-100 text-gray-600';
+      // Remove pass from state
+      setGatePasses(prev => prev.filter(pass => pass._id !== passId));
+      setFormattedPasses(prev => prev.filter(pass => pass._id !== passId));
+      setShowDeleteModal(false);
+      setPassToDelete(null);
+
+    } catch (error) {
+      console.error('Error deleting gate pass:', error);
+      alert(error.response?.data?.message || 'Failed to delete gate pass');
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <style>{animationStyles}</style>
+      <Head>
+        <style>{animationStyles}</style>
+      </Head>
 
       {/* Header */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Guest Passes</h1>
-          <p className="text-gray-600">Manage guest access passes</p>
-        </div>
-        <div className="flex gap-2">
+      <div className="p-4 md:p-6">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors"
+        >
+          <ArrowLeft size={18} />
+          <span className="text-base">Back</span>
+        </button>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-2 sm:px-3 lg:px-3 py-2">
+        <h1 className="text-2xl md:text-3xl text-center font-bold text-blue-600 mb-6">Guest Passes</h1>
+        <div className="flex justify-end mb-2">
           <button
-            onClick={fetchGuestPasses}
-            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+            onClick={toggleForm}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
-            <RefreshCw className="w-5 h-5" />
+            {showForm ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+            {showForm ? 'Cancel' : 'New Pass'}
           </button>
         </div>
       </div>
 
-      {/* Request Form */}
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Request New Guest Pass</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Guest Details */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Guest Name</label>
-              <input
-                type="text"
-                name="guestName"
-                value={formData.guestName}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-              <input
-                type="tel"
-                name="guestPhone"
-                value={formData.guestPhone}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
-              <input
-                type="email"
-                name="guestEmail"
-                value={formData.guestEmail}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Number of Guests</label>
-              <input
-                type="number"
-                name="numberOfGuests"
-                value={formData.numberOfGuests}
-                onChange={handleChange}
-                min="1"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Purpose */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Purpose of Visit</label>
-            <textarea
-              name="purpose"
-              value={formData.purpose}
-              onChange={handleChange}
-              rows="2"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-          </div>
-
-          {/* Validity Period */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Valid From</label>
-              <div className="relative">
+      {/* Form */}
+      {showForm && (
+        <div className="mb-6 bg-white rounded-xl shadow-lg p-6 animate-fade-in-up">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Create Guest Pass</h2>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Guest Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Guest Name</label>
                 <input
-                  type="datetime-local"
-                  name="validFrom"
-                  value={formData.validFrom}
-                  onChange={handleChange}
-                  min={new Date().toISOString().slice(0, 16)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                  type="text"
+                  value={formData.guestDetails.name}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    guestDetails: { ...prev.guestDetails, name: e.target.value }
+                  }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
-                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  value={formData.guestDetails.phone}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    guestDetails: { ...prev.guestDetails, phone: e.target.value }
+                  }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Purpose of Visit</label>
+                <input
+                  type="text"
+                  value={formData.guestDetails.purpose}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    guestDetails: { ...prev.guestDetails, purpose: e.target.value }
+                  }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Valid Until</label>
-              <div className="relative">
-                <input
-                  type="datetime-local"
-                  name="validUntil"
-                  value={formData.validUntil}
-                  onChange={handleChange}
-                  min={formData.validFrom || new Date().toISOString().slice(0, 16)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
-                  required
-                />
-                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-          </div>
-
-          {/* Vehicle Details */}
-          <div className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="hasVehicle"
-                id="hasVehicle"
-                checked={formData.hasVehicle}
-                onChange={handleChange}
-                className="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label htmlFor="hasVehicle" className="ml-2 text-sm font-medium text-gray-700">
-                Guest has a vehicle
-              </label>
-            </div>
-
-            {formData.hasVehicle && (
-              <div className="grid grid-cols-2 gap-4 pl-6">
+            {/* Duration Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900">Duration</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Number</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                   <input
-                    type="text"
-                    name="vehicleNumber"
-                    value={formData.vehicleNumber}
-                    onChange={handleChange}
+                    type="date"
+                    name="startDate"
+                    value={formData.duration.startDate}
+                    onChange={handleDurationChange}
+                    min={new Date().toISOString().split('T')[0]}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required={formData.hasVehicle}
+                    required
                   />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Type</label>
-                  <select
-                    name="vehicleType"
-                    value={formData.vehicleType}
-                    onChange={handleChange}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Number of Days (1-10)</label>
+                  <input
+                    type="number"
+                    name="days"
+                    value={formData.duration.days}
+                    onChange={handleDurationChange}
+                    min="1"
+                    max="10"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required={formData.hasVehicle}
-                  >
-                    <option value="Car">Car</option>
-                    <option value="Bike">Bike</option>
-                    <option value="Bicycle">Bicycle</option>
-                  </select>
+                    required
+                  />
                 </div>
               </div>
-            )}
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={formData.duration.endDate}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                  disabled
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  End date is automatically calculated based on start date and duration
+                </p>
+              </div>
+            </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-3 px-4 rounded-lg text-white font-medium transition-all ${
-              loading
-                ? 'bg-blue-400 cursor-not-allowed'
-                : 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700'
-            }`}
-          >
-            {loading ? 'Submitting...' : 'Submit Request'}
-          </button>
+            {/* Vehicle Details */}
+            <div>
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.hasVehicle}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    hasVehicle: e.target.checked,
+                    vehicleDetails: e.target.checked ? prev.vehicleDetails : { vehicleType: '', registrationNumber: '' }
+                  }))}
+                  className="form-checkbox h-5 w-5 text-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Guest has a vehicle</span>
+              </label>
 
-          {/* Info Note */}
-          <div className="flex items-start gap-2 text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-            <p>
-              Your request will be reviewed by the society administration. Once approved,
-              you'll receive a QR code that your guest can use for entry.
-            </p>
-          </div>
-        </form>
-      </div>
+              {formData.hasVehicle && (
+                <div className="mt-4 space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    {['Car', 'Motor Bike', 'Bike'].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          vehicleDetails: { ...prev.vehicleDetails, vehicleType: type }
+                        }))}
+                        className={`p-4 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                          formData.vehicleDetails.vehicleType === type
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-blue-200'
+                        }`}
+                      >
+                        {type === 'Car' && <Car className={formData.vehicleDetails.vehicleType === type ? 'text-blue-500' : 'text-gray-400'} />}
+                        {type === 'Motor Bike' && <FaMotorcycle className={formData.vehicleDetails.vehicleType === type ? 'text-blue-500' : 'text-gray-400'} />}
+                        {type === 'Bike' && <Bike className={formData.vehicleDetails.vehicleType === type ? 'text-blue-500' : 'text-gray-400'} />}
+                        <span className={formData.vehicleDetails.vehicleType === type ? 'text-blue-500' : 'text-gray-500'}>{type}</span>
+                      </button>
+                    ))}
+                  </div>
 
-      {/* Guest Passes List */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
+                    <input
+                      type="text"
+                      value={formData.vehicleDetails.registrationNumber}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        vehicleDetails: { ...prev.vehicleDetails, registrationNumber: e.target.value }
+                      }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required={formData.hasVehicle}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={formLoading}
+              className={`w-full py-3 px-4 rounded-lg text-white font-medium transition-all ${
+                formLoading
+                  ? 'bg-blue-400 cursor-not-allowed'
+                  : 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700'
+              }`}
+            >
+              {formLoading ? 'Creating Pass...' : 'Create Pass'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Gate Passes List */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Your Guest Passes</h2>
-        
-        {loadingPasses ? (
+        {loading ? (
           <div className="text-center py-8">
             <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
-            <p className="mt-2 text-gray-600">Loading passes...</p>
+            <p className="mt-2 text-gray-600">Loading...</p>
           </div>
-        ) : guestPasses.length === 0 ? (
+        ) : formattedPasses.length === 0 ? (
           <div className="text-center py-8 bg-white rounded-xl shadow-lg">
-            <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-600">No guest passes found</p>
+            <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+            <p className="text-gray-600">No gate passes found</p>
+            <button
+              onClick={toggleForm}
+              className="mt-4 px-4 py-2 text-blue-500 hover:text-blue-600"
+            >
+              Create a new pass
+            </button>
           </div>
         ) : (
-          guestPasses.map((pass) => {
-            const isExpired = new Date(pass.validUntil) <= new Date();
-            const statusColor = getStatusColor(pass.status, pass.validUntil);
+          formattedPasses.map((pass) => {
+            const isExpired = new Date(pass.duration.endDate) <= new Date();
             const isExpanded = expandedPass === pass._id;
 
             return (
               <div
                 key={pass._id}
-                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow animate-fade-in-up"
+                onClick={() => togglePassExpansion(pass._id)}
+                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow animate-fade-in-up cursor-pointer"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Users className="w-6 h-6 text-blue-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">{pass.guestDetails.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        {pass.guestDetails.phone} • {pass.guestDetails.numberOfGuests} {pass.guestDetails.numberOfGuests === 1 ? 'guest' : 'guests'}
-                      </p>
-                    </div>
+                  <div>
+                    <h3 className="font-medium text-gray-900">{pass.guestDetails.name}</h3>
+                    <p className="text-sm text-gray-600">{pass.guestDetails.purpose}</p>
+                    <p className="text-xs text-gray-500">
+                      Valid until: {formatDate(pass.duration.endDate)}
+                    </p>
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${statusColor}`}>
-                        <span>{isExpired ? 'Expired' : pass.status}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Valid until: {formatDate(pass.validUntil)}
-                      </p>
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      isExpired ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-600'
+                    }`}>
+                      {isExpired ? 'Expired' : 'Active'}
                     </div>
-
-                    {pass.qrCode && pass.status === 'Approved' && !isExpired && (
-                      <button
-                        onClick={() => togglePassExpansion(pass._id)}
-                        className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        {isExpanded ? (
-                          <ChevronUp className="w-5 h-5" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5" />
-                        )}
-                      </button>
-                    )}
+                    <div className="text-gray-500">
+                      {isExpanded ? (
+                        <ChevronUp className="w-5 h-5" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5" />
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* QR Code Section - Collapsible */}
-                {pass.qrCode && pass.status === 'Approved' && !isExpired && isExpanded && (
+                {/* Expanded Content */}
+                {isExpanded && (
                   <div className="mt-4 pt-4 border-t border-gray-100 animate-slide-down">
-                    <div className="flex flex-col items-center">
-                      <h4 className="text-sm font-medium text-gray-700 mb-3">Guest Access QR Code</h4>
-                      <img
-                        src={pass.qrCode}
-                        alt="QR Code"
-                        className="w-48 h-48 object-contain rounded-lg shadow-md"
-                      />
-                      <p className="text-xs text-gray-500 mt-2">Share this QR code with your guest for entry</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* QR Code Section */}
+                      <div className="flex flex-col items-center justify-center px-6 py-4 bg-gray-50 rounded-lg">
+                        {pass.qrCode ? (
+                          <div className="flex flex-col items-center">
+                            <img 
+                              src={pass.qrCode} 
+                              alt="Gate Pass QR Code"
+                              className="mb-4 w-auto h-auto"
+                              style={{ maxWidth: '100%', objectFit: 'contain' }}
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleShare(pass);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                              >
+                                <Share2 className="w-4 h-4" />
+                                Share
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownload(pass);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                              >
+                                <Download className="w-4 h-4" />
+                                Download
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center text-gray-500">
+                            <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
+                            <p>QR Code not available</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Details Section */}
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-500">Guest Details</h4>
+                          <p className="text-gray-900">{pass.guestDetails.name}</p>
+                          <p className="text-gray-600">{pass.guestDetails.phone}</p>
+                          <p className="text-gray-600">{pass.guestDetails.purpose}</p>
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-500">Duration</h4>
+                          <p className="text-gray-900">
+                            {formatDate(pass.duration.startDate)} - {formatDate(pass.duration.endDate)}
+                          </p>
+                          <p className="text-gray-600">{pass.duration.days} day{pass.duration.days > 1 ? 's' : ''}</p>
+                        </div>
+
+                        {pass.hasVehicle && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-500">Vehicle Details</h4>
+                            <p className="text-gray-900">{pass.vehicleDetails.vehicleType}</p>
+                            <p className="text-gray-600">{pass.vehicleDetails.registrationNumber}</p>
+                          </div>
+                        )}
+
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-500">PIN Code</h4>
+                          <p className="text-gray-900">{pass.pinCode}</p>
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-500">Status</h4>
+                          <p className={isExpired ? 'text-gray-600' : 'text-green-600'}>
+                            {isExpired ? 'Expired' : 'Active'}
+                          </p>
+                        </div>
+
+                        {/* Add Delete Button in Details Section */}
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPassToDelete(pass);
+                              setShowDeleteModal(true);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                            <span className="text-sm font-medium">Delete Pass</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
-
-                {/* Additional Details */}
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-600">Purpose</p>
-                      <p className="font-medium text-gray-900">{pass.guestDetails.purpose}</p>
-                    </div>
-                    {pass.vehicleDetails && pass.vehicleDetails.vehicleNumber && (
-                      <div>
-                        <p className="text-gray-600">Vehicle</p>
-                        <p className="font-medium text-gray-900">
-                          {pass.vehicleDetails.vehicleType} • {pass.vehicleDetails.vehicleNumber}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
             );
           })
         )}
       </div>
+
+      {/* Share Modal */}
+      {showShareModal && selectedPassForShare && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-lg w-full animate-fade-in-up">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Share Gate Pass</h3>
+            <div className="flex flex-col items-center">
+              <img 
+                src={selectedPassForShare.shareableImage} 
+                alt="Shareable Gate Pass"
+                className="mb-4 w-auto h-auto"
+                style={{ maxWidth: '100%', objectFit: 'contain' }}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleShare(selectedPassForShare)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share
+                </button>
+                <button
+                  onClick={() => handleDownload(selectedPassForShare)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </button>
+                <button
+                  onClick={() => {
+                    setShowShareModal(false);
+                    setSelectedPassForShare(null);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && passToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full animate-fade-in-up">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Delete Gate Pass</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this gate pass for {passToDelete.guestDetails.name}? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setPassToDelete(null);
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeletePass(passToDelete._id)}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
