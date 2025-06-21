@@ -847,7 +847,7 @@ const AndroidDashboard = ({ onLoaded }) => {
         </div>
         {/* Quick Stats Cards */}
         <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="bg-white/85 bg-gradient-to-br from-[#1A75FF]/[0.02] to-[#1A75FF]/[0.05] rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
+          <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
             {/* Background gradient decoration */}
             <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-red-500/20 to-red-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
             <div className="flex flex-col relative z-10">
@@ -858,7 +858,7 @@ const AndroidDashboard = ({ onLoaded }) => {
               </div>
             </div>
           </div>
-          <div className="bg-white/85 bg-gradient-to-br from-[#1A75FF]/[0.02] to-[#1A75FF]/[0.05] rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
+          <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
             {/* Background gradient decoration */}
             <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-orange-500/20 to-orange-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
             <div className="flex flex-col relative z-10">
