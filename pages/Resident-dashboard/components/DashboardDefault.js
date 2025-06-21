@@ -577,7 +577,7 @@ const AndroidDashboard = ({ onLoaded }) => {
         ></div>
 
         {/* Notification Panel */}
-        <div className={`w-full max-w-sm bg-white rounded-2xl shadow-xl relative z-10 border border-gray-100 transform transition-all duration-300 ${showNotifications ? 'translate-x-0 scale-100' : 'translate-x-full scale-95'}`}>
+        <div className={`w-full max-w-sm bg-white/85 backdrop-blur-sm rounded-2xl shadow-xl relative z-10 border border-white/20 transform transition-all duration-300 ${showNotifications ? 'translate-x-0 scale-100' : 'translate-x-full scale-95'}`}>
           {/* Header */}
           <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-t-2xl">
             <div className="flex items-center justify-between">
@@ -635,12 +635,12 @@ const AndroidDashboard = ({ onLoaded }) => {
       {/* Side Navigation Drawer - With drag functionality */}
       <div
         ref={menuRef}
-        className={`fixed inset-y-0 left-0 w-80 z-50 transform transition-transform duration-300 ease-out bg-white shadow-xl border-r border-indigo-100
+        className={`fixed inset-y-0 left-0 w-80 z-50 transform transition-transform duration-300 ease-out bg-white/85 shadow-xl border-r border-indigo-100
                             ${!dragging ? (isSidebarOpen ? 'translate-x-0' : '-translate-x-full') : ''}`}
-        style={{
-          transform: dragging ? `translateX(${menuPosition}px)` : undefined,
-          transition: dragging ? 'none' : undefined,
-          backgroundColor: 'white'
+                  style={{
+            transform: dragging ? `translateX(${menuPosition}px)` : undefined,
+            transition: dragging ? 'none' : undefined,
+            backgroundColor: 'rgba(255, 255, 255, 0.85)'
         }}
         onMouseDown={handleDragStart}
         onMouseMove={handleDragMove}
@@ -758,10 +758,10 @@ const AndroidDashboard = ({ onLoaded }) => {
           </nav>
 
           {/* Bottom Actions */}
-          <div className="p-4 border-t border-gray-200 bg-white">
+          <div className="p-4 border-t border-gray-200 bg-white/85">
             <button
               onClick={handleLogout}
-              className="flex items-center w-full px-4 py-3 rounded-lg bg-red-50 hover:bg-red-100 transition-colors shadow-sm"
+              className="flex items-center w-full px-4 py-3 rounded-lg bg-red-50/90 hover:bg-red-100 transition-colors shadow-sm"
             >
               <LogOut className="mr-3 text-red-600" size={20} />
               <span className="text-red-600 font-medium">Logout</span>
@@ -836,9 +836,9 @@ const AndroidDashboard = ({ onLoaded }) => {
       </div>
 
       {/* Main Content */}
-      <div className="px-4 py-5">
+      <div className="px-4 pb-5 pt-2">
         {/* Stats heading */}
-        <div className="flex items-center gap-6 mb-4">
+        <div className="flex items-center gap-6 mb-2">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-indigo-500" />
             <h2 className="text-[17px] font-semibold text-gray-900">Stats</h2>
@@ -847,7 +847,7 @@ const AndroidDashboard = ({ onLoaded }) => {
         </div>
         {/* Quick Stats Cards */}
         <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="bg-white rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
+          <div className="bg-white/85 bg-gradient-to-br from-[#1A75FF]/[0.02] to-[#1A75FF]/[0.05] rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
             {/* Background gradient decoration */}
             <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-red-500/20 to-red-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
             <div className="flex flex-col relative z-10">
@@ -858,7 +858,7 @@ const AndroidDashboard = ({ onLoaded }) => {
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
+          <div className="bg-white/85 bg-gradient-to-br from-[#1A75FF]/[0.02] to-[#1A75FF]/[0.05] rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
             {/* Background gradient decoration */}
             <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-orange-500/20 to-orange-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
             <div className="flex flex-col relative z-10">
@@ -894,14 +894,14 @@ const AndroidDashboard = ({ onLoaded }) => {
         </div> */}
 
         {/* Quick Access heading */}
-        <div className="flex items-center gap-6 mb-4">
+        <div className="flex items-center gap-6 mb-2">
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-indigo-500" />
             <h2 className="text-[17px] font-semibold text-gray-900">Quick Access</h2>
           </div>
           <div className="w-12 h-[2px] bg-indigo-500/30"></div>
         </div>
-        <div className="bg-white rounded-2xl shadow-lg justify-center overflow-hidden animate-fade-in mb-8">
+        <div className="bg-white/85 rounded-2xl shadow-lg justify-center overflow-hidden animate-fade-in mb-8">
           <div className="flex space-x-7 overflow-x-auto pb-4 justify-center pt-4 scrollbar-hide">
             {quickLinks.map((link) => (
               <Link
@@ -924,7 +924,7 @@ const AndroidDashboard = ({ onLoaded }) => {
         </div>
 
         {/* Services heading */}
-        <div className="flex items-center gap-6 mb-4">
+        <div className="flex items-center gap-6 mb-2">
           <div className="flex items-center gap-2">
             <Layout className="w-5 h-5 text-indigo-500" />
             <h2 className="text-[17px] font-semibold text-gray-900">Services</h2>
@@ -933,12 +933,12 @@ const AndroidDashboard = ({ onLoaded }) => {
         </div>
 
         {/* Feature Categories */}
-        <div className="space-y-4 mt-5">
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             {featureCategories.map((category) => (
               <div
                 key={category.id}
-                className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 transform transition-all duration-200 hover:shadow-xl hover:scale-[1.02] hover:border-indigo-100"
+                className="bg-white/85 rounded-xl shadow-lg overflow-hidden border border-gray-100 transform transition-all duration-200 hover:shadow-xl hover:scale-[1.02] hover:border-indigo-100"
               >
                 <button
                   onClick={() => handleOpenPopup(category)}
@@ -983,8 +983,8 @@ const AndroidDashboard = ({ onLoaded }) => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 border-t border-gray-200 shadow-xl backdrop-blur-md z-40">
-        <div className="flex items-center justify-around py-2 px-2 max-w-screen-xl mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 bg-gray-50 border-t border-gray-200 shadow-xl backdrop-blur-md z-40">
+        <div className="flex items-center justify-around bg-gray-50 py-2 px-2 max-w-screen-xl mx-auto">
           {bottomNavItems.map((item) => (
             <Link key={item.id} href={item.href} passHref>
               <div
@@ -1078,19 +1078,27 @@ const AndroidDashboard = ({ onLoaded }) => {
             </div> */}
 
             {/* Popup header with gradient background */}
-            <div className={`p-6 border-b border-gray-100 relative z-10
+            <div className={`p-6 border-b border-gray-100 relative z-10 overflow-hidden
               ${categoryPopup.id === 'property' ? 'bg-gradient-to-br from-blue-400 to-blue-600' :
-                categoryPopup.id === 'services' ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
+                categoryPopup.id === 'services' ? 'bg-gradient-to-br from-[#1A75FF] to-[#1A75FF]/80' :
                   categoryPopup.id === 'community' ? 'bg-gradient-to-br from-green-400 to-green-600' :
                     categoryPopup.id === 'directory' ? 'bg-gradient-to-br from-cyan-400 to-blue-600' :
                       'bg-gradient-to-br from-purple-400 to-purple-600'}`}>
-              <div className="flex items-center justify-between">
+              {/* Pattern Overlay */}
+              <div className="absolute inset-0 opacity-10"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                  backgroundSize: '60px 60px'
+                }}>
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent"></div>
+              <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-md">
                     <categoryPopup.icon className="w-7 h-7 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-white">{categoryPopup.title}</h3>
+                    <h3 className="text-xl font-semibold text-white">{categoryPopup.title}</h3>
                     <p className="text-sm text-white/80">{categoryPopup.items.length} services available</p>
                   </div>
                 </div>
@@ -1108,25 +1116,25 @@ const AndroidDashboard = ({ onLoaded }) => {
               <div className="grid grid-cols-2 gap-3">
                 {categoryPopup.items.map((item, index) => (
                   <Link key={index} href={item.href} passHref>
-                    <div
-                      className={`flex flex-col items-center p-5 bg-white/80 backdrop-blur-sm rounded-xl hover:bg-white/90 transition-all duration-200 active:scale-95 border border-gray-100 shadow-lg ${isClosingPopup ? 'animate-fade-out-down' :
-                        isOpeningPopup ? 'animate-fade-in-up-delayed' : 'animate-fade-in-up-delayed'
-                        }`}
-                      style={{
-                        animationDelay: isClosingPopup ? '0ms' : `${index * 50}ms`,
-                        animationFillMode: 'forwards'
-                      }}
-                      onClick={handlePopupLinkClick}
-                    >
-                      <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-md mb-3 border border-gray-200
+                                          <div
+                        className={`flex flex-col items-center p-5 bg-white/85 backdrop-blur-sm rounded-xl hover:bg-[#1A75FF]/10 transition-all duration-200 active:scale-95 border border-white/20 shadow-lg ${isClosingPopup ? 'animate-fade-out-down' :
+                          isOpeningPopup ? 'animate-fade-in-up-delayed' : 'animate-fade-in-up-delayed'
+                          }`}
+                        style={{
+                          animationDelay: isClosingPopup ? '0ms' : `${index * 50}ms`,
+                          animationFillMode: 'forwards'
+                        }}
+                        onClick={handlePopupLinkClick}
+                      >
+                      <div className={`w-12 h-12 bg-white/85 rounded-full flex items-center justify-center shadow-md mb-3 border border-gray-200
                         ${categoryPopup.id === 'property' ? 'bg-gradient-to-br from-blue-400 to-blue-600' :
                           categoryPopup.id === 'services' ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
                             categoryPopup.id === 'community' ? 'bg-gradient-to-br from-green-400 to-green-600' :
                               categoryPopup.id === 'directory' ? 'bg-gradient-to-br from-cyan-400 to-blue-600' :
                                 'bg-gradient-to-br from-purple-400 to-purple-600'}`}>
-                        <item.icon className="w-7 h-7 text-white" />
+                        <item.icon className="w-5 h-5 text-white" />
                       </div>
-                      <span className="text-sm font-medium text-gray-900 text-center">{item.label}</span>
+                      <span className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors">{item.label}</span>
                     </div>
                   </Link>
                 ))}
