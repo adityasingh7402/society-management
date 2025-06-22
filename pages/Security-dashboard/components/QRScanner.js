@@ -3,7 +3,8 @@ import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import { useRouter } from 'next/router';
 import { 
   X, Camera, Keyboard, AlertCircle, CheckCircle2,
-  Car, Bike, Clock, CheckCircle, XCircle, ArrowLeft
+  Car, Bike, Clock, CheckCircle, XCircle, ArrowLeft,
+  Loader2
 } from 'lucide-react';
 import { FaMotorcycle } from "react-icons/fa";
 
@@ -30,6 +31,7 @@ const QRScanner = () => {
   const [pinCode, setPinCode] = useState('');
   const [scannedQRData, setScannedQRData] = useState(null);
   const [selectedType, setSelectedType] = useState('vehicle');
+  const [isScanning, setIsScanning] = useState(false);
   const hasProcessedRef = React.useRef(false);
   const scannerRef = React.useRef(null);
   const router = useRouter();
@@ -173,6 +175,7 @@ const QRScanner = () => {
     // Prevent multiple scans using ref
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
+    setIsScanning(true);
     
     try {
       // Immediately cleanup and stop scanner
@@ -247,8 +250,9 @@ const QRScanner = () => {
         }, 2000);
       }
     } finally {
-      // Reset processing flag whether successful or not
+      // Reset processing flag and scanning state whether successful or not
       hasProcessedRef.current = false;
+      setIsScanning(false);
     }
   };
 
@@ -288,18 +292,34 @@ const QRScanner = () => {
           qrData: JSON.stringify({
             ...scannedQRData,
             pinCode: pinCode,
-            societyId: securityDetails.societyId // Ensure society ID is included
+            societyId: securityDetails.societyId
           }),
           securitySocietyId: securityDetails.societyId.toString()
         };
       } else {
-        // If no scanned data, just send type and PIN for manual verification
+        // If no scanned data, create appropriate data structure based on selected type
+        let qrData = {
+          pinCode: pinCode,
+          societyId: securityDetails.societyId
+        };
+
+        switch (selectedType) {
+          case 'vehicle':
+            qrData.tagType = 'vehicle';
+            break;
+          case 'animal':
+            qrData.tagType = 'animal';
+            break;
+          case 'guest':
+            qrData.passType = 'guest';
+            break;
+          case 'service':
+            qrData.passType = 'service';
+            break;
+        }
+
         requestData = {
-          qrData: JSON.stringify({
-            tagType: selectedType,
-            pinCode: pinCode,
-            societyId: securityDetails.societyId // Ensure society ID is included
-          }),
+          qrData: JSON.stringify(qrData),
           securitySocietyId: securityDetails.societyId.toString()
         };
       }
@@ -593,9 +613,16 @@ const QRScanner = () => {
             
             <div id="qr-reader" className="w-full overflow-hidden rounded-lg"></div>
             
-            <p className="text-sm text-gray-600 mt-4 text-center">
-              Position the QR code within the frame to scan
-            </p>
+            {isScanning ? (
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                <p className="text-sm text-gray-600">Processing QR code...</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 mt-4 text-center">
+                Position the QR code within the frame to scan
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -625,7 +652,7 @@ const QRScanner = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Type
                 </label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
                   <button
                     type="button"
                     onClick={() => setSelectedType('vehicle')}
@@ -640,6 +667,20 @@ const QRScanner = () => {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setSelectedType('animal')}
+                    className={`p-4 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                      selectedType === 'animal'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-200'
+                    }`}
+                  >
+                    <AlertCircle className={selectedType === 'animal' ? 'text-blue-500' : 'text-gray-400'} />
+                    <span className={selectedType === 'animal' ? 'text-blue-500' : 'text-gray-500'}>Animal Tag</span>
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
                     onClick={() => setSelectedType('guest')}
                     className={`p-4 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all ${
                       selectedType === 'guest'
@@ -647,8 +688,20 @@ const QRScanner = () => {
                         : 'border-gray-200 hover:border-blue-200'
                     }`}
                   >
-                    <AlertCircle className={selectedType === 'guest' ? 'text-blue-500' : 'text-gray-400'} />
+                    <CheckCircle2 className={selectedType === 'guest' ? 'text-blue-500' : 'text-gray-400'} />
                     <span className={selectedType === 'guest' ? 'text-blue-500' : 'text-gray-500'}>Guest Pass</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedType('service')}
+                    className={`p-4 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                      selectedType === 'service'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-200'
+                    }`}
+                  >
+                    <Keyboard className={selectedType === 'service' ? 'text-blue-500' : 'text-gray-400'} />
+                    <span className={selectedType === 'service' ? 'text-blue-500' : 'text-gray-500'}>Service Pass</span>
                   </button>
                 </div>
               </div>
