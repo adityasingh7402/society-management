@@ -393,8 +393,7 @@ const QRScanner = () => {
   const renderScanResult = () => {
     if (!scanResult) return null;
 
-    const isVehicle = scanResult.type === 'vehicle';
-    const isExpired = new Date(scanResult.validUntil) <= new Date();
+    const isExpired = scanResult.isExpired || new Date(scanResult.validUntil) <= new Date();
     const StatusIcon = getStatusIcon(scanResult.status, isExpired);
     const statusColor = getStatusColor(scanResult.status, isExpired);
 
@@ -403,19 +402,28 @@ const QRScanner = () => {
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              {scanResult.vehicleType === 'Car' && <Car className="w-6 h-6 text-blue-500" />}
-              {scanResult.vehicleType === 'Motor Bike' && <FaMotorcycle className="w-6 h-6 text-blue-500" />}
-              {scanResult.vehicleType === 'Bike' && <Bike className="w-6 h-6 text-blue-500" />}
+              {scanResult.type === 'vehicle' && (
+                scanResult.vehicleType === 'Car' ? <Car className="w-6 h-6 text-blue-500" /> :
+                scanResult.vehicleType === 'Motor Bike' ? <FaMotorcycle className="w-6 h-6 text-blue-500" /> :
+                <Bike className="w-6 h-6 text-blue-500" />
+              )}
+              {scanResult.type === 'animal' && <AlertCircle className="w-6 h-6 text-blue-500" />}
+              {scanResult.type === 'guest' && <CheckCircle2 className="w-6 h-6 text-blue-500" />}
+              {scanResult.type === 'service' && <Keyboard className="w-6 h-6 text-blue-500" />}
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                {isVehicle ? scanResult.vehicleDetails.registrationNumber : scanResult.guestDetails.name}
+                {scanResult.type === 'vehicle' && scanResult.vehicleDetails.registrationNumber}
+                {scanResult.type === 'animal' && scanResult.animalDetails.name}
+                {scanResult.type === 'guest' && scanResult.guestDetails.name}
+                {scanResult.type === 'service' && scanResult.personnelDetails.name}
               </h2>
-              {isVehicle && (
-                <p className="text-gray-600">
-                  {scanResult.vehicleDetails.brand} {scanResult.vehicleDetails.model} • {scanResult.vehicleDetails.color}
-                </p>
-              )}
+              <p className="text-gray-600">
+                {scanResult.type === 'vehicle' && `${scanResult.vehicleDetails.brand} ${scanResult.vehicleDetails.model} • ${scanResult.vehicleDetails.color}`}
+                {scanResult.type === 'animal' && `${scanResult.animalType} • ${scanResult.animalDetails.breed || 'No breed specified'}`}
+                {scanResult.type === 'guest' && `Guest • ${scanResult.guestDetails.purpose}`}
+                {scanResult.type === 'service' && `${scanResult.personnelDetails.serviceType} • ${scanResult.workingHours.startTime} - ${scanResult.workingHours.endTime}`}
+              </p>
             </div>
           </div>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColor}`}>
@@ -455,12 +463,53 @@ const QRScanner = () => {
             </div>
           </div>
 
-          <div className="border-t border-gray-200 pt-4">
-            <h3 className="text-sm font-medium text-gray-500">Validity</h3>
-            <p className="text-gray-900">
-              Valid until {new Date(scanResult.validUntil).toLocaleDateString()}
-            </p>
-          </div>
+          {/* Additional Details based on type */}
+          {scanResult.type === 'animal' && (
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Animal Details</h3>
+              <div className="space-y-2">
+                <div className="flex items-center">
+                  <span className="text-gray-600 w-24">Gender:</span>
+                  <span className="text-gray-900">{scanResult.animalDetails.gender}</span>
+                </div>
+                {scanResult.animalDetails.age && (
+                  <div className="flex items-center">
+                    <span className="text-gray-600 w-24">Age:</span>
+                    <span className="text-gray-900">{scanResult.animalDetails.age} years</span>
+                  </div>
+                )}
+                {scanResult.animalDetails.vaccinated && (
+                  <div className="flex items-center">
+                    <span className="text-gray-600 w-24">Vaccinated:</span>
+                    <span className="text-green-600">Yes</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {(scanResult.type === 'guest' || scanResult.type === 'service') && (
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Contact Details</h3>
+              <div className="space-y-2">
+                <div className="flex items-center">
+                  <span className="text-gray-600 w-24">Phone:</span>
+                  <span className="text-gray-900">
+                    {scanResult.type === 'guest' ? scanResult.guestDetails.phone : scanResult.personnelDetails.phone}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {scanResult.validUntil && (
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-medium text-gray-500">Validity</h3>
+              <p className="text-gray-900">
+                Valid until {new Date(scanResult.validUntil).toLocaleDateString()}
+              </p>
+            </div>
+          )}
         </div>
 
         <button 

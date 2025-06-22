@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { FaFish, FaOtter } from "react-icons/fa";
 import Head from 'next/head';
-import QRCodeStyling from 'qr-code-styling';
+import QRCode from 'react-qr-code';
 
 // Define CSS animations
 const animationStyles = `
@@ -90,6 +90,9 @@ const AnimalTagRequest = () => {
   });
   const [formLoading, setFormLoading] = useState(false);
 
+  // Add a new state to store QR data
+  const [qrDataMap, setQrDataMap] = useState({});
+
   useEffect(() => {
     fetchResidentData();
   }, []);
@@ -122,6 +125,30 @@ const AnimalTagRequest = () => {
     }
   }; 
 
+  // Add a function to get QR data for a tag
+  const getQrData = (tag) => {
+    if (qrDataMap[tag._id]) {
+      return JSON.stringify(qrDataMap[tag._id]);
+    }
+    try {
+      // Ensure we only use the societyId string
+      const societyId = typeof tag.societyId === 'object' ? tag.societyId._id : tag.societyId;
+      
+      return JSON.stringify({
+        tagId: tag._id,
+        tagType: 'animal',
+        societyId: societyId,
+        animalType: tag.animalType,
+        name: tag.animalDetails.name,
+        pinCode: tag.pinCode
+      });
+    } catch (error) {
+      console.error('Error getting QR data:', error);
+      return '';
+    }
+  };
+
+  // Modify the fetchAnimalTags function to store QR data
   const fetchAnimalTags = async (residentId) => {
     try {
       setLoading(true);
@@ -132,6 +159,32 @@ const AnimalTagRequest = () => {
           Authorization: `Bearer ${token}`,
         }
       });
+
+      // Store QR data for each tag
+      const newQrDataMap = {};
+      response.data.forEach(tag => {
+        try {
+          if (tag.qrData) {
+            newQrDataMap[tag._id] = JSON.parse(tag.qrData);
+          } else {
+            // Ensure we only use the societyId string
+            const societyId = typeof tag.societyId === 'object' ? tag.societyId._id : tag.societyId;
+            
+            newQrDataMap[tag._id] = {
+              tagId: tag._id,
+              tagType: 'animal',
+              societyId: societyId,
+              animalType: tag.animalType,
+              name: tag.animalDetails.name,
+              pinCode: tag.pinCode
+            };
+          }
+        } catch (error) {
+          console.error('Error parsing QR data for tag:', tag._id, error);
+        }
+      });
+      setQrDataMap(newQrDataMap);
+      
       setAnimalTags(response.data);
       setFormattedTags(response.data);
     } catch (error) {
@@ -259,6 +312,7 @@ const AnimalTagRequest = () => {
     }
   }; 
 
+  // Modify the handleSubmit function to store QR data
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormLoading(true);
@@ -295,82 +349,54 @@ const AnimalTagRequest = () => {
       const { pinCode, data: animalTag } = createResponse.data;
 
       try {
+        // Ensure we only use the societyId string
+        const societyId = typeof residentData.societyId === 'object' ? residentData.societyId._id : residentData.societyId;
+        
         // Generate QR code data with PIN
         const qrData = {
           tagId: animalTag._id,
           tagType: 'animal',
-          societyId: residentData.societyId,
+          societyId: societyId,
           animalType: formData.animalType,
           name: formData.name,
           pinCode: pinCode
         };
 
-        // Store as simple JSON string
-        const encodedData = JSON.stringify(qrData);
+        // Store QR data in state
+        setQrDataMap(prev => ({
+          ...prev,
+          [animalTag._id]: qrData
+        }));
 
-        // Create QR code with styling
-        const qrCode = new QRCodeStyling({
-          width: 800,
-          height: 800,
-          type: "canvas",
-          data: encodedData,
-          image: "/logo_web.png",
-          dotsOptions: {
-            color: "#1A75FF",
-            type: "dots"
-          },
-          backgroundOptions: {
-            color: "#ffffff"
-          },
-          imageOptions: {
-            crossOrigin: "anonymous",
-            margin: 15,
-            imageSize: 0.3
-          },
-          qrOptions: {
-            errorCorrectionLevel: 'M',
-            quality: 0.95,
-            margin: 5
-          },
-          cornersSquareOptions: {
-            color: "#1A75FF",
-            type: "square"
-          },
-          cornersDotOptions: {
-            color: "#1A75FF",
-            type: "square"
+        // Call backend to generate QR code and shareable image
+        const qrResponse = await axios.post('/api/AnimalTag-Api/generate-qr', {
+          qrData,
+          animalDetails: {
+            animalType: formData.animalType,
+            name: formData.name,
+            breed: formData.breed,
+            color: formData.color,
+            gender: formData.gender,
+            age: formData.age,
+            vaccinated: formData.vaccinated,
+            lastVaccinationDate: formData.lastVaccinationDate,
+            nextVaccinationDue: formData.nextVaccinationDue
+          }
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           }
         });
 
-        // Create a container div for the QR code
-        const container = document.createElement('div');
-        container.style.position = 'absolute';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        document.body.appendChild(container);
+        const { qrCode: qrCodeDataUrl, shareableImage: shareableImageDataUrl } = qrResponse.data;
 
-        // Generate QR code in the container
-        await qrCode.append(container);
-        
-        // Wait for rendering
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        // Get the canvas from the container
-        const canvas = container.querySelector('canvas');
-        if (!canvas) {
-          throw new Error('QR code canvas not found');
-        }
-
-        // Get the QR code data URL
-        const qrCodeDataUrl = canvas.toDataURL('image/png');
-        
-        // Clean up
-        document.body.removeChild(container);
-
-        // Update the animal tag with the QR code
+        // Update the animal tag with QR code and shareable image
         const updateResponse = await axios.patch(`/api/AnimalTag-Api/update-tag/${animalTag._id}`, 
           {
-            qrCode: qrCodeDataUrl
+            qrCode: qrCodeDataUrl,
+            shareableImage: shareableImageDataUrl,
+            qrData: JSON.stringify(qrData) // Store the QR data in the database
           },
           {
             headers: {
@@ -410,9 +436,9 @@ const AnimalTagRequest = () => {
               Authorization: `Bearer ${token}`,
             }
           });
-          throw new Error('Failed to generate QR code. The record has been deleted. Please try again.');
+          throw new Error('Failed to generate QR code. The tag has been deleted. Please try again.');
         } catch (deleteError) {
-          console.error('Error deleting failed record:', deleteError);
+          console.error('Error deleting failed tag:', deleteError);
           throw new Error('Failed to generate QR code and cleanup failed. Please contact support.');
         }
       }
@@ -541,14 +567,15 @@ const AnimalTagRequest = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Age (years)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Age (months)</label>
                 <input
                   type="number"
                   value={formData.age}
                   onChange={(e) => setFormData(prev => ({ ...prev, age: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   min="0"
-                  step="0.1"
+                  step="1"
+                  placeholder="Enter age in months"
                 />
               </div>
 
@@ -811,16 +838,18 @@ const AnimalTagRequest = () => {
                             <div 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setZoomedQR(tag.qrCode);
+                                setZoomedQR(getQrData(tag));
                               }}
                               className="cursor-pointer transform transition-transform hover:scale-105"
                             >
-                              <img 
-                                src={tag.qrCode} 
-                                alt="Animal Tag QR Code"
-                                className="mb-4 w-auto h-auto"
-                                style={{ maxWidth: '100%', objectFit: 'contain' }}
-                              />
+                              <div className="mb-4 p-4 bg-white rounded-lg">
+                                <QRCode
+                                  value={getQrData(tag)}
+                                  size={180}
+                                  level="M"
+                                  fgColor="#1A75FF"
+                                />
+                              </div>
                             </div>
                             <p className="text-sm text-gray-600 text-center">
                               Click QR code to enlarge
@@ -843,7 +872,7 @@ const AnimalTagRequest = () => {
                           </p>
                           {tag.animalDetails.age && (
                             <p className="text-gray-600 text-sm">
-                              Age: {tag.animalDetails.age} years
+                              Age: {tag.animalDetails.age} months
                             </p>
                           )}
                         </div>
@@ -942,8 +971,8 @@ const AnimalTagRequest = () => {
           onClick={() => setZoomedQR(null)}
         >
           <div 
-            className="relative bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full animate-fade-in-up"
-            onClick={(e) => e.stopPropagation()}
+            className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-auto animate-fade-in-up overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setZoomedQR(null)}
@@ -952,12 +981,16 @@ const AnimalTagRequest = () => {
               <X className="w-6 h-6" />
             </button>
             <div className="flex flex-col items-center">
-              <img 
-                src={zoomedQR} 
-                alt="Enlarged QR Code"
-                className="w-auto h-auto"
-                style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
-              />
+              <div className="p-4 bg-white rounded-lg w-full flex justify-center">
+                <div className="max-w-full max-h-[70vh] overflow-auto">
+                  <QRCode
+                    value={zoomedQR}
+                    size={278}
+                    level="M"
+                    fgColor="#1A75FF"
+                  />
+                </div>
+              </div>
               <p className="mt-4 text-gray-600 text-center">
                 Scan this QR code for animal verification
               </p>

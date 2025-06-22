@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { CiLogout } from "react-icons/ci";
 import { FaUser, FaHome, FaClipboardList, FaIdBadge, FaExclamationTriangle, FaUserShield, FaVideo, FaHistory, FaClipboard, FaFileAlt, FaQrcode } from "react-icons/fa";
-import { IoCloseOutline, IoCameraReverseOutline } from "react-icons/io5";
+import { IoCloseOutline, IoCameraReverseOutline, IoHomeOutline, IoPersonAddOutline, IoListOutline, IoPersonOutline } from "react-icons/io5";
 import Preloader from "../components/Preloader";
 
 // Dynamically import QRScanner with no SSR to avoid camera access issues
@@ -93,6 +93,34 @@ export default function Home() {
                 return <DashboardDefault />;
         }
     };
+
+    const menuItems = [
+        {
+            title: 'Dashboard',
+            icon: <IoHomeOutline className="text-2xl" />,
+            component: 'DashboardDefault'
+        },
+        {
+            title: 'QR Scanner',
+            icon: <IoCameraReverseOutline className="text-2xl" />,
+            component: 'QRScanner'
+        },
+        {
+            title: 'Visitor Entry',
+            icon: <IoPersonAddOutline className="text-2xl" />,
+            component: 'VisitorEntry'
+        },
+        {
+            title: 'Visitor Log',
+            icon: <IoListOutline className="text-2xl" />,
+            component: 'VisitorLog'
+        },
+        {
+            title: 'Profile',
+            icon: <IoPersonOutline className="text-2xl" />,
+            component: 'Profile'
+        }
+    ];
 
     return (
         <div className="relative flex flex-col min-h-screen bg-white text-black">

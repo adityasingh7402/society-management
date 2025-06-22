@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { FaMotorcycle } from "react-icons/fa";
 import Head from 'next/head';
-import QRCodeStyling from 'qr-code-styling';
+import QRCode from 'react-qr-code';
 
 // Define CSS animations
 const animationStyles = `
@@ -77,6 +77,8 @@ const GuestPassRequest = () => {
   const [passToDelete, setPassToDelete] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedPassForShare, setSelectedPassForShare] = useState(null);
+  const [qrDataMap, setQrDataMap] = useState({});
+  const [zoomedQR, setZoomedQR] = useState(null);
 
   // Add this helper function to calculate end date
   const calculateEndDate = (startDate, days) => {
@@ -94,9 +96,9 @@ const GuestPassRequest = () => {
       purpose: ''
     },
     duration: {
-      startDate: new Date().toISOString().split('T')[0], // Set default to today
-      endDate: calculateEndDate(new Date().toISOString().split('T')[0], 1), // Calculate based on default values
-      days: 1
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: '',
+      days: ''
     },
     hasVehicle: false,
     vehicleDetails: {
@@ -138,6 +140,28 @@ const GuestPassRequest = () => {
     }
   };
 
+  const getQrData = (pass) => {
+    if (qrDataMap[pass._id]) {
+      return JSON.stringify(qrDataMap[pass._id]);
+    }
+    try {
+      // Ensure we only use the societyId string
+      const societyId = typeof pass.societyId === 'object' ? pass.societyId._id : pass.societyId;
+      
+      return JSON.stringify({
+        passId: pass._id,
+        passType: 'guest',
+        societyId: societyId,
+        guestName: pass.guestDetails.name,
+        pinCode: pass.pinCode,
+        validUntil: pass.duration.endDate
+      });
+    } catch (error) {
+      console.error('Error getting QR data:', error);
+      return '';
+    }
+  };
+
   const fetchGatePasses = async (residentId) => {
     try {
       setLoading(true);
@@ -148,6 +172,32 @@ const GuestPassRequest = () => {
           Authorization: `Bearer ${token}`,
         }
       });
+
+      // Store QR data for each pass
+      const newQrDataMap = {};
+      response.data.forEach(pass => {
+        try {
+          if (pass.qrData) {
+            newQrDataMap[pass._id] = JSON.parse(pass.qrData);
+          } else {
+            // Ensure we only use the societyId string
+            const societyId = typeof pass.societyId === 'object' ? pass.societyId._id : pass.societyId;
+            
+            newQrDataMap[pass._id] = {
+              passId: pass._id,
+              passType: 'guest',
+              societyId: societyId,
+              guestName: pass.guestDetails.name,
+              pinCode: pass.pinCode,
+              validUntil: pass.duration.endDate
+            };
+          }
+        } catch (error) {
+          console.error('Error parsing QR data for pass:', pass._id, error);
+        }
+      });
+      setQrDataMap(newQrDataMap);
+      
       setGatePasses(response.data);
       setFormattedPasses(response.data);
     } catch (error) {
@@ -173,9 +223,9 @@ const GuestPassRequest = () => {
           purpose: ''
         },
         duration: {
-          startDate: new Date().toISOString().split('T')[0], // Set default to today
-          endDate: calculateEndDate(new Date().toISOString().split('T')[0], 1), // Calculate based on default values
-          days: 1
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: '',
+          days: ''
         },
         hasVehicle: false,
         vehicleDetails: {
@@ -195,10 +245,10 @@ const GuestPassRequest = () => {
 
       if (name === 'startDate') {
         newDuration.startDate = value;
-        newDuration.endDate = calculateEndDate(value, newDuration.days);
+        newDuration.endDate = calculateEndDate(value, newDuration.days || 1);
       } else if (name === 'days') {
-        const days = Math.min(Math.max(parseInt(value) || 1, 1), 10); // Ensure between 1 and 10
-        newDuration.days = days;
+        const days = Math.min(Math.max(parseInt(value) || 1, 1), 10); // Keep the min-max limit
+        newDuration.days = value; // Keep the raw input value
         newDuration.endDate = calculateEndDate(newDuration.startDate, days);
       }
 
@@ -239,120 +289,48 @@ const GuestPassRequest = () => {
       const { pinCode, data: gatePass } = response.data;
 
       try {
-        // Generate QR code data
+        // Ensure we only use the societyId string
+        const societyId = typeof residentData.societyId === 'object' ? residentData.societyId._id : residentData.societyId;
+        
+        // Generate QR code data with PIN
         const qrData = {
           passId: gatePass._id,
           passType: 'guest',
-          societyId: residentData.societyId,
+          societyId: societyId,
           guestName: formData.guestDetails.name,
-          pinCode,
+          pinCode: pinCode,
           validUntil: formData.duration.endDate
         };
 
-        // Store as simple JSON string
-        const encodedData = JSON.stringify(qrData);
+        // Store QR data in state
+        setQrDataMap(prev => ({
+          ...prev,
+          [gatePass._id]: qrData
+        }));
 
-        // Create QR code with styling
-        const qrCode = new QRCodeStyling({
-          width: 800,
-          height: 800,
-          type: "canvas",
-          data: encodedData,
-          image: "/logo_web.png",
-          dotsOptions: {
-            color: "#1A75FF",
-            type: "dots"
-          },
-          backgroundOptions: {
-            color: "#ffffff"
-          },
-          imageOptions: {
-            crossOrigin: "anonymous",
-            margin: 15,
-            imageSize: 0.3
-          },
-          qrOptions: {
-            errorCorrectionLevel: 'M',
-            quality: 0.95,
-            margin: 5
-          },
-          cornersSquareOptions: {
-            color: "#1A75FF",
-            type: "square"
-          },
-          cornersDotOptions: {
-            color: "#1A75FF",
-            type: "square"
+        // Call backend to generate QR code and shareable image
+        const qrResponse = await axios.post('/api/GatePass-Api/generate-qr', {
+          qrData,
+          societyName: residentData.societyName,
+          flatNumber: residentData.flatDetails.flatNumber,
+          guestName: formData.guestDetails.name,
+          validDates: `${formatDate(formData.duration.startDate)} - ${formatDate(formData.duration.endDate)}`,
+          vehicleDetails: formData.hasVehicle ? formData.vehicleDetails : null
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           }
         });
 
-        // Create a container div for the QR code
-        const container = document.createElement('div');
-        container.style.position = 'absolute';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        document.body.appendChild(container);
-
-        // Generate QR code in the container
-        await qrCode.append(container);
-        
-        // Wait for rendering
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        // Get the canvas from the container
-        const canvas = container.querySelector('canvas');
-        if (!canvas) {
-          throw new Error('QR code canvas not found');
-        }
-
-        // Get the QR code data URL
-        const qrCodeDataUrl = canvas.toDataURL('image/png');
-        
-        // Clean up
-        document.body.removeChild(container);
-
-        // Create shareable image with society details
-        const shareableCanvas = document.createElement('canvas');
-        shareableCanvas.width = 1200;
-        shareableCanvas.height = 1600;
-        const ctx = shareableCanvas.getContext('2d');
-
-        // Set background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, 1200, 1600);
-
-        // Add QR code
-        const qrImage = new Image();
-        await new Promise((resolve, reject) => {
-          qrImage.onload = resolve;
-          qrImage.onerror = reject;
-          qrImage.src = qrCodeDataUrl;
-        });
-
-        ctx.drawImage(qrImage, 200, 200, 800, 800);
-
-        // Add text details
-        ctx.fillStyle = '#000000';
-        ctx.font = 'bold 48px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(residentData.societyName, 600, 1100);
-
-        ctx.font = '36px Arial';
-        ctx.fillText(`Flat ${residentData.flatDetails.flatNumber}`, 600, 1160);
-        ctx.fillText(`Guest: ${formData.guestDetails.name}`, 600, 1220);
-        ctx.fillText(`Valid until: ${new Date(formData.duration.endDate).toLocaleDateString()}`, 600, 1280);
-
-        if (formData.hasVehicle) {
-          ctx.fillText(`Vehicle: ${formData.vehicleDetails.vehicleType} - ${formData.vehicleDetails.registrationNumber}`, 600, 1340);
-        }
-
-        const shareableImageDataUrl = shareableCanvas.toDataURL('image/png');
+        const { qrCode: qrCodeDataUrl, shareableImage: shareableImageDataUrl } = qrResponse.data;
 
         // Update the gate pass with QR code and shareable image
-        await axios.patch(`/api/GatePass-Api/update-pass/${gatePass._id}`, 
+        const updateResponse = await axios.patch(`/api/GatePass-Api/update-pass/${gatePass._id}`, 
           {
             qrCode: qrCodeDataUrl,
-            shareableImage: shareableImageDataUrl
+            shareableImage: shareableImageDataUrl,
+            qrData: JSON.stringify(qrData) // Store the QR data in the database
           },
           {
             headers: {
@@ -370,7 +348,7 @@ const GuestPassRequest = () => {
         };
         setGatePasses(prev => [updatedPass, ...prev]);
         setFormattedPasses(prev => [updatedPass, ...prev]);
-        
+
         // Reset form and close it
         setFormData({
           guestDetails: {
@@ -380,8 +358,8 @@ const GuestPassRequest = () => {
           },
           duration: {
             startDate: new Date().toISOString().split('T')[0],
-            endDate: calculateEndDate(new Date().toISOString().split('T')[0], 1),
-            days: 1
+            endDate: '',
+            days: ''
           },
           hasVehicle: false,
           vehicleDetails: {
@@ -783,12 +761,22 @@ const GuestPassRequest = () => {
                       <div className="flex flex-col items-center justify-center px-6 py-4 bg-gray-50 rounded-lg">
                         {pass.qrCode ? (
                           <div className="flex flex-col items-center">
-                            <img 
-                              src={pass.qrCode} 
-                              alt="Gate Pass QR Code"
-                              className="mb-4 w-auto h-auto"
-                              style={{ maxWidth: '100%', objectFit: 'contain' }}
-                            />
+                            <div 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setZoomedQR(getQrData(pass));
+                              }}
+                              className="cursor-pointer transform transition-transform hover:scale-105"
+                            >
+                              <div className="mb-4 p-4 bg-white rounded-lg">
+                                <QRCode
+                                  value={getQrData(pass)}
+                                  size={180}
+                                  level="M"
+                                  fgColor="#1A75FF"
+                                />
+                              </div>
+                            </div>
                             <div className="flex gap-2">
                               <button
                                 onClick={(e) => {
@@ -947,6 +935,41 @@ const GuestPassRequest = () => {
               >
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Update QR Code Zoom Modal */}
+      {zoomedQR && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
+          onClick={() => setZoomedQR(null)}
+        >
+          <div 
+            className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-auto animate-fade-in-up overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setZoomedQR(null)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <div className="flex flex-col items-center">
+              <div className="p-4 bg-white rounded-lg w-full flex justify-center">
+                <div className="max-w-full max-h-[70vh] overflow-auto">
+                  <QRCode
+                    value={zoomedQR}
+                    size={278}
+                    level="M"
+                    fgColor="#1A75FF"
+                  />
+                </div>
+              </div>
+              <p className="mt-4 text-gray-600 text-center">
+                Scan this QR code for guest verification
+              </p>
             </div>
           </div>
         </div>

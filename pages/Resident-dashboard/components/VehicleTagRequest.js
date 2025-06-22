@@ -783,7 +783,7 @@ const VehicleTagRequest = () => {
                               <div className="mb-4 p-4 bg-white rounded-lg">
                                 <QRCode
                                   value={getQrData(tag)}
-                                  size={256}
+                                  size={180}
                                   level="M"
                                   fgColor="#1A75FF"
                                 />
@@ -892,7 +892,7 @@ const VehicleTagRequest = () => {
           onClick={() => setZoomedQR(null)}
         >
           <div 
-            className="relative bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full animate-fade-in-up"
+            className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-auto animate-fade-in-up overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -902,13 +902,15 @@ const VehicleTagRequest = () => {
               <X className="w-6 h-6" />
             </button>
             <div className="flex flex-col items-center">
-              <div className="p-4 bg-white rounded-lg">
-                <QRCode
-                  value={zoomedQR}
-                  size={512}
-                  level="M"
-                  fgColor="#1A75FF"
-                />
+              <div className="p-4 bg-white rounded-lg w-full flex justify-center">
+                <div className="max-w-full max-h-[70vh] overflow-auto">
+                  <QRCode
+                    value={zoomedQR}
+                    size={278}
+                    level="M"
+                    fgColor="#1A75FF"
+                  />
+                </div>
               </div>
               <p className="mt-4 text-gray-600 text-center">
                 Scan this QR code at the entrance for vehicle verification
