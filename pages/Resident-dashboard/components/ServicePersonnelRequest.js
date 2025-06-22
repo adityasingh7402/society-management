@@ -7,7 +7,7 @@ import {
   Trash2, AlertTriangle, Share2, Download,Calendar 
 } from 'lucide-react';
 import Head from 'next/head';
-import QRCodeStyling from 'qr-code-styling';
+import QRCode from 'react-qr-code';
 
 // Service type icons
 import { 
@@ -126,6 +126,9 @@ const ServicePersonnelRequest = () => {
   });
   const [formLoading, setFormLoading] = useState(false);
 
+  // Add a new state to store QR data
+  const [qrDataMap, setQrDataMap] = useState({});
+
   useEffect(() => {
     fetchResidentData();
   }, []);
@@ -237,6 +240,28 @@ const ServicePersonnelRequest = () => {
     }
   };
 
+  // Add a function to get QR data for a pass
+  const getQrData = (pass) => {
+    if (qrDataMap[pass._id]) {
+      return JSON.stringify(qrDataMap[pass._id]);
+    }
+    try {
+      return pass.qrData || JSON.stringify({
+        passId: pass._id,
+        passType: 'service',
+        societyId: pass.societyId,
+        personnelName: pass.personnelDetails.name,
+        serviceType: pass.personnelDetails.serviceType,
+        pinCode: pass.pinCode,
+        validUntil: pass.duration.endDate
+      });
+    } catch (error) {
+      console.error('Error getting QR data:', error);
+      return '';
+    }
+  };
+
+  // Modify the fetchServicePasses function to store QR data
   const fetchServicePasses = async (residentId) => {
     try {
       setLoading(true);
@@ -247,6 +272,30 @@ const ServicePersonnelRequest = () => {
           Authorization: `Bearer ${token}`,
         }
       });
+
+      // Store QR data for each pass
+      const newQrDataMap = {};
+      response.data.forEach(pass => {
+        try {
+          if (pass.qrData) {
+            newQrDataMap[pass._id] = JSON.parse(pass.qrData);
+          } else {
+            newQrDataMap[pass._id] = {
+              passId: pass._id,
+              passType: 'service',
+              societyId: pass.societyId,
+              personnelName: pass.personnelDetails.name,
+              serviceType: pass.personnelDetails.serviceType,
+              pinCode: pass.pinCode,
+              validUntil: pass.duration.endDate
+            };
+          }
+        } catch (error) {
+          console.error('Error parsing QR data for pass:', pass._id, error);
+        }
+      });
+      setQrDataMap(newQrDataMap);
+
       setServicePasses(response.data);
       setFormattedPasses(response.data);
     } catch (error) {
@@ -357,6 +406,7 @@ const ServicePersonnelRequest = () => {
     setExpandedPass(expandedPass === passId ? null : passId);
   };
 
+  // Modify the handleSubmit function to store QR data
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormLoading(true);
@@ -398,110 +448,40 @@ const ServicePersonnelRequest = () => {
           validUntil: formData.duration.endDate
         };
 
-        // Store as simple JSON string
-        const encodedData = JSON.stringify(qrData);
+        // Store QR data in state
+        setQrDataMap(prev => ({
+          ...prev,
+          [servicePass._id]: qrData
+        }));
 
-        // Create QR code with styling
-        const qrCode = new QRCodeStyling({
-          width: 800,
-          height: 800,
-          type: "canvas",
-          data: encodedData,
-          image: "/logo_web.png",
-          dotsOptions: {
-            color: "#1A75FF",
-            type: "dots"
-          },
-          backgroundOptions: {
-            color: "#ffffff"
-          },
-          imageOptions: {
-            crossOrigin: "anonymous",
-            margin: 15,
-            imageSize: 0.3
-          },
-          qrOptions: {
-            errorCorrectionLevel: 'M',
-            quality: 0.95,
-            margin: 5
-          },
-          cornersSquareOptions: {
-            color: "#1A75FF",
-            type: "square"
-          },
-          cornersDotOptions: {
-            color: "#1A75FF",
-            type: "square"
+        // Call backend to generate QR code and shareable image
+        const qrResponse = await axios.post('/api/ServicePass-Api/generate-qr', {
+          qrData,
+          societyName: residentData.societyName,
+          flatNumber: residentData.flatDetails.flatNumber,
+          personnelName: formData.personnelDetails.name,
+          serviceType: formData.personnelDetails.serviceType === 'Other' 
+            ? formData.personnelDetails.otherServiceType 
+            : formData.personnelDetails.serviceType,
+          workingHours: `${formatTime(formData.workingHours.startTime)} - ${formatTime(formData.workingHours.endTime)}`,
+          validDates: formData.passType === 'DateRange'
+            ? `Valid: ${formatDate(formData.duration.startDate)} - ${formatDate(formData.duration.endDate)}`
+            : `Valid for: ${formatDate(formData.duration.startDate)}`
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           }
         });
 
-        // Create a container div for the QR code
-        const container = document.createElement('div');
-        container.style.position = 'absolute';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        document.body.appendChild(container);
-
-        // Generate QR code in the container
-        await qrCode.append(container);
-        
-        // Wait for rendering
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        // Get the canvas from the container
-        const canvas = container.querySelector('canvas');
-        if (!canvas) {
-          throw new Error('QR code canvas not found');
-        }
-
-        // Get the QR code data URL
-        const qrCodeDataUrl = canvas.toDataURL('image/png');
-
-        // Create shareable image with society details
-        const shareableCanvas = document.createElement('canvas');
-        shareableCanvas.width = 1200;
-        shareableCanvas.height = 1600;
-        const ctx = shareableCanvas.getContext('2d');
-
-        // Set background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, 1200, 1600);
-
-        // Add QR code
-        const qrImage = new Image();
-        await new Promise((resolve, reject) => {
-          qrImage.onload = resolve;
-          qrImage.onerror = reject;
-          qrImage.src = qrCodeDataUrl;
-        });
-        ctx.drawImage(qrImage, 200, 200, 800, 800);
-
-        // Add text details
-        ctx.fillStyle = '#000000';
-        ctx.font = 'bold 48px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(residentData.societyName, 600, 1100);
-
-        ctx.font = '36px Arial';
-        ctx.fillText(`Flat ${residentData.flatDetails.flatNumber}`, 600, 1160);
-        ctx.fillText(`${formData.personnelDetails.serviceType}: ${formData.personnelDetails.name}`, 600, 1220);
-        ctx.fillText(`Working Hours: ${formatTime(formData.workingHours.startTime)} - ${formatTime(formData.workingHours.endTime)}`, 600, 1280);
-        if (formData.passType === 'DateRange') {
-          ctx.fillText(`Valid: ${formatDate(formData.duration.startDate)} - ${formatDate(formData.duration.endDate)}`, 600, 1340);
-        } else {
-          ctx.fillText(`Valid for: ${formatDate(formData.duration.startDate)}`, 600, 1340);
-        }
-
-        const shareableImageDataUrl = shareableCanvas.toDataURL('image/png');
-
-        // Clean up the container
-        document.body.removeChild(container);
+        const { qrCode: qrCodeDataUrl, shareableImage: shareableImageDataUrl } = qrResponse.data;
 
         // Update the service pass with QR code and shareable image
         await axios.patch(`/api/ServicePass-Api/update-pass/${servicePass._id}`, 
           {
             qrCode: qrCodeDataUrl,
-            shareableImage: shareableImageDataUrl
+            shareableImage: shareableImageDataUrl,
+            qrData: JSON.stringify(qrData) // Store the QR data in the database
           },
           {
             headers: {
@@ -515,7 +495,8 @@ const ServicePersonnelRequest = () => {
         const updatedPass = {
           ...servicePass,
           qrCode: qrCodeDataUrl,
-          shareableImage: shareableImageDataUrl
+          shareableImage: shareableImageDataUrl,
+          qrData: JSON.stringify(qrData)
         };
         setServicePasses(prev => [updatedPass, ...prev]);
         setFormattedPasses(prev => [updatedPass, ...prev]);
@@ -1014,14 +995,16 @@ const ServicePersonnelRequest = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* QR Code Section */}
                       <div className="flex flex-col items-center justify-center px-6 py-2 bg-gray-50 rounded-lg">
-                        {pass.qrCode ? (
+                        {pass.qrCode && (
                           <div className="flex flex-col items-center">
-                            <img 
-                              src={pass.qrCode} 
-                              alt="Service Pass QR Code"
-                              className="mb-4 w-auto h-auto"
-                              style={{ maxWidth: '100%', objectFit: 'contain' }}
-                            />
+                            <div className="mb-4 p-4 bg-white rounded-lg">
+                              <QRCode
+                                value={getQrData(pass)}
+                                size={256}
+                                level="M"
+                                fgColor="#1A75FF"
+                              />
+                            </div>
                             <div className="flex gap-2">
                               <button
                                 onClick={(e) => {
@@ -1044,11 +1027,6 @@ const ServicePersonnelRequest = () => {
                                 Download
                               </button>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="text-center text-gray-500">
-                            <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
-                            <p>QR Code not available</p>
                           </div>
                         )}
                       </div>

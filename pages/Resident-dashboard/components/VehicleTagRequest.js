@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { FaMotorcycle } from "react-icons/fa";
 import Head from 'next/head';
-import QRCodeStyling from 'qr-code-styling';
+import QRCode from 'react-qr-code';
 
 // Define CSS animations
 const animationStyles = `
@@ -86,6 +86,9 @@ const VehicleTagRequest = () => {
   });
   const [formLoading, setFormLoading] = useState(false);
 
+  // Add a new state to store QR data
+  const [qrDataMap, setQrDataMap] = useState({});
+
   useEffect(() => {
     fetchResidentData();
   }, []);
@@ -128,6 +131,32 @@ const VehicleTagRequest = () => {
           Authorization: `Bearer ${token}`,
         }
       });
+      
+      // Store QR data for each tag
+      const newQrDataMap = {};
+      response.data.forEach(tag => {
+              try {
+        if (tag.qrData) {
+          newQrDataMap[tag._id] = JSON.parse(tag.qrData);
+        } else {
+          // Ensure we only use the societyId string
+          const societyId = typeof tag.societyId === 'object' ? tag.societyId._id : tag.societyId;
+          
+          newQrDataMap[tag._id] = {
+            tagId: tag._id,
+            tagType: 'vehicle',
+            societyId: societyId,
+            vehicleType: tag.vehicleType,
+            registrationNumber: tag.vehicleDetails.registrationNumber,
+            pinCode: tag.pinCode
+          };
+        }
+        } catch (error) {
+          console.error('Error parsing QR data for tag:', tag._id, error);
+        }
+      });
+      setQrDataMap(newQrDataMap);
+      
       setVehicleTags(response.data);
       setFormattedTags(response.data);
     } catch (error) {
@@ -250,82 +279,51 @@ const VehicleTagRequest = () => {
       const { pinCode, data: vehicleTag } = createResponse.data;
 
       try {
-        // Generate QR code data with PIN
-        const qrData = {
-          tagId: vehicleTag._id,
-          tagType: 'vehicle',
-          societyId: residentData.societyId,
-          vehicleType: formData.vehicleType,
-          registrationNumber: formData.registrationNumber,
-          pinCode: pinCode
-        };
+              // Ensure we only use the societyId string
+      const societyId = typeof residentData.societyId === 'object' ? residentData.societyId._id : residentData.societyId;
+      
+      // Generate QR code data with PIN
+      const qrData = {
+        tagId: vehicleTag._id,
+        tagType: 'vehicle',
+        societyId: societyId,
+        vehicleType: formData.vehicleType,
+        registrationNumber: formData.registrationNumber,
+        pinCode: pinCode
+      };
 
-        // Store as simple JSON string
-        const encodedData = JSON.stringify(qrData);
+        // Store QR data in state
+        setQrDataMap(prev => ({
+          ...prev,
+          [vehicleTag._id]: qrData
+        }));
 
-        // Create QR code with styling
-        const qrCode = new QRCodeStyling({
-          width: 800,
-          height: 800,
-          type: "canvas",
-          data: encodedData,
-          image: "/logo_web.png",
-          dotsOptions: {
-            color: "#1A75FF",
-            type: "dots"
-          },
-          backgroundOptions: {
-            color: "#ffffff"
-          },
-          imageOptions: {
-            crossOrigin: "anonymous",
-            margin: 15,
-            imageSize: 0.3
-          },
-          qrOptions: {
-            errorCorrectionLevel: 'M',
-            quality: 0.95,
-            margin: 5
-          },
-          cornersSquareOptions: {
-            color: "#1A75FF",
-            type: "square"
-          },
-          cornersDotOptions: {
-            color: "#1A75FF",
-            type: "square"
+        // Call backend to generate QR code and shareable image
+        const qrResponse = await axios.post('/api/VehicleTag-Api/generate-qr', {
+          qrData,
+          vehicleDetails: {
+            vehicleType: formData.vehicleType,
+            brand: formData.brand,
+            model: formData.model,
+            color: formData.color,
+            registrationNumber: formData.registrationNumber,
+            validUntil: formatDate(formData.validUntil)
+          }
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           }
         });
 
-        // Create a container div for the QR code
-        const container = document.createElement('div');
-        container.style.position = 'absolute';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        document.body.appendChild(container);
+        const { qrCode: qrCodeDataUrl, shareableImage: shareableImageDataUrl } = qrResponse.data;
 
-        // Generate QR code in the container
-        await qrCode.append(container);
-        
-        // Wait for rendering
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        // Get the canvas from the container
-        const canvas = container.querySelector('canvas');
-        if (!canvas) {
-          throw new Error('QR code canvas not found');
-        }
-
-        // Get the QR code data URL
-        const qrCodeDataUrl = canvas.toDataURL('image/png');
-        
-        // Clean up
-        document.body.removeChild(container);
-
-        // Update the vehicle tag with the QR code
+        // Update the vehicle tag with QR code and shareable image
         const updateResponse = await axios.patch(`/api/VehicleTag-Api/update-tag/${vehicleTag._id}`, 
           {
-            qrCode: qrCodeDataUrl
+            qrCode: qrCodeDataUrl,
+            shareableImage: shareableImageDataUrl,
+            qrData: JSON.stringify(qrData) // Store the QR data in the database
           },
           {
             headers: {
@@ -436,6 +434,29 @@ const VehicleTagRequest = () => {
 
   const toggleTagExpansion = (tagId) => {
     setExpandedTag(expandedTag === tagId ? null : tagId);
+  };
+
+  // Add a function to get QR data for a tag
+  const getQrData = (tag) => {
+    if (qrDataMap[tag._id]) {
+      return JSON.stringify(qrDataMap[tag._id]);
+    }
+    try {
+          // Ensure we only use the societyId string
+    const societyId = typeof tag.societyId === 'object' ? tag.societyId._id : tag.societyId;
+    
+    return tag.qrData || JSON.stringify({
+      tagId: tag._id,
+      tagType: 'vehicle',
+      societyId: societyId,
+      vehicleType: tag.vehicleType,
+      registrationNumber: tag.vehicleDetails.registrationNumber,
+      pinCode: tag.pinCode
+    });
+    } catch (error) {
+      console.error('Error getting QR data:', error);
+      return '';
+    }
   };
 
   return (
@@ -750,32 +771,34 @@ const VehicleTagRequest = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* QR Code Section */}
                       <div className="flex flex-col items-center justify-center px-6 py-2 bg-gray-50 rounded-lg">
-                                                  {tag.qrCode ? (
-                            <div className="flex flex-col items-center">
-                              <div 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setZoomedQR(tag.qrCode);
-                                }}
-                                className="cursor-pointer transform transition-transform hover:scale-105"
-                              >
-                                                              <img 
-                                src={tag.qrCode} 
-                                alt="Vehicle Tag QR Code"
-                                className="mb-4 w-auto h-auto"
-                                style={{ maxWidth: '100%', objectFit: 'contain' }}
-                              />
+                        {tag.qrCode ? (
+                          <div className="flex flex-col items-center">
+                            <div 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setZoomedQR(getQrData(tag));
+                              }}
+                              className="cursor-pointer transform transition-transform hover:scale-105"
+                            >
+                              <div className="mb-4 p-4 bg-white rounded-lg">
+                                <QRCode
+                                  value={getQrData(tag)}
+                                  size={256}
+                                  level="M"
+                                  fgColor="#1A75FF"
+                                />
                               </div>
-                              <p className="text-sm text-gray-600 text-center">
-                                Click QR code to enlarge
-                              </p>
                             </div>
-                          ) : (
-                            <div className="text-center text-gray-500">
-                              <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
-                              <p>QR Code not available</p>
-                            </div>
-                          )}
+                            <p className="text-sm text-gray-600 text-center">
+                              Click QR code to enlarge
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="text-center text-gray-500">
+                            <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
+                            <p>QR Code not available</p>
+                          </div>
+                        )}
                       </div>
 
                       {/* Details Section */}
@@ -879,12 +902,14 @@ const VehicleTagRequest = () => {
               <X className="w-6 h-6" />
             </button>
             <div className="flex flex-col items-center">
-              <img 
-                src={zoomedQR} 
-                alt="Enlarged QR Code"
-                className="w-auto h-auto"
-                style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
-              />
+              <div className="p-4 bg-white rounded-lg">
+                <QRCode
+                  value={zoomedQR}
+                  size={512}
+                  level="M"
+                  fgColor="#1A75FF"
+                />
+              </div>
               <p className="mt-4 text-gray-600 text-center">
                 Scan this QR code at the entrance for vehicle verification
               </p>
