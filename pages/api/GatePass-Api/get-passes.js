@@ -1,6 +1,5 @@
-import dbConnect from '../../../lib/mongodb';
+import connectToDatabase from '../../../lib/mongodb';
 import GatePass from '../../../models/GatePass';
-import { verifyToken } from '../../../utils/auth';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -8,21 +7,18 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Verify the token
-    const token = req.headers.authorization?.split(' ')[1];
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-
-    await dbConnect();
+    await connectToDatabase();
 
     const { residentId, status, hasVehicle, startDate, endDate } = req.query;
 
     // Build query object
-    const query = { residentId };
-
+    const query = {};
+    
     // Add filters if provided
+    if (residentId) {
+      query.residentId = residentId;
+    }
+
     if (status) {
       query.status = status;
     }

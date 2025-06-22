@@ -494,7 +494,7 @@ const AndroidDashboard = ({ onLoaded }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1A75FF]/5 via-[#1A75FF]/10 to-[#1A75FF]/20 pb-20 relative">
+    <div className="min-h-screen bg-gray-50 pb-20 relative">
       {/* Background pattern overlay */}
       <div
         className="fixed inset-0 pointer-events-none"

@@ -294,106 +294,132 @@ const AnimalTagRequest = () => {
 
       const { pinCode, data: animalTag } = createResponse.data;
 
-      // Generate QR code data with PIN
-      const qrData = {
-        tagId: animalTag._id,
-        tagType: 'animal',
-        societyId: residentData.societyId,
-        animalType: formData.animalType,
-        name: formData.name,
-        pinCode: pinCode
-      };
+      try {
+        // Generate QR code data with PIN
+        const qrData = {
+          tagId: animalTag._id,
+          tagType: 'animal',
+          societyId: residentData.societyId,
+          animalType: formData.animalType,
+          name: formData.name,
+          pinCode: pinCode
+        };
 
-      // Store as simple JSON string
-      const encodedData = JSON.stringify(qrData);
+        // Store as simple JSON string
+        const encodedData = JSON.stringify(qrData);
 
-      // Create QR code with styling
-      const qrCode = new QRCodeStyling({
-        width: 800,
-        height: 800,
-        type: "canvas",
-        data: encodedData,
-        image: "/logo_web.png",
-        dotsOptions: {
-          color: "#1A75FF",
-          type: "dots"
-        },
-        backgroundOptions: {
-          color: "#ffffff"
-        },
-        imageOptions: {
-          crossOrigin: "anonymous",
-          margin: 15,
-          imageSize: 0.3
-        },
-        qrOptions: {
-          errorCorrectionLevel: 'M',
-          quality: 0.95,
-          margin: 5
-        },
-        cornersSquareOptions: {
-          color: "#1A75FF",
-          type: "square"
-        },
-        cornersDotOptions: {
-          color: "#1A75FF",
-          type: "square"
-        }
-      });
-
-      // Create a temporary div to hold the QR code
-      const tempDiv = document.createElement('div');
-      
-      // Create QR code canvas
-      await qrCode.append(tempDiv);
-      
-      // Wait a bit for the QR code to render
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      const canvas = tempDiv.querySelector('canvas');
-      if (!canvas) {
-        throw new Error('Failed to generate QR code');
-      }
-      
-      const qrCodeDataUrl = canvas.toDataURL('image/png');
-
-      // Update the animal tag with the QR code
-      const updateResponse = await axios.patch(`/api/AnimalTag-Api/update-tag/${animalTag._id}`, 
-        {
-          qrCode: qrCodeDataUrl
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+        // Create QR code with styling
+        const qrCode = new QRCodeStyling({
+          width: 800,
+          height: 800,
+          type: "canvas",
+          data: encodedData,
+          image: "/logo_web.png",
+          dotsOptions: {
+            color: "#1A75FF",
+            type: "dots"
+          },
+          backgroundOptions: {
+            color: "#ffffff"
+          },
+          imageOptions: {
+            crossOrigin: "anonymous",
+            margin: 15,
+            imageSize: 0.3
+          },
+          qrOptions: {
+            errorCorrectionLevel: 'M',
+            quality: 0.95,
+            margin: 5
+          },
+          cornersSquareOptions: {
+            color: "#1A75FF",
+            type: "square"
+          },
+          cornersDotOptions: {
+            color: "#1A75FF",
+            type: "square"
           }
-        }
-      );
+        });
 
-      // Add new tag to state
-      setAnimalTags(prev => [updateResponse.data.data, ...prev]);
-      setFormattedTags(prev => [updateResponse.data.data, ...prev]);
-      
-      // Reset form and close it
-      setFormData({
-        animalType: '',
-        name: '',
-        breed: '',
-        color: '',
-        age: '',
-        gender: '',
-        identificationMark: '',
-        vaccinated: false,
-        lastVaccinationDate: '',
-        nextVaccinationDue: '',
-        medicalHistory: '',
-        documents: []
-      });
-      setShowForm(false);
+        // Create a container div for the QR code
+        const container = document.createElement('div');
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        document.body.appendChild(container);
+
+        // Generate QR code in the container
+        await qrCode.append(container);
+        
+        // Wait for rendering
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Get the canvas from the container
+        const canvas = container.querySelector('canvas');
+        if (!canvas) {
+          throw new Error('QR code canvas not found');
+        }
+
+        // Get the QR code data URL
+        const qrCodeDataUrl = canvas.toDataURL('image/png');
+        
+        // Clean up
+        document.body.removeChild(container);
+
+        // Update the animal tag with the QR code
+        const updateResponse = await axios.patch(`/api/AnimalTag-Api/update-tag/${animalTag._id}`, 
+          {
+            qrCode: qrCodeDataUrl
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            }
+          }
+        );
+
+        // Add new tag to state
+        setAnimalTags(prev => [updateResponse.data.data, ...prev]);
+        setFormattedTags(prev => [updateResponse.data.data, ...prev]);
+        
+        // Reset form and close it
+        setFormData({
+          animalType: '',
+          name: '',
+          breed: '',
+          color: '',
+          age: '',
+          gender: '',
+          identificationMark: '',
+          vaccinated: false,
+          lastVaccinationDate: '',
+          nextVaccinationDue: '',
+          medicalHistory: '',
+          documents: []
+        });
+        setShowForm(false);
+
+      } catch (qrError) {
+        // If QR generation fails, delete the created record
+        console.error('Error generating QR code:', qrError);
+        try {
+          await axios.delete(`/api/AnimalTag-Api/delete-tag/${animalTag._id}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            }
+          });
+          throw new Error('Failed to generate QR code. The record has been deleted. Please try again.');
+        } catch (deleteError) {
+          console.error('Error deleting failed record:', deleteError);
+          throw new Error('Failed to generate QR code and cleanup failed. Please contact support.');
+        }
+      }
 
     } catch (error) {
-      console.error('Error creating animal tag:', error);
-      alert(error.response?.data?.message || 'Failed to create animal tag');
+      console.error('Error in animal tag process:', error);
+      alert(error.message || 'Failed to create animal tag');
     } finally {
       setFormLoading(false);
     }

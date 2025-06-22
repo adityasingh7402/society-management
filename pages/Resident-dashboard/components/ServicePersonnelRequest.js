@@ -386,156 +386,183 @@ const ServicePersonnelRequest = () => {
 
       const { pinCode, data: servicePass } = response.data;
 
-      // Generate QR code data
-      const qrData = {
-        passId: servicePass._id,
-        passType: 'service',
-        societyId: residentData.societyId,
-        personnelName: formData.personnelDetails.name,
-        serviceType: formData.personnelDetails.serviceType,
-        pinCode,
-        validUntil: formData.duration.endDate
-      };
+      try {
+        // Generate QR code data
+        const qrData = {
+          passId: servicePass._id,
+          passType: 'service',
+          societyId: residentData.societyId,
+          personnelName: formData.personnelDetails.name,
+          serviceType: formData.personnelDetails.serviceType,
+          pinCode,
+          validUntil: formData.duration.endDate
+        };
 
-      // Store as simple JSON string
-      const encodedData = JSON.stringify(qrData);
+        // Store as simple JSON string
+        const encodedData = JSON.stringify(qrData);
 
-      // Create QR code with styling
-      const qrCode = new QRCodeStyling({
-        width: 800,
-        height: 800,
-        type: "canvas",
-        data: encodedData,
-        image: "/logo_web.png",
-        dotsOptions: {
-          color: "#1A75FF",
-          type: "dots"
-        },
-        backgroundOptions: {
-          color: "#ffffff"
-        },
-        imageOptions: {
-          crossOrigin: "anonymous",
-          margin: 15,
-          imageSize: 0.3
-        },
-        qrOptions: {
-          errorCorrectionLevel: 'M',
-          quality: 0.95,
-          margin: 5
-        },
-        cornersSquareOptions: {
-          color: "#1A75FF",
-          type: "square"
-        },
-        cornersDotOptions: {
-          color: "#1A75FF",
-          type: "square"
+        // Create QR code with styling
+        const qrCode = new QRCodeStyling({
+          width: 800,
+          height: 800,
+          type: "canvas",
+          data: encodedData,
+          image: "/logo_web.png",
+          dotsOptions: {
+            color: "#1A75FF",
+            type: "dots"
+          },
+          backgroundOptions: {
+            color: "#ffffff"
+          },
+          imageOptions: {
+            crossOrigin: "anonymous",
+            margin: 15,
+            imageSize: 0.3
+          },
+          qrOptions: {
+            errorCorrectionLevel: 'M',
+            quality: 0.95,
+            margin: 5
+          },
+          cornersSquareOptions: {
+            color: "#1A75FF",
+            type: "square"
+          },
+          cornersDotOptions: {
+            color: "#1A75FF",
+            type: "square"
+          }
+        });
+
+        // Create a container div for the QR code
+        const container = document.createElement('div');
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        document.body.appendChild(container);
+
+        // Generate QR code in the container
+        await qrCode.append(container);
+        
+        // Wait for rendering
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Get the canvas from the container
+        const canvas = container.querySelector('canvas');
+        if (!canvas) {
+          throw new Error('QR code canvas not found');
         }
-      });
 
-      // Create a temporary div to hold the QR code
-      const tempDiv = document.createElement('div');
-      
-      // Create QR code canvas
-      await qrCode.append(tempDiv);
-      
-      // Wait a bit for the QR code to render
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      const canvas = tempDiv.querySelector('canvas');
-      if (!canvas) {
-        throw new Error('Failed to generate QR code');
-      }
-      
-      const qrCodeDataUrl = canvas.toDataURL('image/png');
+        // Get the QR code data URL
+        const qrCodeDataUrl = canvas.toDataURL('image/png');
 
-      // Create shareable image with society details
-      const shareableCanvas = document.createElement('canvas');
-      shareableCanvas.width = 1200;
-      shareableCanvas.height = 1600;
-      const ctx = shareableCanvas.getContext('2d');
+        // Create shareable image with society details
+        const shareableCanvas = document.createElement('canvas');
+        shareableCanvas.width = 1200;
+        shareableCanvas.height = 1600;
+        const ctx = shareableCanvas.getContext('2d');
 
-      // Set background
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 1200, 1600);
+        // Set background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 1200, 1600);
 
-      // Add QR code
-      const qrImage = new Image();
-      qrImage.src = qrCodeDataUrl;
-      await new Promise((resolve) => {
-        qrImage.onload = resolve;
-      });
-      ctx.drawImage(qrImage, 200, 200, 800, 800);
+        // Add QR code
+        const qrImage = new Image();
+        await new Promise((resolve, reject) => {
+          qrImage.onload = resolve;
+          qrImage.onerror = reject;
+          qrImage.src = qrCodeDataUrl;
+        });
+        ctx.drawImage(qrImage, 200, 200, 800, 800);
 
-      // Add text details
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 48px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(residentData.societyName, 600, 1100);
+        // Add text details
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(residentData.societyName, 600, 1100);
 
-      ctx.font = '36px Arial';
-      ctx.fillText(`Flat ${residentData.flatDetails.flatNumber}`, 600, 1160);
-      ctx.fillText(`${formData.personnelDetails.serviceType}: ${formData.personnelDetails.name}`, 600, 1220);
-      ctx.fillText(`Working Hours: ${formatTime(formData.workingHours.startTime)} - ${formatTime(formData.workingHours.endTime)}`, 600, 1280);
-      if (formData.passType === 'DateRange') {
-        ctx.fillText(`Valid: ${formatDate(formData.duration.startDate)} - ${formatDate(formData.duration.endDate)}`, 600, 1340);
-      } else {
-        ctx.fillText(`Valid for: ${formatDate(formData.duration.startDate)}`, 600, 1340);
-      }
+        ctx.font = '36px Arial';
+        ctx.fillText(`Flat ${residentData.flatDetails.flatNumber}`, 600, 1160);
+        ctx.fillText(`${formData.personnelDetails.serviceType}: ${formData.personnelDetails.name}`, 600, 1220);
+        ctx.fillText(`Working Hours: ${formatTime(formData.workingHours.startTime)} - ${formatTime(formData.workingHours.endTime)}`, 600, 1280);
+        if (formData.passType === 'DateRange') {
+          ctx.fillText(`Valid: ${formatDate(formData.duration.startDate)} - ${formatDate(formData.duration.endDate)}`, 600, 1340);
+        } else {
+          ctx.fillText(`Valid for: ${formatDate(formData.duration.startDate)}`, 600, 1340);
+        }
 
-      const shareableImageDataUrl = shareableCanvas.toDataURL('image/png');
+        const shareableImageDataUrl = shareableCanvas.toDataURL('image/png');
 
-      // Update the service pass with QR code and shareable image
-      await axios.patch(`/api/ServicePass-Api/update-pass/${servicePass._id}`, 
-        {
+        // Clean up the container
+        document.body.removeChild(container);
+
+        // Update the service pass with QR code and shareable image
+        await axios.patch(`/api/ServicePass-Api/update-pass/${servicePass._id}`, 
+          {
+            qrCode: qrCodeDataUrl,
+            shareableImage: shareableImageDataUrl
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            }
+          }
+        );
+
+        // Add new pass to state with QR code and shareable image
+        const updatedPass = {
+          ...servicePass,
           qrCode: qrCodeDataUrl,
           shareableImage: shareableImageDataUrl
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+        };
+        setServicePasses(prev => [updatedPass, ...prev]);
+        setFormattedPasses(prev => [updatedPass, ...prev]);
+        
+        // Reset form and close it
+        setFormData({
+          personnelDetails: {
+            name: '',
+            phone: '',
+            serviceType: '',
+            otherServiceType: ''
+          },
+          passType: 'Daily',
+          duration: {
+            startDate: new Date().toISOString().split('T')[0],
+            endDate: new Date().toISOString().split('T')[0]
+          },
+          workingHours: {
+            startTime: '09:00',
+            endTime: '17:00'
           }
-        }
-      );
+        });
+        setShowForm(false);
 
-      // Add new pass to state with QR code and shareable image
-      const updatedPass = {
-        ...servicePass,
-        qrCode: qrCodeDataUrl,
-        shareableImage: shareableImageDataUrl
-      };
-      setServicePasses(prev => [updatedPass, ...prev]);
-      setFormattedPasses(prev => [updatedPass, ...prev]);
-      
-      // Reset form and close it
-      setFormData({
-        personnelDetails: {
-          name: '',
-          phone: '',
-          serviceType: '',
-          otherServiceType: ''
-        },
-        passType: 'Daily',
-        duration: {
-          startDate: new Date().toISOString().split('T')[0],
-          endDate: new Date().toISOString().split('T')[0]
-        },
-        workingHours: {
-          startTime: '09:00',
-          endTime: '17:00'
-        }
-      });
-      setShowForm(false);
+        // Show the share modal for the new pass
+        setSelectedPassForShare(updatedPass);
+        setShowShareModal(true);
 
-      // Show the share modal for the new pass
-      setSelectedPassForShare(updatedPass);
-      setShowShareModal(true);
+      } catch (qrError) {
+        // If QR generation fails, delete the created record
+        console.error('Error generating QR code:', qrError);
+        try {
+          await axios.delete(`/api/ServicePass-Api/delete-pass/${servicePass._id}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            }
+          });
+          throw new Error('Failed to generate QR code. The pass has been deleted. Please try again.');
+        } catch (deleteError) {
+          console.error('Error deleting failed pass:', deleteError);
+          throw new Error('Failed to generate QR code and cleanup failed. Please contact support.');
+        }
+      }
 
     } catch (error) {
-      console.error('Error creating service pass:', error);
-      alert(error.response?.data?.message || 'Failed to create service pass');
+      console.error('Error in service pass process:', error);
+      alert(error.message || 'Failed to create service pass');
     } finally {
       setFormLoading(false);
     }
