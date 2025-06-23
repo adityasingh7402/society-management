@@ -270,38 +270,78 @@ const PropertyDetail = () => {
     }
   };
 
-  const handleContactSeller = () => {
-    // Only allow contact if the current user is not the seller
-    if (!residentData || !property) {
-      alert("Please wait while we load property information");
-      return;
-    }
-    
-    if (residentData._id === property.sellerId) {
-      alert("This is your own listing");
-      return;
-    }
-    
+  const handleContactSeller = async () => {
     try {
-      // Store seller info in localStorage for chat component to use
-      const chatData = {
-        sellerId: property.sellerId,
-        sellerName: property.sellerName,
-        sellerImage: property.sellerImage,
-        propertyTitle: property.title,
+      const token = localStorage.getItem('Resident');
+      if (!token) {
+        toast.error('Please log in to contact the seller');
+        router.push('/login');
+      return;
+    }
+    
+      // Wait for property and resident data to be loaded
+      if (!residentData) {
+        toast.error('Please wait while we load your profile');
+        return;
+      }
+
+      if (!property) {
+        toast.error('Please wait while we load the property details');
+        return;
+      }
+
+      if (!property._id || !property.sellerId || !property.title) {
+        toast.error('Invalid property data. Please refresh the page.');
+        console.error('Invalid property data:', property);
+        return;
+      }
+
+      // Don't allow contacting your own listing
+    if (residentData._id === property.sellerId) {
+        toast.error('This is your own listing');
+      return;
+    }
+    
+      // Validate all required data before making the API call
+      console.log('Sending message with data:', {
         propertyId: property._id,
-        propertyType: 'property', // Add this to differentiate from product chats
-        propertyPrice: property.price,
-        propertyImage: property.images?.[0] || null
-      };
+        receiverId: property.sellerId,
+        senderId: residentData._id,
+        title: property.title
+      });
       
-      localStorage.setItem('chatWithSeller', JSON.stringify(chatData));
-      
-      // Redirect to resident chat
-      router.push('/Resident-dashboard/components/ResidentChat');
+      // Send initial interest message
+      const response = await axios.post('/api/Property-Api/send-message', {
+        propertyId: property._id,
+        message: `I'm interested in your property: ${property.title}`,
+        receiverId: property.sellerId
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        toast.success('Message sent successfully!');
+        // Navigate to chat
+        router.push(`/Resident-dashboard/components/PropertyChat?userId=${property.sellerId}&propertyId=${property._id}`);
+      } else {
+        throw new Error(response.data.message || 'Failed to send message');
+      }
     } catch (error) {
-      console.error('Error setting up chat with seller:', error);
-      alert('Failed to connect with seller. Please try again.');
+      console.error('Error contacting seller:', error);
+      console.error('Error details:', error.response?.data);
+      
+      // Handle specific error cases
+      if (error.response?.status === 401) {
+        toast.error('Your session has expired. Please log in again.');
+        router.push('/login');
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Failed to contact seller. Please try again.');
+      }
     }
   };
 

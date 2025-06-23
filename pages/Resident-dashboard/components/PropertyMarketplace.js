@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Plus, Filter, Search, Home, ShoppingCart, X, ChevronDown, Heart, MessageCircle, RefreshCw, Trash2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import Head from 'next/head';
+import { toast } from 'react-hot-toast';
 
 // Define CSS animations
 const animationStyles = `
@@ -41,6 +42,21 @@ const PropertyMarketplace = () => {
   const [formattedProperties, setFormattedProperties] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [propertyToDelete, setPropertyToDelete] = useState(null);
+  const [activeTab, setActiveTab] = useState('all');
+  const [messages, setMessages] = useState([]);
+  const [unreadMessages, setUnreadMessages] = useState({});
+
+  // Add effect to refresh messages when component is focused
+  useEffect(() => {
+    const handleFocus = () => {
+      if (residentData?.societyId) {
+        fetchMessages();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [residentData]);
 
   useEffect(() => {
     fetchResidentData();
@@ -297,6 +313,100 @@ const PropertyMarketplace = () => {
     router.push('/Resident-dashboard');
   };
 
+  useEffect(() => {
+    if (residentData?.societyId) {
+      fetchProperties(residentData.societyId);
+      fetchMessages();
+    }
+  }, [residentData]);
+
+  const fetchMessages = async () => {
+    try {
+      const token = localStorage.getItem('Resident');
+      if (!token) {
+        console.error('No token found');
+        toast.error('Please log in again');
+        router.push('/login');
+        return;
+      }
+
+      if (!residentData?._id) {
+        console.error('No resident data found');
+        return;
+      }
+
+      const response = await axios.get('/api/Property-Api/get-messages', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      
+      // Group messages by resident and get latest message for each
+      const messagesByResident = {};
+      response.data.forEach(msg => {
+        const otherUserId = msg.senderId === residentData._id ? msg.receiverId : msg.senderId;
+        const otherUserName = msg.senderId === residentData._id ? msg.receiverName : msg.senderName;
+        const otherUserImage = msg.senderId === residentData._id ? msg.receiverImage : msg.senderImage;
+        
+        if (!messagesByResident[otherUserId] || new Date(msg.createdAt) > new Date(messagesByResident[otherUserId].createdAt)) {
+          messagesByResident[otherUserId] = {
+            ...msg,
+            userName: otherUserName,
+            userImage: otherUserImage
+          };
+        }
+        
+        // Track unread messages
+        if (!msg.isRead && msg.receiverId === residentData._id) {
+          setUnreadMessages(prev => ({
+            ...prev,
+            [otherUserId]: (prev[otherUserId] || 0) + 1
+          }));
+        }
+      });
+      
+      setMessages(Object.values(messagesByResident));
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      if (error.response?.data?.error) {
+        console.error('Server error details:', error.response.data.error);
+      }
+      toast.error('Failed to load messages');
+    }
+  };
+
+  const handleShowInterest = async (propertyId) => {
+    try {
+      const token = localStorage.getItem('Resident');
+      await axios.post('/api/Property-Api/send-message', {
+        propertyId,
+        message: "I'm interested in this property",
+        receiverId: property.sellerId
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      
+      // Refresh messages after showing interest
+      fetchMessages();
+      toast.success('Interest shown successfully!');
+    } catch (error) {
+      console.error('Error showing interest:', error);
+      toast.error('Failed to show interest');
+    }
+  };
+
+  // Filter properties based on active tab
+  const getFilteredProperties = () => {
+    if (activeTab === 'my-listings') {
+      return formattedProperties.filter(prop => prop.sellerId === residentData?._id);
+    } else if (activeTab === 'responses') {
+      return messages;
+    }
+    return formattedProperties;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -315,8 +425,8 @@ const PropertyMarketplace = () => {
       </Head>
       
       {/* Header */}
-      <div className="bg-white z-20 shadow-md py-4 px-6 sticky top-0">
-        <div className="max-w-6xl mx-auto">
+      <div className="bg-white z-20 shadow-md py-4 sticky top-0">
+        <div className="max-w-6xl mx-auto px-4">
           <div className="p-2">
             <button
               onClick={goBack}
@@ -334,12 +444,51 @@ const PropertyMarketplace = () => {
                 className="bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center hover:bg-blue-700 transition-colors"
               >
                 <Plus size={24} className="" />
-                {/* <span>List Property</span> */}
               </button>
             </div>
           </div>
 
-          {/* Search and Filter */}
+          {/* Tabs */}
+          <div className="flex space-x-1 mt-6 border-b">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
+                activeTab === 'all'
+                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              All Properties
+            </button>
+            <button
+              onClick={() => setActiveTab('my-listings')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
+                activeTab === 'my-listings'
+                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              My Listings
+            </button>
+            <button
+              onClick={() => setActiveTab('responses')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
+                activeTab === 'responses'
+                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Responses {Object.values(unreadMessages).reduce((a, b) => a + b, 0) > 0 && 
+                <span className="ml-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {Object.values(unreadMessages).reduce((a, b) => a + b, 0)}
+                </span>
+              }
+            </button>
+          </div>
+
+          {/* Search and Filter - Only show for 'all' and 'my-listings' tabs */}
+          {activeTab !== 'responses' && (
+            <>
           <div className="mt-4 flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-2">
             <div className="relative flex-1">
               <input
@@ -361,7 +510,6 @@ const PropertyMarketplace = () => {
             </button>
           </div>
 
-          {/* Filter Panel */}
           {showFilters && (
             <div className="mt-4 bg-white p-4 border rounded-lg shadow-sm">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -483,34 +631,77 @@ const PropertyMarketplace = () => {
                 </button>
               </div>
             </div>
+              )}
+            </>
           )}
         </div>
       </div>
 
       {/* Properties Display */}
       <div className="w-full max-w-6xl mx-auto px-4 mt-6">
-        {formattedProperties.length === 0 ? (
+        {activeTab === 'responses' ? (
+          // Messages View
+          <div className="bg-white rounded-lg shadow">
+            {messages.length === 0 ? (
           <div className="text-center py-10">
-            <Home size={48} className="mx-auto text-gray-400 mb-4" />
-            <h2 className="text-xl font-semibold text-gray-700 mb-2">No properties found</h2>
-            <p className="text-gray-500 mb-4">There are no properties listed in your society right now.</p>
-            <button
-              onClick={handleAddNew}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Be the first to list a property
-            </button>
+                <MessageCircle size={48} className="mx-auto text-gray-400 mb-4" />
+                <h2 className="text-xl font-semibold text-gray-700 mb-2">No messages yet</h2>
+                <p className="text-gray-500">When you receive messages about properties, they'll appear here.</p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {messages.map((message) => {
+                  const otherUserId = message.senderId === residentData?._id ? message.receiverId : message.senderId;
+                  const hasUnread = unreadMessages[otherUserId] > 0;
+                  
+                  return (
+                    <div key={message._id} className="p-4 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          {message.userImage ? (
+                            <img src={message.userImage} alt={message.userName} className="w-10 h-10 rounded-full" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <span className="text-blue-600 font-medium">{message.userName?.[0]}</span>
+                            </div>
+                          )}
+                          <div>
+                            <h3 className="font-medium text-gray-900">{message.userName}</h3>
+                            <p className="text-sm text-gray-500">
+                              Re: {message.propertyTitle}
+                              {hasUnread && (
+                                <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                                  {unreadMessages[otherUserId]} new
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <Link
+                          href={`/Resident-dashboard/components/PropertyChat?buyerId=${otherUserId}&propertyId=${message.propertyId}`}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                        >
+                          Chat
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {formattedProperties.map((property) => (
+          // Regular Properties Grid
+          <div className="grid grid-cols-2 gap-4 auto-rows-fr">
+            {getFilteredProperties().map((property, index) => (
               <Link 
                 key={property._id} 
                 href={`/Resident-dashboard/components/PropertyDetail?id=${property._id}`}
-                className="block bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full"
+                className="block bg-white rounded-xl overflow-hidden shadow hover:shadow-lg transition-all duration-300 cursor-pointer h-full transform hover:-translate-y-1"
+                style={{ order: index + 1 }}
               >
                 {/* Property Image */}
-                <div className="relative w-full h-48">
+                <div className="relative w-full h-40">
                   {/* Delete button - only show for the property owner */}
                   {residentData && property.sellerId === residentData._id && (
                     <button 
@@ -530,12 +721,12 @@ const PropertyMarketplace = () => {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <Home size={32} className="text-gray-400" />
+                      <Home size={28} className="text-gray-400" />
                     </div>
                   )}
                   
                   {/* Status Tag */}
-                  <div className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-semibold rounded ${
+                  <div className={`absolute top-2 left-2 px-3 py-1 text-xs font-medium rounded-full ${
                     property.status === 'Available' ? 'bg-green-500 text-white' :
                     property.status === 'Under Contract' ? 'bg-yellow-500 text-white' :
                     'bg-red-500 text-white'
@@ -545,69 +736,69 @@ const PropertyMarketplace = () => {
                 </div>
                 
                 {/* Property Info */}
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 hover:text-blue-600 line-clamp-1">
+                <div className="p-3">
+                  <h3 className="text-base font-semibold text-gray-800 hover:text-blue-600 line-clamp-1">
                     {property.title}
                   </h3>
                   
                   <div className="mt-1">
-                    <span className="text-xl font-bold text-blue-600">₹ {formatPrice(property.price)}</span>
+                    <span className="text-lg font-bold text-blue-600">₹ {formatPrice(property.price)}</span>
                   </div>
                   
-                  <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
                     <div className="flex items-center text-gray-600">
-                      <span className="text-sm">{property.bedrooms} Beds</span>
+                      <span>{property.bedrooms} Beds</span>
                     </div>
                     <div className="flex items-center text-gray-600">
-                      <span className="text-sm">{property.bathrooms} Baths</span>
+                      <span>{property.bathrooms} Baths</span>
                     </div>
                     <div className="flex items-center text-gray-600">
-                      <span className="text-sm">{property.area} sq.ft</span>
+                      <span>{property.area} sq.ft</span>
                     </div>
                     <div className="flex items-center text-gray-600">
-                      <span className="text-sm">{property.propertyType}</span>
+                      <span>{property.propertyType}</span>
                     </div>
                   </div>
                   
                   <div className="mt-2">
-                    <span className="text-xs font-medium px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                    <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
                       {property.furnishingStatus}
                     </span>
                   </div>
                   
-                  <p className="mt-2 text-sm text-gray-600 line-clamp-2">{property.description}</p>
+                  <p className="mt-1.5 text-xs text-gray-600 line-clamp-2">{property.description}</p>
                   
                   {/* Location Info */}
-                  <div className="mt-2 text-sm text-gray-500">
+                  <div className="mt-1.5 text-xs text-gray-500">
                     <p>Block {property.location.block}, Floor {property.location.floor}, Flat {property.location.flatNumber}</p>
                   </div>
                   
                   {/* Seller Info */}
-                  <div className="mt-3 flex items-center justify-between border-t pt-3">
+                  <div className="mt-2 flex items-center justify-between border-t pt-2">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
                         {property.sellerImage ? (
                           <img
                             src={property.sellerImage}
                             alt={property.sellerName}
-                            className="h-6 w-6 rounded-full"
+                            className="h-5 w-5 rounded-full"
                           />
                         ) : (
-                          <div className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center">
+                          <div className="h-5 w-5 rounded-full bg-gray-200 flex items-center justify-center">
                             <span className="text-xs font-medium text-gray-500">
                               {property.sellerName.charAt(0)}
                             </span>
                           </div>
                         )}
                       </div>
-                      <div className="ml-2">
+                      <div className="ml-1.5">
                         <p className="text-xs text-gray-500 line-clamp-1">{property.sellerName}</p>
-                        <p className="text-xs text-gray-400">{formatDate(property.createdAt)}</p>
+                        <p className="text-[10px] text-gray-400">{formatDate(property.createdAt)}</p>
                       </div>
                     </div>
                     
                     {/* Actions */}
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-3">
                       <button 
                         className={`flex items-center space-x-1 ${
                           isLikedByUser(property) ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
@@ -618,13 +809,13 @@ const PropertyMarketplace = () => {
                           handleLike(property._id);
                         }}
                       >
-                        <Heart size={14} fill={isLikedByUser(property) ? 'currentColor' : 'none'} />
-                        <span className="text-xs">{property.likes.length}</span>
+                        <Heart size={12} fill={isLikedByUser(property) ? 'currentColor' : 'none'} />
+                        <span className="text-[10px]">{property.likes.length}</span>
                       </button>
                       
                       <div className="flex items-center space-x-1 text-gray-500">
-                        <MessageCircle size={14} />
-                        <span className="text-xs">{property.comments.length}</span>
+                        <MessageCircle size={12} />
+                        <span className="text-[10px]">{property.comments.length}</span>
                       </div>
                     </div>
                   </div>
