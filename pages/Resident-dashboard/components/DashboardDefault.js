@@ -23,6 +23,8 @@ import {
   Dog,
   Key,
   UserCog,
+  MessageCircle,
+  Store,
 } from 'lucide-react';
 
 const AndroidDashboard = ({ onLoaded }) => {
@@ -46,6 +48,9 @@ const AndroidDashboard = ({ onLoaded }) => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [activeLink, setActiveLink] = useState("Dashboard");
+  const [propertyMessages, setPropertyMessages] = useState([]);
+  const [productMessages, setProductMessages] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Add new states and refs for drag functionality
   const [dragStartX, setDragStartX] = useState(null);
@@ -493,6 +498,87 @@ const AndroidDashboard = ({ onLoaded }) => {
     }
   ];
 
+  // Add new function to fetch unread messages
+  const fetchUnreadMessages = async () => {
+    try {
+      const token = localStorage.getItem("Resident");
+      if (!token) return;
+
+      // Fetch property messages
+      const propertyResponse = await fetch('/api/Property-Api/get-messages', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      const propertyData = await propertyResponse.json();
+      const unreadPropertyMessages = propertyData.filter(msg => !msg.isRead && msg.receiverId === residentDetails._id);
+      setPropertyMessages(unreadPropertyMessages);
+
+      // Fetch product messages
+      const productResponse = await fetch('/api/Product-Api/get-messages', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      const productData = await productResponse.json();
+      const unreadProductMessages = productData.filter(msg => !msg.isRead && msg.receiverId === residentDetails._id);
+      setProductMessages(unreadProductMessages);
+
+      // Update total unread count
+      setUnreadCount(unreadPropertyMessages.length + unreadProductMessages.length);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  // Add useEffect to fetch messages periodically
+  useEffect(() => {
+    if (residentDetails._id) {
+      fetchUnreadMessages();
+      const interval = setInterval(fetchUnreadMessages, 30000); // Refresh every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [residentDetails._id]);
+
+  // Add function to mark message as read and navigate
+  const handleMessageClick = async (type, message) => {
+    try {
+      const token = localStorage.getItem("Resident");
+      if (!token) return;
+
+      // Mark message as read
+      await fetch(`/api/${type}-Api/mark-as-read`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ senderId: message.senderId })
+      });
+
+      // Remove message from state
+      if (type === 'Property') {
+        setPropertyMessages(prev => prev.filter(msg => msg._id !== message._id));
+      } else {
+        setProductMessages(prev => prev.filter(msg => msg._id !== message._id));
+      }
+
+      // Update total unread count
+      setUnreadCount(prev => prev - 1);
+
+      // Navigate to chat with correct parameters
+      const path = type === 'Property' ? 'PropertyChat' : 'ProductChat';
+      if (type === 'Property') {
+        router.push(`/Resident-dashboard/components/${path}?buyerId=${message.senderId}&propertyId=${message.propertyId}`);
+      } else {
+        router.push(`/Resident-dashboard/components/${path}?buyerId=${message.senderId}&productId=${message.productId}`);
+      }
+      setShowNotifications(false);
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 relative">
       {/* Background pattern overlay */}
@@ -559,9 +645,11 @@ const AndroidDashboard = ({ onLoaded }) => {
                 className="p-3 bg-white/15 backdrop-blur-sm rounded-xl hover:bg-white/25 transition-all duration-200 shadow-lg relative"
               >
                 <Bell size={20} />
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-bold text-white">3</span>
-                </div>
+                {unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-xs font-bold text-white">{unreadCount}</span>
+                  </div>
+                )}
               </button>
             </div>
           </div>
@@ -570,16 +658,16 @@ const AndroidDashboard = ({ onLoaded }) => {
 
       {/* Notification Popup - Without blur */}
       <div className={`fixed inset-0 z-50 flex items-start justify-end pt-16 px-4 transition-opacity duration-300 ${showNotifications ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        {/* Backdrop without blur */}
+        {/* Backdrop */}
         <div
-          className={`fixed inset-0 bg-black/20 transition-opacity duration-300 ${showNotifications ? 'opacity-100' : 'opacity-0'}`}
+          className={`fixed inset-0 bg-black/40 transition-opacity duration-300 ${showNotifications ? 'opacity-100' : 'opacity-0'}`}
           onClick={() => setShowNotifications(false)}
         ></div>
 
         {/* Notification Panel */}
-        <div className={`w-full max-w-sm bg-white/85 backdrop-blur-sm rounded-2xl shadow-xl relative z-10 border border-white/20 transform transition-all duration-300 ${showNotifications ? 'translate-x-0 scale-100' : 'translate-x-full scale-95'}`}>
+        <div className={`w-full max-w-sm bg-white rounded-2xl shadow-2xl relative z-10 transform transition-all duration-300 ${showNotifications ? 'translate-x-0 scale-100' : 'translate-x-full scale-95'}`}>
           {/* Header */}
-          <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-t-2xl">
+          <div className="p-4 bg-[#7C3AED] rounded-t-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
@@ -587,7 +675,7 @@ const AndroidDashboard = ({ onLoaded }) => {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-white">Notifications</h3>
-                  <p className="text-sm text-white/80">{notifications.length} new messages</p>
+                  <p className="text-sm text-white/80">{propertyMessages.length + productMessages.length} new messages</p>
                 </div>
               </div>
               <button
@@ -600,32 +688,75 @@ const AndroidDashboard = ({ onLoaded }) => {
           </div>
 
           {/* Notifications List */}
-          <div className="divide-y divide-gray-100 max-h-[70vh] overflow-y-auto">
-            {notifications.map((notification) => (
+          <div className="divide-y divide-gray-100 max-h-[70vh] overflow-y-auto bg-gray-50">
+            {/* Property Messages */}
+            {propertyMessages.map((message) => (
               <div
-                key={notification.id}
-                className="p-4 hover:bg-gray-50 transition-colors cursor-pointer relative group"
+                key={message._id}
+                onClick={() => handleMessageClick('Property', message)}
+                className="p-4 bg-white hover:bg-gray-50 transition-colors cursor-pointer relative group"
               >
                 <div className="flex items-start space-x-4">
-                  <div className={`${notification.color} w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                    <notification.icon className="w-5 h-5 text-white" />
+                  <div className="bg-blue-500 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                    <HomeIcon className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                    <p className="text-sm text-gray-500 line-clamp-2">{notification.message}</p>
-                    <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
+                    <p className="text-sm font-medium text-gray-900">Property Message</p>
+                    <p className="text-sm text-gray-500 line-clamp-2">
+                      {message.senderName}: {message.message}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
-                  <button className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
-                  </button>
+                  <ChevronRight className="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
             ))}
+
+            {/* Product Messages */}
+            {productMessages.map((message) => (
+              <div
+                key={message._id}
+                onClick={() => handleMessageClick('Product', message)}
+                className="p-4 bg-white hover:bg-gray-50 transition-colors cursor-pointer relative group"
+              >
+                <div className="flex items-start space-x-4">
+                  <div className="bg-green-500 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                    <Store className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">Product Message</p>
+                    <p className="text-sm text-gray-500 line-clamp-2">
+                      {message.senderName}: {message.message}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            ))}
+
+            {/* Empty State */}
+            {propertyMessages.length === 0 && productMessages.length === 0 && (
+              <div className="p-8 text-center text-gray-500 bg-white">
+                <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p>No new messages</p>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
-            <button className="w-full py-2 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg text-sm font-medium hover:from-indigo-600 hover:to-purple-600 transition-colors shadow-sm">
+          <div className="p-4 bg-white rounded-b-2xl border-t border-gray-100">
+            <button 
+              onClick={() => {
+                router.push('/Resident-dashboard/components/Notifications');
+                setShowNotifications(false);
+              }}
+              className="w-full py-3 bg-[#7C3AED] hover:bg-[#6D28D9] text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
+            >
               View All Notifications
             </button>
           </div>

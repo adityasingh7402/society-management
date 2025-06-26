@@ -100,14 +100,10 @@ export default async function handler(req, res) {
     try {
       const messageData = {
         propertyId,
-        societyId: property.societyId,
         senderId,
         receiverId,
         message,
-        readBy: [{
-          userId: senderId,
-          readAt: new Date()
-        }]
+        isRead: false
       };
 
       console.log('Creating new message with data:', messageData);

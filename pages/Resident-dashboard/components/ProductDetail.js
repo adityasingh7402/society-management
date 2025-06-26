@@ -4,6 +4,7 @@ import axios from 'axios';
 import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { toast } from 'react-hot-toast';
 
 const { 
   Heart, ArrowLeft, Share, Flag, MessageCircle, Send, Phone, 
@@ -269,35 +270,65 @@ const ProductDetail = () => {
     }
   };
 
-  const handleContactSeller = () => {
-    // Only allow contact if the current user is not the seller
-    if (!residentData || !product) {
-      alert("Please wait while we load product information");
-      return;
-    }
-    
-    if (residentData._id === product.sellerId) {
-      alert("This is your own listing");
-      return;
-    }
-    
+  const handleContactSeller = async () => {
     try {
-      // Store seller info in localStorage for chat component to use
-      const chatData = {
-        sellerId: product.sellerId,
-        sellerName: product.sellerName || "Seller",
-        sellerImage: product.sellerImage || null,
-        productTitle: product.title || "Product",
-        productId: product._id
-      };
+      const token = localStorage.getItem('Resident');
+      if (!token) {
+        toast.error('Please log in to contact the seller');
+        router.push('/login');
+        return;
+      }
       
-      localStorage.setItem('chatWithSeller', JSON.stringify(chatData));
-      
-      // Redirect to community chat
-      router.push('/Resident-dashboard/Community');
+      // Wait for product and resident data to be loaded
+      if (!residentData) {
+        toast.error('Please wait while we load your profile');
+        return;
+      }
+
+      if (!product) {
+        toast.error('Please wait while we load the product details');
+        return;
+      }
+
+      if (!product._id || !product.sellerId || !product.title) {
+        toast.error('Invalid product data. Please refresh the page.');
+        return;
+      }
+
+      // Don't allow contacting self
+      if (residentData._id === product.sellerId) {
+        toast.error('This is your own listing');
+        return;
+      }
+
+      // Format initial message with product details
+      const formattedPrice = formatPrice(product.price);
+      const initialMessage = `Hi, I'm interested in your product:\n\nTitle: ${product.title}\nPrice: ${formattedPrice}\nCategory: ${product.category}\nCondition: ${product.condition}`;
+
+      // Send initial message
+      const response = await axios.post(
+        '/api/Product-Api/send-message',
+        {
+          productId: product._id,
+          message: initialMessage,
+          receiverId: product.sellerId
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('Message sent successfully!');
+        // Navigate to chat
+        router.push(`/Resident-dashboard/components/ProductChat?buyerId=${residentData._id}&productId=${product._id}`);
+      } else {
+        throw new Error(response.data.message || 'Failed to send message');
+      }
     } catch (error) {
-      console.error('Error setting up chat with seller:', error);
-      alert('Failed to connect with seller. Please try again.');
+      toast.error('Failed to send message. Please try again.');
     }
   };
 
@@ -465,7 +496,7 @@ const ProductDetail = () => {
                       <img
                         src={residentData.userImage}
                         alt={residentData.name}
-                        className="h-10 w-10 rounded-full"
+                        className="h-8 w-8 rounded-full"
                       />
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -486,7 +517,7 @@ const ProductDetail = () => {
                     <button
                       type="submit"
                       disabled={!commentText.trim() || submittingComment}
-                      className={`absolute right-2 bottom-2 p-1.5 rounded-full ${
+                      className={`absolute right-2 bottom-6 p-1.5 rounded-full ${
                         !commentText.trim() || submittingComment
                           ? 'text-gray-400 bg-gray-100'
                           : 'text-blue-600 hover:bg-blue-50'
@@ -513,10 +544,10 @@ const ProductDetail = () => {
                           <img
                             src={comment.commenterImage}
                             alt={comment.commenterName}
-                            className="h-10 w-10 rounded-full"
+                            className="h-8 w-8 rounded-full"
                           />
                         ) : (
-                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
                             <span className="text-sm font-medium text-gray-500">
                               {comment.commenterName.charAt(0)}
                             </span>
@@ -526,12 +557,12 @@ const ProductDetail = () => {
                       <div className="flex-grow">
                         <div className="bg-gray-50 rounded-lg px-4 py-3">
                           <div className="flex justify-between items-center mb-1">
-                            <p className="font-medium text-gray-900">{comment.commenterName}</p>
+                            <p className="font-medium text-sm text-gray-900">{comment.commenterName}</p>
                             <p className="text-xs text-gray-500">
                               {formatDate(comment.createdAt)} at {formatTime(comment.createdAt)}
                             </p>
                           </div>
-                          <p className="text-gray-700">{comment.text}</p>
+                          <p className="text-gray-700 text-xs">{comment.text}</p>
                         </div>
                       </div>
                     </div>

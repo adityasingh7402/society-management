@@ -1,5 +1,5 @@
 import connectToDatabase from '../../../lib/mongodb';
-import PropertyMessage from '../../../models/PropertyMessage';
+import ProductMessage from '../../../models/ProductMessage';
 import jwt from 'jsonwebtoken';
 import Resident from '../../../models/Resident';
 import mongoose from 'mongoose';
@@ -28,38 +28,75 @@ export default async function handler(req, res) {
     // Connect to the database
     await connectToDatabase();
 
-    // Get count only if count=true in query
-    if (req.query.count === 'true') {
-      const unreadCount = await PropertyMessage.countDocuments({
+    // Get query parameters
+    const { productId, otherUserId, since } = req.query;
+
+    // Build base query for user's messages
+    let query = {};
+
+    // If both productId and otherUserId are provided, get specific conversation
+    if (productId && otherUserId) {
+      query = {
+        productId: productId,
+        $or: [
+          { senderId: userId, receiverId: otherUserId },
+          { senderId: otherUserId, receiverId: userId }
+        ]
+      };
+    }
+    // If only productId is provided, get all messages for that product
+    else if (productId) {
+      query = {
+        productId: productId,
         $or: [
           { senderId: userId },
           { receiverId: userId }
-        ],
-        'readBy.userId': { $ne: userId } // Messages where user hasn't read
-      });
-
-      return res.status(200).json({ unreadCount });
+        ]
+      };
+    }
+    // If only otherUserId is provided, get all messages between these users
+    else if (otherUserId) {
+      query = {
+        $or: [
+          { senderId: userId, receiverId: otherUserId },
+          { senderId: otherUserId, receiverId: userId }
+        ]
+      };
+    }
+    // If no specific filters, get all user's messages
+    else {
+      query = {
+        $or: [
+          { senderId: userId },
+          { receiverId: userId }
+        ]
+      };
     }
 
-    // Get all unread messages where the user is either sender or receiver
-    let messages = await PropertyMessage.find({
-      $or: [
-        { senderId: userId },
-        { receiverId: userId }
-      ],
-      'readBy.userId': { $ne: userId } // Messages where user hasn't read
-    }).lean();
+    // Add timestamp filter if 'since' parameter is provided
+    if (since) {
+      query.createdAt = { $gt: new Date(since) };
+    }
+
+    console.log('Query:', JSON.stringify(query, null, 2));
+
+    // Get messages based on query
+    let messages = await ProductMessage.find(query)
+      .sort({ createdAt: 1 }) // Sort by creation time ascending
+      .lean();
+
+    console.log('Found messages:', messages.length);
 
     // If no messages, return empty array
     if (!messages.length) {
       return res.status(200).json([]);
     }
 
-    // Populate property details
+    // Populate product details
     const populatedMessages = await Promise.all(messages.map(async (msg) => {
       try {
-        // Get property details
-        const property = await mongoose.model('Property').findById(msg.propertyId).select('title').lean();
+        // Get product details
+        const product = await mongoose.model('Product').findById(msg.productId).select('title').lean();
         
         // Get sender details
         const sender = await Resident.findById(msg.senderId).select('name userImage').lean();
@@ -70,9 +107,8 @@ export default async function handler(req, res) {
         return {
           _id: msg._id,
           message: msg.message,
-          propertyId: msg.propertyId,
-          propertyTitle: property?.title || 'Unknown Property',
-          societyId: msg.societyId,
+          productId: msg.productId,
+          productTitle: product?.title || 'Unknown Product',
           senderId: msg.senderId,
           senderName: sender?.name || 'Unknown User',
           senderImage: sender?.userImage,
@@ -80,7 +116,7 @@ export default async function handler(req, res) {
           receiverName: receiver?.name || 'Unknown User',
           receiverImage: receiver?.userImage,
           createdAt: msg.createdAt,
-          isRead: false // These are all unread messages
+          isRead: msg.isRead
         };
       } catch (err) {
         console.error('Error populating message:', err);
@@ -94,7 +130,7 @@ export default async function handler(req, res) {
     return res.status(200).json(formattedMessages);
 
   } catch (error) {
-    console.error('Error in get-unread-messages:', error);
+    console.error('Error in get-messages:', error);
     return res.status(500).json({ 
       message: 'Internal server error',
       error: error.message 

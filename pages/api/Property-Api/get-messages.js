@@ -28,35 +28,69 @@ export default async function handler(req, res) {
     // Connect to the database
     await connectToDatabase();
 
-    // Get all messages where the user is either sender or receiver
-    let messages = await PropertyMessage.find({
-      $or: [
-        { senderId: userId },
-        { receiverId: userId }
-      ]
-    }).lean();
+    // Get query parameters
+    const { propertyId, otherUserId, since } = req.query;
+
+    // Build base query for user's messages
+    let query = {};
+
+    // If both propertyId and otherUserId are provided, get specific conversation
+    if (propertyId && otherUserId) {
+      query = {
+        propertyId: propertyId,
+        $or: [
+          { senderId: userId, receiverId: otherUserId },
+          { senderId: otherUserId, receiverId: userId }
+        ]
+      };
+    }
+    // If only propertyId is provided, get all messages for that property
+    else if (propertyId) {
+      query = {
+        propertyId: propertyId,
+        $or: [
+          { senderId: userId },
+          { receiverId: userId }
+        ]
+      };
+    }
+    // If only otherUserId is provided, get all messages between these users
+    else if (otherUserId) {
+      query = {
+        $or: [
+          { senderId: userId, receiverId: otherUserId },
+          { senderId: otherUserId, receiverId: userId }
+        ]
+      };
+    }
+    // If no specific filters, get all user's messages
+    else {
+      query = {
+        $or: [
+          { senderId: userId },
+          { receiverId: userId }
+        ]
+      };
+    }
+
+    // Add timestamp filter if 'since' parameter is provided
+    if (since) {
+      query.createdAt = { $gt: new Date(since) };
+    }
+
+    console.log('Query:', JSON.stringify(query, null, 2));
+
+    // Get messages based on query
+    let messages = await PropertyMessage.find(query)
+      .sort({ createdAt: 1 }) // Sort by creation time ascending
+      .lean();
+
+    console.log('Found messages:', messages.length);
 
     // If no messages, return empty array
     if (!messages.length) {
       return res.status(200).json([]);
     }
-
-    // Mark messages as read for current user by adding to readBy array if not already there
-    await Promise.all(messages.map(async (msg) => {
-      if (!msg.readBy?.some(read => read.userId.toString() === userId)) {
-        await PropertyMessage.updateOne(
-          { _id: msg._id },
-          { 
-            $push: { 
-              readBy: {
-                userId: userId,
-                readAt: new Date()
-              }
-            }
-          }
-        );
-      }
-    }));
 
     // Populate property details
     const populatedMessages = await Promise.all(messages.map(async (msg) => {
@@ -70,9 +104,6 @@ export default async function handler(req, res) {
         // Get receiver details
         const receiver = await Resident.findById(msg.receiverId).select('name userImage').lean();
 
-        // Check if current user has read the message
-        const isRead = msg.readBy?.some(read => read.userId.toString() === userId) || false;
-
         return {
           _id: msg._id,
           message: msg.message,
@@ -85,7 +116,7 @@ export default async function handler(req, res) {
           receiverName: receiver?.name || 'Unknown User',
           receiverImage: receiver?.userImage,
           createdAt: msg.createdAt,
-          isRead: isRead
+          isRead: msg.isRead
         };
       } catch (err) {
         console.error('Error populating message:', err);

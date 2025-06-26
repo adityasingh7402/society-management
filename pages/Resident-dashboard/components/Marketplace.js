@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import { Plus, Filter, Search, Tag, ShoppingCart, X, ChevronDown, Heart, MessageCircle, RefreshCw, Trash2, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Plus, Filter, Search, Tag, ShoppingCart, Bell, ArrowLeft, Heart, MessageCircle, Trash2, AlertTriangle, X, ChevronDown, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import Head from 'next/head';
+import { toast } from 'react-hot-toast';
 
 // Define CSS animations
 const animationStyles = `
@@ -39,10 +40,36 @@ const Marketplace = () => {
   const [formattedProducts, setFormattedProducts] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [activeTab, setActiveTab] = useState('products');
+  const [messages, setMessages] = useState([]);
+  const [unreadMessages, setUnreadMessages] = useState({});
+  const [myListings, setMyListings] = useState([]);
+  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    fetchResidentData();
-  }, []);
+    if (router.isReady) {
+      fetchResidentData();
+    }
+  }, [router.isReady]);
+
+  useEffect(() => {
+    if (residentData) {
+      fetchProducts(residentData.societyId);
+      fetchMessages();
+    }
+  }, [residentData]);
+
+  // Add effect to refresh messages when component is focused
+  useEffect(() => {
+    const handleFocus = () => {
+      if (residentData?.societyId) {
+        fetchMessages();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [residentData]);
 
   const fetchResidentData = async () => {
     try {
@@ -66,9 +93,25 @@ const Marketplace = () => {
       setResidentData(data);
       
       // Fetch products after resident data is loaded
+      if (data.societyId) {
       fetchProducts(data.societyId);
+      }
     } catch (error) {
-      console.error('Error fetching resident details:', error);
+      toast.error('Error fetching resident details');
+    }
+  };
+
+  const fetchUnreadMessageCounts = async () => {
+    try {
+      const token = localStorage.getItem('Resident');
+      const response = await axios.get('/api/Product-Api/get-unread-counts', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      setUnreadMessages(response.data);
+    } catch (error) {
+      toast.error('Error fetching message counts');
     }
   };
 
@@ -85,15 +128,9 @@ const Marketplace = () => {
       setProducts(response.data);
       setFormattedProducts(response.data);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      toast.error('Error fetching products');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleRefresh = () => {
-    if (residentData?.societyId) {
-      fetchProducts(residentData.societyId);
     }
   };
 
@@ -115,36 +152,37 @@ const Marketplace = () => {
 
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
+    applyFilters(e.target.value, filters);
   };
 
-  const applyFilters = () => {
+  const applyFilters = (search = searchQuery, filterValues = filters) => {
     let filtered = [...products];
 
     // Apply search query
-    if (searchQuery) {
+    if (search) {
       filtered = filtered.filter(product => 
-        product.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        product.description.toLowerCase().includes(searchQuery.toLowerCase())
+        product.title.toLowerCase().includes(search.toLowerCase()) || 
+        product.description.toLowerCase().includes(search.toLowerCase())
       );
     }
 
     // Apply category filter
-    if (filters.category) {
-      filtered = filtered.filter(product => product.category === filters.category);
+    if (filterValues.category) {
+      filtered = filtered.filter(product => product.category === filterValues.category);
     }
 
     // Apply condition filter
-    if (filters.condition) {
-      filtered = filtered.filter(product => product.condition === filters.condition);
+    if (filterValues.condition) {
+      filtered = filtered.filter(product => product.condition === filterValues.condition);
     }
 
     // Apply price filters
-    if (filters.minPrice) {
-      filtered = filtered.filter(product => product.price >= parseFloat(filters.minPrice));
+    if (filterValues.minPrice) {
+      filtered = filtered.filter(product => product.price >= parseFloat(filterValues.minPrice));
     }
 
-    if (filters.maxPrice) {
-      filtered = filtered.filter(product => product.price <= parseFloat(filters.maxPrice));
+    if (filterValues.maxPrice) {
+      filtered = filtered.filter(product => product.price <= parseFloat(filterValues.maxPrice));
     }
 
     setFormattedProducts(filtered);
@@ -165,7 +203,7 @@ const Marketplace = () => {
 
   const handleLike = async (productId) => {
     if (!residentData) {
-      alert('Please login to like products');
+      toast.error('Please login to like products');
       return;
     }
 
@@ -185,7 +223,7 @@ const Marketplace = () => {
       );
 
       // Update products state with updated like status
-      setProducts(prevProducts => 
+      const updateProducts = (prevProducts) => 
         prevProducts.map(product => 
           product._id === productId 
             ? { 
@@ -195,24 +233,14 @@ const Marketplace = () => {
                   : product.likes.filter(id => id !== residentData._id)
               } 
             : product
-        )
-      );
+        );
 
-      // Also update formatted products
-      setFormattedProducts(prevProducts => 
-        prevProducts.map(product => 
-          product._id === productId 
-            ? { 
-                ...product, 
-                likes: response.data.liked 
-                  ? [...product.likes, residentData._id]
-                  : product.likes.filter(id => id !== residentData._id)
-              } 
-            : product
-        )
-      );
+      setProducts(updateProducts);
+      setFormattedProducts(updateProducts);
+
+      toast.success(response.data.liked ? 'Product liked' : 'Product unliked');
     } catch (error) {
-      console.error('Error liking product:', error);
+      toast.error('Error liking product');
     }
   };
 
@@ -230,39 +258,45 @@ const Marketplace = () => {
   };
 
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-IN', { 
-      style: 'currency', 
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
       currency: 'INR',
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(price);
+  };
+
+  const truncateMessage = (message) => {
+    const words = message.split(' ');
+    if (words.length > 6) {
+      return words.slice(0, 6).join(' ') + '...';
+    }
+    return message;
   };
 
   const handleDeleteProduct = async (productId) => {
     try {
       const token = localStorage.getItem('Resident');
       
-      const response = await axios.delete(`/api/Product-Api/delete-product?productId=${productId}`, {
+      await axios.delete(`/api/Product-Api/delete-product?productId=${productId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         }
       });
 
-      // Remove the deleted product from both states
       setProducts(prevProducts => prevProducts.filter(product => product._id !== productId));
       setFormattedProducts(prevProducts => prevProducts.filter(product => product._id !== productId));
       
-      // Close modal
       setShowDeleteModal(false);
       setProductToDelete(null);
+      toast.success('Product deleted successfully');
     } catch (error) {
-      console.error('Error deleting product:', error);
-      alert('Failed to delete product');
+      toast.error('Failed to delete product');
     }
   };
 
   const openDeleteModal = (e, product) => {
-    e.stopPropagation(); // Prevent triggering the parent click
-    e.preventDefault(); // Prevent link navigation
+    e.stopPropagation();
+    e.preventDefault();
     setProductToDelete(product);
     setShowDeleteModal(true);
   };
@@ -272,17 +306,115 @@ const Marketplace = () => {
     setProductToDelete(null);
   };
 
-  const goBack = () => {
-    router.push('/Resident-dashboard');
+  const getMyListings = () => {
+    if (!residentData) return [];
+    return products.filter(product => product.sellerId === residentData._id);
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'myListings') {
+      setFormattedProducts(getMyListings());
+    } else if (tab === 'products') {
+      setFormattedProducts(products);
+    }
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const token = localStorage.getItem('Resident');
+      if (!token) {
+        console.error('No token found');
+        toast.error('Please log in again');
+        router.push('/login');
+        return;
+      }
+
+      if (!residentData?._id) {
+        console.error('No resident data found');
+        return;
+      }
+
+      // Get all messages for the user
+      const response = await axios.get('/api/Product-Api/get-messages', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      
+      // Reset unread messages state
+      setUnreadMessages({});
+      
+      // Group messages by unique conversation (product + other user combination)
+      const conversations = {};
+      const unreadCounts = {};
+
+      response.data.forEach(msg => {
+        const isUserSender = msg.senderId === residentData._id;
+        const otherUserId = isUserSender ? msg.receiverId : msg.senderId;
+        const conversationKey = `${msg.productId}-${otherUserId}`;
+        
+        // Only update the conversation if this message is newer
+        if (!conversations[conversationKey] || 
+            new Date(msg.createdAt) > new Date(conversations[conversationKey].createdAt)) {
+          conversations[conversationKey] = {
+            otherUser: {
+              id: otherUserId,
+              name: isUserSender ? msg.receiverName : msg.senderName,
+              image: isUserSender ? msg.receiverImage : msg.senderImage
+            },
+            product: {
+              id: msg.productId,
+              title: msg.productTitle
+            },
+            message: msg.message,
+            createdAt: msg.createdAt,
+            isUserSender
+          };
+        }
+
+        // Track unread messages per product
+        if (!msg.isRead && msg.receiverId === residentData._id) {
+          if (!unreadCounts[msg.productId]) {
+            unreadCounts[msg.productId] = 0;
+          }
+          unreadCounts[msg.productId]++;
+        }
+      });
+
+      // Update unread counts state
+      setUnreadMessages(unreadCounts);
+      
+      // Convert to array and sort by latest message
+      const sortedMessages = Object.values(conversations)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      setMessages(sortedMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      if (error.response?.data?.error) {
+        console.error('Server error details:', error.response.data.error);
+      }
+      toast.error('Failed to load messages');
+    }
+  };
+
+  // Filter products based on active tab
+  const getFilteredProducts = () => {
+    if (activeTab === 'my-listings') {
+      return formattedProducts.filter(prop => prop.sellerId === residentData?._id);
+    } else if (activeTab === 'responses') {
+      return messages;
+    } else {
+      // Show all products in the Products tab
+      return formattedProducts;
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 border-solid mx-auto"></div>
-          <p className="mt-4 text-gray-700 text-lg">Loading products...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -294,11 +426,11 @@ const Marketplace = () => {
       </Head>
       
       {/* Header */}
-      <div className="bg-white z-20 shadow-md py-4 px-6 sticky top-0">
-        <div className="max-w-6xl mx-auto">
+      <div className="bg-white z-20 shadow-md py-4 sticky top-0">
+        <div className="max-w-6xl mx-auto px-4">
           <div className="p-2">
             <button
-              onClick={goBack}
+              onClick={() => router.push('/Resident-dashboard')}
               className="flex items-center space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors"
             >
               <ArrowLeft size={18} />
@@ -308,23 +440,59 @@ const Marketplace = () => {
           <div className="flex items-center justify-between mt-2">
             <h1 className="text-2xl font-bold text-gray-800">Marketplace</h1>
             <div className="flex items-center space-x-2">
-              {/* <button 
-                onClick={handleRefresh}
-                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-              >
-                <RefreshCw size={20} />
-              </button> */}
               <button 
                 onClick={handleAddNew}
                 className="bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center hover:bg-blue-700 transition-colors"
               >
-                <Plus size={18} className="mr-1" />
-                <span>List Product</span>
+                <Plus size={24} className="" />
               </button>
             </div>
           </div>
 
-          {/* Search and Filter */}
+          {/* Tabs */}
+          <div className="flex mt-6 border-b">
+            <button
+              onClick={() => setActiveTab('products')}
+              className={`flex-1 px-4 py-2 text-sm font-medium ${
+                activeTab === 'products'
+                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Products
+            </button>
+            <button
+              onClick={() => setActiveTab('my-listings')}
+              className={`flex-1 px-4 py-2 text-sm font-medium ${
+                activeTab === 'my-listings'
+                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              My Listings
+            </button>
+            <button
+              onClick={() => setActiveTab('responses')}
+              className={`flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center relative ${
+                activeTab === 'responses'
+                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="relative">
+                <Bell width={20} height={20}/>
+                {Object.values(unreadMessages).reduce((a, b) => a + b, 0) > 0 && 
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
+                    {Object.values(unreadMessages).reduce((a, b) => a + b, 0)}
+                  </span>
+                }
+              </div>
+            </button>
+          </div>
+
+          {/* Search and Filter - Only show for 'all' and 'my-listings' tabs */}
+          {activeTab !== 'responses' && (
+            <>
           <div className="mt-4 flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-2">
             <div className="relative flex-1">
               <input
@@ -345,11 +513,211 @@ const Marketplace = () => {
               <ChevronDown size={16} className={`transform transition-transform ${showFilters ? 'rotate-180' : ''}`} />
             </button>
           </div>
+            </>
+          )}
+        </div>
+      </div>
 
-          {/* Filter Panel */}
+      {/* Content Area */}
+      <div className="max-w-4xl mx-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : getFilteredProducts().length === 0 ? (
+          <div className="text-center py-12">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {activeTab === 'responses' ? 'No messages yet' : 'No products found'}
+            </h3>
+            <p className="text-gray-500 mb-6">
+              {activeTab === 'my-listings'
+                ? "You haven't listed any products yet"
+                : activeTab === 'responses'
+                ? "When you receive messages about products, they'll appear here"
+                : "There are no products available in your society yet"}
+            </p>
+            {activeTab !== 'responses' && (
+              <button
+                onClick={handleAddNew}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                List a Product
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="w-full mx-auto px-1 mt-3">
+            {activeTab === 'responses' ? (
+              // Messages View
+              <div className="bg-white rounded-lg shadow">
+                {messages.length === 0 ? (
+                  <div className="text-center py-10">
+                    <MessageCircle size={48} className="mx-auto text-gray-400 mb-4" />
+                    <h2 className="text-xl font-semibold text-gray-700 mb-2">No messages yet</h2>
+                    <p className="text-gray-500">When you receive messages about products, they'll appear here.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {messages.map((conversation) => {
+                      const { otherUser, product, message, createdAt } = conversation;
+                      
+                      return (
+                        <Link
+                          key={`${product.id}-${otherUser.id}`}
+                          href={`/Resident-dashboard/components/ProductChat?buyerId=${otherUser.id}&productId=${product.id}`}
+                          className="block p-4 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center space-x-3">
+                            {otherUser.image ? (
+                              <img src={otherUser.image} alt={otherUser.name} className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <span className="text-blue-600 font-medium">{otherUser.name?.[0]}</span>
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <h3 className="font-medium text-gray-900">{otherUser.name}</h3>
+                                <span className="text-sm text-gray-500">
+                                  {new Date(createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mt-1">{product.title}</p>
+                              <p className="text-sm text-gray-500 mt-1">{truncateMessage(message)}</p>
+                            </div>
+                            {unreadMessages[product.id] > 0 && (
+                              <div className="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-medium">
+                                {unreadMessages[product.id]}
+                              </div>
+                            )}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Regular Products Grid
+              <div className="grid grid-cols-2 gap-1 auto-rows-fr">
+                {getFilteredProducts().map((product, index) => (
+                  <Link 
+                    key={product._id} 
+                    href={`/Resident-dashboard/components/ProductDetail?id=${product._id}`}
+                    className="block bg-white rounded-xl overflow-hidden shadow hover:shadow-lg transition-all duration-300 cursor-pointer h-full transform hover:-translate-y-1"
+                    style={{ order: index + 1 }}
+                  >
+                    {/* Product Image */}
+                    <div className="relative w-full h-40">
+                      {/* Delete button - only show for the product owner */}
+                      {residentData && product.sellerId === residentData._id && (
+                        <button 
+                          onClick={(e) => openDeleteModal(e, product)} 
+                          className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow-md hover:bg-red-100 transition-colors z-10"
+                          title="Delete product"
+                        >
+                          <Trash2 size={16} className="text-red-500" />
+                        </button>
+                      )}
+                      
+                      {product.images && product.images.length > 0 ? (
+                        <img
+                          src={product.images[0]}
+                          alt={product.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                          <Tag size={28} className="text-gray-400" />
+                        </div>
+                      )}
+                      
+                      {/* Status Tag */}
+                      <div className="absolute top-2 left-2 px-3 py-1 text-xs font-medium rounded-full bg-green-500 text-white">
+                        Available
+                      </div>
+                    </div>
+                    
+                    {/* Product Info */}
+                    <div className="p-3">
+                      <h3 className="text-base font-semibold text-gray-800 hover:text-blue-600 line-clamp-1">
+                        {product.title}
+                      </h3>
+                      
+                      <div className="mt-1">
+                        <span className="text-lg font-bold text-blue-600">₹{formatPrice(product.price)}</span>
+                      </div>
+                      
+                      <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
+                        <div className="flex items-center text-gray-600">
+                          <span>{product.category}</span>
+                        </div>
+                        <div className="flex items-center text-gray-600">
+                          <span>{product.condition}</span>
+                        </div>
+                      </div>
+                      
+                      <p className="mt-1.5 text-xs text-gray-600 line-clamp-2">{product.description}</p>
+                      
+                      {/* Seller Info */}
+                      <div className="mt-2 flex items-center justify-between border-t pt-2">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0">
+                            {product.sellerImage ? (
+                              <img
+                                src={product.sellerImage}
+                                alt={product.sellerName}
+                                className="h-5 w-5 rounded-full"
+                              />
+                            ) : (
+                              <div className="h-5 w-5 rounded-full bg-gray-200 flex items-center justify-center">
+                                <span className="text-xs font-medium text-gray-500">
+                                  {product.sellerName.charAt(0)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="ml-1.5">
+                            <p className="text-xs text-gray-500 line-clamp-1">{product.sellerName}</p>
+                            <p className="text-[10px] text-gray-400">{formatDate(product.createdAt)}</p>
+                          </div>
+                        </div>
+                        
+                        {/* Actions */}
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={(e) => handleLike(product._id)}
+                            className={`flex items-center space-x-1 ${
+                              isLikedByUser(product) ? 'text-red-500' : 'text-gray-500'
+                            }`}
+                          >
+                            <Heart size={12} fill={isLikedByUser(product) ? 'currentColor' : 'none'} />
+                            <span className="text-[10px]">{product.likes.length}</span>
+                          </button>
+                          {unreadMessages[product._id] > 0 && (
+                            <div className="flex items-center space-x-1">
+                              <MessageCircle size={12} className="text-blue-500" />
+                              <span className="text-[10px] text-blue-500 font-medium">
+                                {unreadMessages[product._id]}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Filter Modal */}
           {showFilters && (
             <div className="mt-4 bg-white p-4 border rounded-lg shadow-sm">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">Category</label>
                   <select
@@ -386,26 +754,44 @@ const Marketplace = () => {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Min Price (₹)</label>
+              <label className="block text-sm font-medium text-gray-700">Min Price</label>
+              <div className="flex space-x-2">
                   <input
                     type="number"
                     name="minPrice"
                     value={filters.minPrice}
                     onChange={handleFilterChange}
-                    placeholder="Min"
+                  placeholder="Amount"
                     className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                <select
+                  name="minPriceUnit"
+                  className="w-24 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="lakh">Lakh</option>
+                  <option value="crore">Crore</option>
+                </select>
+              </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Max Price (₹)</label>
+              <label className="block text-sm font-medium text-gray-700">Max Price</label>
+              <div className="flex space-x-2">
                   <input
                     type="number"
                     name="maxPrice"
                     value={filters.maxPrice}
                     onChange={handleFilterChange}
-                    placeholder="Max"
+                  placeholder="Amount"
                     className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                <select
+                  name="maxPriceUnit"
+                  className="w-24 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="lakh">Lakh</option>
+                  <option value="crore">Crore</option>
+                </select>
+              </div>
                 </div>
               </div>
               <div className="mt-4 flex justify-end space-x-2">
@@ -424,141 +810,6 @@ const Marketplace = () => {
               </div>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Products Display */}
-      <div className="w-full max-w-4xl mx-auto px-4 mt-6">
-        {formattedProducts.length === 0 ? (
-          <div className="text-center py-10">
-            <ShoppingCart size={48} className="mx-auto text-gray-400 mb-4" />
-            <h2 className="text-xl font-semibold text-gray-700 mb-2">No products found</h2>
-            <p className="text-gray-500 mb-4">There are no products available in your society right now.</p>
-            <button
-              onClick={handleAddNew}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Be the first to list a product
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {formattedProducts.map((product) => (
-              <Link 
-                key={product._id} 
-                href={`/Resident-dashboard/components/ProductDetail?id=${product._id}`}
-                className="block bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full"
-              >
-                {/* Product Image */}
-                <div className="relative w-full h-48">
-                  {/* Delete button - only show for the product owner */}
-                  {residentData && product.sellerId === residentData._id && (
-                    <button 
-                      onClick={(e) => openDeleteModal(e, product)} 
-                      className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow-md hover:bg-red-100 transition-colors z-10"
-                      title="Delete product"
-                    >
-                      <Trash2 size={16} className="text-red-500" />
-                    </button>
-                  )}
-                  
-                  {product.images && product.images.length > 0 ? (
-                    <img
-                      src={product.images[0]}
-                      alt={product.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <Tag size={32} className="text-gray-400" />
-                    </div>
-                  )}
-                  
-                  {/* Status Tag */}
-                  {product.status !== 'Available' && (
-                    <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-0.5 text-xs font-semibold rounded">
-                      {product.status}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Product Info */}
-                <div className="p-3">
-                  <h3 className="text-base font-semibold text-gray-800 hover:text-blue-600 line-clamp-1">{product.title}</h3>
-                  
-                  <div className="mt-1">
-                    <span className="text-lg font-bold text-blue-600">{formatPrice(product.price)}</span>
-                  </div>
-                  
-                  <div className="mt-1.5 flex items-center text-sm text-gray-500">
-                    <span className="text-xs mr-1.5">Condition:</span>
-                    <span className={`px-1.5 py-0.5 rounded text-xs ${
-                      product.condition === 'New' ? 'bg-green-100 text-green-800' :
-                      product.condition === 'Like New' ? 'bg-emerald-100 text-emerald-800' :
-                      product.condition === 'Good' ? 'bg-blue-100 text-blue-800' :
-                      product.condition === 'Fair' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {product.condition}
-                    </span>
-                  </div>
-                  
-                  <p className="mt-1.5 text-xs text-gray-600 line-clamp-1">{product.description}</p>
-                  
-                  {/* Seller Info */}
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        {product.sellerImage ? (
-                          <img
-                            src={product.sellerImage}
-                            alt={product.sellerName}
-                            className="h-6 w-6 rounded-full"
-                          />
-                        ) : (
-                          <div className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-xs font-medium text-gray-500">
-                              {product.sellerName.charAt(0)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="ml-1.5">
-                        <p className="text-xs text-gray-500 line-clamp-1">{product.sellerName}</p>
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {formatDate(product.createdAt)}
-                    </div>
-                  </div>
-                  
-                  {/* Actions */}
-                  <div className="mt-2 pt-2 border-t flex items-center justify-between">
-                    <button 
-                      className={`flex items-center space-x-1 ${
-                        isLikedByUser(product) ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
-                      }`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleLike(product._id);
-                      }}
-                    >
-                      <Heart size={14} fill={isLikedByUser(product) ? 'currentColor' : 'none'} />
-                      <span className="text-xs">{product.likes.length}</span>
-                    </button>
-                    
-                    <div className="flex items-center space-x-1 text-gray-500">
-                      <MessageCircle size={14} />
-                      <span className="text-xs">{product.comments.length}</span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
       
       {/* Delete Confirmation Modal */}
       {showDeleteModal && productToDelete && (

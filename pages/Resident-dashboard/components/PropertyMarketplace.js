@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import { Plus, Filter, Search, Home, ShoppingCart, X, ChevronDown, Heart, MessageCircle, RefreshCw, Trash2, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Plus, Filter, Search, Home, Bell, X, ChevronDown, Heart, MessageCircle, RefreshCw, Trash2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
@@ -103,7 +103,7 @@ const PropertyMarketplace = () => {
       setProperties(response.data);
       setFormattedProperties(response.data);
     } catch (error) {
-      console.error('Error fetching properties:', error);
+      toast.error('Error fetching properties');
     } finally {
       setLoading(false);
     }
@@ -195,7 +195,7 @@ const PropertyMarketplace = () => {
 
   const handleLike = async (propertyId) => {
     if (!residentData) {
-      alert('Please login to like properties');
+      toast.error('Please login to like properties');
       return;
     }
 
@@ -242,7 +242,7 @@ const PropertyMarketplace = () => {
         )
       );
     } catch (error) {
-      console.error('Error liking property:', error);
+      toast.error('Error liking property');
     }
   };
 
@@ -260,18 +260,19 @@ const PropertyMarketplace = () => {
   };
 
   const formatPrice = (price) => {
-    const crore = Math.floor(price / 10000000);
-    const lakh = Math.floor((price % 10000000) / 100000);
-    
-    let formattedPrice = '';
-    if (crore > 0) {
-      formattedPrice += `${crore} Cr `;
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
+
+  const truncateMessage = (message) => {
+    const words = message.split(' ');
+    if (words.length > 4) {
+      return words.slice(0, 4).join(' ') + '...';
     }
-    if (lakh > 0) {
-      formattedPrice += `${lakh} L`;
-    }
-    
-    return formattedPrice.trim() || '0';
+    return message;
   };
 
   const handleDeleteProperty = async (propertyId) => {
@@ -291,9 +292,10 @@ const PropertyMarketplace = () => {
       // Close modal
       setShowDeleteModal(false);
       setPropertyToDelete(null);
+      
+      toast.success('Property deleted successfully');
     } catch (error) {
-      console.error('Error deleting property:', error);
-      alert('Failed to delete property');
+      toast.error('Failed to delete property');
     }
   };
 
@@ -335,37 +337,64 @@ const PropertyMarketplace = () => {
         return;
       }
 
+      // Get all messages for the user (without propertyId or otherUserId filters)
       const response = await axios.get('/api/Property-Api/get-messages', {
         headers: {
           Authorization: `Bearer ${token}`,
         }
       });
       
-      // Group messages by resident and get latest message for each
-      const messagesByResident = {};
+      // Reset unread messages state
+      setUnreadMessages({});
+      
+      // Group messages by unique conversation (property + other user combination)
+      const conversations = {};
+      const unreadCounts = {};
+
       response.data.forEach(msg => {
-        const otherUserId = msg.senderId === residentData._id ? msg.receiverId : msg.senderId;
-        const otherUserName = msg.senderId === residentData._id ? msg.receiverName : msg.senderName;
-        const otherUserImage = msg.senderId === residentData._id ? msg.receiverImage : msg.senderImage;
+        const isUserSender = msg.senderId === residentData._id;
+        const otherUserId = isUserSender ? msg.receiverId : msg.senderId;
+        const conversationKey = `${msg.propertyId}-${otherUserId}`;
         
-        if (!messagesByResident[otherUserId] || new Date(msg.createdAt) > new Date(messagesByResident[otherUserId].createdAt)) {
-          messagesByResident[otherUserId] = {
+        // Only update the conversation if this message is newer
+        if (!conversations[conversationKey] || 
+            new Date(msg.createdAt) > new Date(conversations[conversationKey].createdAt)) {
+          conversations[conversationKey] = {
             ...msg,
-            userName: otherUserName,
-            userImage: otherUserImage
+            otherUser: {
+              id: otherUserId,
+              name: isUserSender ? msg.receiverName : msg.senderName,
+              image: isUserSender ? msg.receiverImage : msg.senderImage
+            },
+            property: {
+              id: msg.propertyId,
+              title: msg.propertyTitle
+            },
+            createdAt: msg.createdAt,
+            isUserSender
           };
         }
-        
-        // Track unread messages
+
+        // Track unread messages per conversation
         if (!msg.isRead && msg.receiverId === residentData._id) {
-          setUnreadMessages(prev => ({
-            ...prev,
-            [otherUserId]: (prev[otherUserId] || 0) + 1
-          }));
+          unreadCounts[conversationKey] = (unreadCounts[conversationKey] || 0) + 1;
         }
       });
+
+      // Update unread counts state
+      Object.entries(unreadCounts).forEach(([conversationKey, count]) => {
+        const [_, otherUserId] = conversationKey.split('-');
+        setUnreadMessages(prev => ({
+          ...prev,
+          [otherUserId]: count
+        }));
+      });
       
-      setMessages(Object.values(messagesByResident));
+      // Convert to array and sort by latest message
+      const sortedMessages = Object.values(conversations)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      setMessages(sortedMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
       if (error.response?.data?.error) {
@@ -375,27 +404,7 @@ const PropertyMarketplace = () => {
     }
   };
 
-  const handleShowInterest = async (propertyId) => {
-    try {
-      const token = localStorage.getItem('Resident');
-      await axios.post('/api/Property-Api/send-message', {
-        propertyId,
-        message: "I'm interested in this property",
-        receiverId: property.sellerId
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        }
-      });
-      
-      // Refresh messages after showing interest
-      fetchMessages();
-      toast.success('Interest shown successfully!');
-    } catch (error) {
-      console.error('Error showing interest:', error);
-      toast.error('Failed to show interest');
-    }
-  };
+  
 
   // Filter properties based on active tab
   const getFilteredProperties = () => {
@@ -449,20 +458,20 @@ const PropertyMarketplace = () => {
           </div>
 
           {/* Tabs */}
-          <div className="flex space-x-1 mt-6 border-b">
+          <div className="flex mt-6 border-b">
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
+              className={`flex-1 px-4 py-2 text-sm font-medium ${
                 activeTab === 'all'
                   ? 'bg-white text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              All Properties
+              Properties
             </button>
             <button
               onClick={() => setActiveTab('my-listings')}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
+              className={`flex-1 px-4 py-2 text-sm font-medium ${
                 activeTab === 'my-listings'
                   ? 'bg-white text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
@@ -472,17 +481,20 @@ const PropertyMarketplace = () => {
             </button>
             <button
               onClick={() => setActiveTab('responses')}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
+              className={`flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center relative ${
                 activeTab === 'responses'
                   ? 'bg-white text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              Responses {Object.values(unreadMessages).reduce((a, b) => a + b, 0) > 0 && 
-                <span className="ml-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {Object.values(unreadMessages).reduce((a, b) => a + b, 0)}
-                </span>
-              }
+              <div className="relative">
+                <Bell width={20} height={20}/>
+                {Object.values(unreadMessages).reduce((a, b) => a + b, 0) > 0 && 
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
+                    {Object.values(unreadMessages).reduce((a, b) => a + b, 0)}
+                  </span>
+                }
+              </div>
             </button>
           </div>
 
@@ -638,7 +650,7 @@ const PropertyMarketplace = () => {
       </div>
 
       {/* Properties Display */}
-      <div className="w-full max-w-6xl mx-auto px-4 mt-6">
+      <div className="w-full mx-auto px-1 mt-3">
         {activeTab === 'responses' ? (
           // Messages View
           <div className="bg-white rounded-lg shadow">
@@ -651,40 +663,41 @@ const PropertyMarketplace = () => {
             ) : (
               <div className="divide-y">
                 {messages.map((message) => {
-                  const otherUserId = message.senderId === residentData?._id ? message.receiverId : message.senderId;
-                  const hasUnread = unreadMessages[otherUserId] > 0;
+                  const hasUnread = unreadMessages[message.otherUser.id] > 0;
+                  const isUserSender = message.senderId === residentData._id;
                   
                   return (
-                    <div key={message._id} className="p-4 hover:bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          {message.userImage ? (
-                            <img src={message.userImage} alt={message.userName} className="w-10 h-10 rounded-full" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-blue-600 font-medium">{message.userName?.[0]}</span>
-                            </div>
-                          )}
-                          <div>
-                            <h3 className="font-medium text-gray-900">{message.userName}</h3>
-                            <p className="text-sm text-gray-500">
-                              Re: {message.propertyTitle}
-                              {hasUnread && (
-                                <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
-                                  {unreadMessages[otherUserId]} new
-                                </span>
-                              )}
-                            </p>
+                    <Link
+                      key={`${message.property.id}-${message.otherUser.id}`}
+                      href={`/Resident-dashboard/components/PropertyChat?buyerId=${message.otherUser.id}&propertyId=${message.property.id}`}
+                      className="block p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3 ">
+                        {message.otherUser.image ? (
+                          <img src={message.otherUser.image} alt={message.otherUser.name} className="w-10 h-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span className="text-blue-600 font-medium">{message.otherUser.name?.[0]}</span>
                           </div>
+                        )}
+                        <div className="flex-1">
+                          <h3 className="font-medium text-gray-900">
+                            {message.otherUser.name}
+                          </h3>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-gray-500">
+                              {message.property.title}
+                            </p>
+                            {hasUnread && (
+                              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                                {unreadMessages[message.otherUser.id]} new
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">{truncateMessage(message.message)}</p>
                         </div>
-                        <Link
-                          href={`/Resident-dashboard/components/PropertyChat?buyerId=${otherUserId}&propertyId=${message.propertyId}`}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                        >
-                          Chat
-                        </Link>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -692,7 +705,7 @@ const PropertyMarketplace = () => {
           </div>
         ) : (
           // Regular Properties Grid
-          <div className="grid grid-cols-2 gap-4 auto-rows-fr">
+          <div className="grid grid-cols-2 gap-1 auto-rows-fr">
             {getFilteredProperties().map((property, index) => (
               <Link 
                 key={property._id} 

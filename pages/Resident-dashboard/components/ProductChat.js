@@ -1,22 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import { ArrowLeft, Send, Image as ImageIcon } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { ArrowLeft, Send } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 
-const PropertyChat = () => {
+const ProductChat = () => {
   const router = useRouter();
-  const { buyerId, propertyId } = router.query;
+  const { buyerId, productId } = router.query;
+  const messagesEndRef = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [residentData, setResidentData] = useState(null);
+  const [productData, setProductData] = useState(null);
+  const [otherUser, setOtherUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [residentData, setResidentData] = useState(null);
-  const [propertyData, setPropertyData] = useState(null);
-  const [error, setError] = useState(null);
-  const [otherUser, setOtherUser] = useState(null);
-  const messagesEndRef = useRef(null);
   const [lastMessageTimestamp, setLastMessageTimestamp] = useState(null);
 
   useEffect(() => {
@@ -26,22 +25,22 @@ const PropertyChat = () => {
   }, [router.isReady]);
 
   useEffect(() => {
-    if (propertyId && residentData) {
-      fetchPropertyData();
+    if (productId && residentData) {
+      fetchProductData();
       fetchMessages();
       
       // Set up real-time updates with optimized polling
       const interval = setInterval(async () => {
         // Only fetch if we have a last message timestamp
-        if (lastMessageTimestamp && propertyData) {
+        if (lastMessageTimestamp && productData) {
           try {
             const token = localStorage.getItem('Resident');
             const response = await axios.get(
-              `/api/Property-Api/get-messages`,
+              `/api/Product-Api/get-messages`,
               {
                 params: {
-                  propertyId,
-                  otherUserId: residentData._id === propertyData.sellerId ? buyerId : propertyData.sellerId,
+                  productId,
+                  otherUserId: residentData._id === productData.sellerId ? buyerId : productData.sellerId,
                   since: lastMessageTimestamp
                 },
                 headers: {
@@ -49,33 +48,31 @@ const PropertyChat = () => {
                 }
               }
             );
-            
-            // Only update messages if we got new ones
-            if (response.data && response.data.length > 0) {
+
+            if (response.data.length > 0) {
               setMessages(prevMessages => [...prevMessages, ...response.data]);
-              setLastMessageTimestamp(new Date().toISOString());
+              setLastMessageTimestamp(response.data[response.data.length - 1].createdAt);
             }
           } catch (error) {
-            toast.error('Error updating messages');
+            console.error('Error polling messages:', error);
           }
         }
-      }, 5000);
-      
+      }, 5000); // Poll every 5 seconds
+
       return () => clearInterval(interval);
     }
-  }, [propertyId, residentData, lastMessageTimestamp, propertyData]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, [productId, residentData, lastMessageTimestamp, productData]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const fetchResidentData = async () => {
     try {
-      setLoading(true);
       const token = localStorage.getItem('Resident');
       if (!token) {
         router.push('/login');
@@ -95,76 +92,38 @@ const PropertyChat = () => {
       const data = await response.json();
       setResidentData(data);
     } catch (error) {
-      console.error('Error fetching resident details:', error);
-      setError('Failed to load your profile');
-    } finally {
-      setLoading(false);
+      setError('Failed to load user data. Please try again.');
+      toast.error('Failed to load user data');
     }
   };
 
-  const fetchPropertyData = async () => {
+  const fetchProductData = async () => {
     try {
-      if (!propertyId) {
-        setError('No property ID provided');
-        return;
-      }
-
       const token = localStorage.getItem('Resident');
-      if (!token) {
-        setError('Authentication token not found');
-        return;
-      }
-
-      const response = await axios.get('/api/Property-Api/get-property', {
-        params: { propertyId },
+      const response = await axios.get(`/api/Product-Api/get-product?productId=${productId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         }
       });
+      setProductData(response.data);
 
-      setPropertyData(response.data);
-      
-      // Only proceed if we have both resident data and property data
-      if (residentData && response.data) {
-        // Set other user based on whether current user is buyer or seller
-        const otherUserId = residentData._id === response.data.sellerId ? buyerId : response.data.sellerId;
-        if (otherUserId) {
-          await fetchOtherUserDetails(otherUserId);
-        } else {
-          setError('Could not determine other user ID');
-          setLoading(false);
-        }
-      }
-    } catch (error) {
-      setError('Failed to load property information');
-    }
-  };
-
-  const fetchOtherUserDetails = async (userId) => {
-    try {
-      if (!userId) {
-        setError('No user ID provided');
-        setLoading(false);
-        return;
-      }
-
-      const token = localStorage.getItem('Resident');
-      const response = await axios.get(`/api/Resident-Api/get-resident-by-id?residentId=${userId}`, {
+      // Set other user based on who is viewing
+      const otherUserId = residentData._id === response.data.sellerId ? buyerId : response.data.sellerId;
+      const otherUserResponse = await axios.get(`/api/Resident-Api/get-resident-by-id?residentId=${otherUserId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         }
       });
-      setOtherUser(response.data.resident);
-      setLoading(false);
+      setOtherUser(otherUserResponse.data.resident);
     } catch (error) {
-      toast.error('Failed to load user details');
-      setLoading(false);
+      setError('Failed to load product data. Please try again.');
+      toast.error('Failed to load product data');
     }
   };
 
   const fetchMessages = async () => {
     try {
-      setLoadingMessages(true);
+      setLoading(true);
       const token = localStorage.getItem('Resident');
       if (!token) {
         toast.error('Please log in again');
@@ -172,31 +131,16 @@ const PropertyChat = () => {
         return;
       }
 
-      // if (!residentData?._id) {
-      //   setError('No resident data found');
-      //   return;
-      // }
-
-      // if (!propertyData) {
-      //   setError('No property data found');
-      //   return;
-      // }
-
-      // if (!propertyId || !buyerId) {
-      //   setError('Missing required information');
-      //   return;
-      // }
-
-      const otherUserId = residentData._id === propertyData.sellerId ? buyerId : propertyData.sellerId;
+      const otherUserId = residentData._id === productData.sellerId ? buyerId : productData.sellerId;
       
       if (!otherUserId) {
         setError('Could not determine other user');
         return;
       }
 
-      const response = await axios.get('/api/Property-Api/get-conversation', {
+      const response = await axios.get('/api/Product-Api/get-conversation', {
         params: {
-          propertyId,
+          productId,
           otherUserId
         },
         headers: {
@@ -205,7 +149,6 @@ const PropertyChat = () => {
       });
 
       setMessages(response.data);
-      setError(null);
       
       // Mark messages as read if there are any unread ones
       const hasUnreadMessages = response.data.some(msg => 
@@ -220,18 +163,17 @@ const PropertyChat = () => {
         setError('Missing required information to load messages');
         toast.error('Missing required information to load messages');
       } else {
-        // setError('Failed to load messages');
         toast.error('Failed to load messages');
       }
     } finally {
-      setLoadingMessages(false);
+      setLoading(false);
     }
   };
 
   const markMessagesAsRead = async (senderId) => {
     try {
       const token = localStorage.getItem('Resident');
-      await axios.post('/api/Property-Api/mark-as-read', 
+      await axios.post('/api/Product-Api/mark-as-read', 
         { senderId },
         {
           headers: {
@@ -246,26 +188,32 @@ const PropertyChat = () => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
+    
     if (!newMessage.trim()) return;
 
     try {
       const token = localStorage.getItem('Resident');
-      const receiverId = residentData._id === propertyData.sellerId ? buyerId : propertyData.sellerId;
-      
-      await axios.post('/api/Property-Api/send-message', {
-        propertyId,
-        receiverId,
-        message: newMessage,
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await axios.post(
+        '/api/Product-Api/send-message',
+        {
+          productId,
+          message: newMessage,
+          receiverId: residentData._id === productData.sellerId ? buyerId : productData.sellerId
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          }
         }
-      });
+      );
 
-      setNewMessage('');
-      fetchMessages();
+      if (response.data.success) {
+        setMessages(prevMessages => [...prevMessages, response.data.data]);
+        setNewMessage('');
+        setLastMessageTimestamp(response.data.data.createdAt);
+      }
     } catch (error) {
-      toast.error('Failed to send message');
+      toast.error('Failed to send message. Please try again.');
     }
   };
 
@@ -278,21 +226,13 @@ const PropertyChat = () => {
     }).format(date);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="text-center">
           <p className="text-red-500 mb-4">{error}</p>
           <Link
-            href="/Resident-dashboard/components/PropertyMarketplace"
+            href="/Resident-dashboard/components/Marketplace"
             className="text-blue-500 hover:text-blue-700 flex items-center justify-center gap-2"
           >
             <ArrowLeft size={16} />
@@ -310,7 +250,7 @@ const PropertyChat = () => {
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center p-4">
             <Link
-              href="/Resident-dashboard/components/PropertyMarketplace"
+              href="/Resident-dashboard/components/Marketplace"
               className="mr-4 text-gray-600 hover:text-gray-800"
             >
               <ArrowLeft size={24} />
@@ -320,20 +260,20 @@ const PropertyChat = () => {
               {otherUser?.userImage ? (
                 <img
                   src={otherUser.userImage}
-                  alt={otherUser.name}
+                  alt={otherUser.name || 'User'}
                   className="w-10 h-10 rounded-full"
                 />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                   <span className="text-blue-600 font-medium">
-                    {otherUser?.name?.charAt(0) || '?'}
+                    {otherUser?.name ? otherUser.name.charAt(0) : '?'}
                   </span>
                 </div>
               )}
               <div className="ml-3">
                 <h2 className="font-semibold text-gray-800">{otherUser?.name || 'Loading...'}</h2>
                 <p className="text-sm text-gray-500 truncate">
-                  {propertyData?.title || 'Loading property details...'}
+                  {productData?.title || 'Loading product details...'}
                 </p>
               </div>
             </div>
@@ -360,9 +300,13 @@ const PropertyChat = () => {
                     }`}
                   >
                     <p className="whitespace-pre-line">{message.message}</p>
-                    <p className={`text-xs mt-1 ${
-                      message.senderId === residentData._id ? 'text-blue-100' : 'text-gray-500'
-                    }`}>
+                    <p
+                      className={`text-xs mt-1 ${
+                        message.senderId === residentData._id
+                          ? 'text-blue-100'
+                          : 'text-gray-500'
+                      }`}
+                    >
                       {formatTime(message.createdAt)}
                     </p>
                   </div>
@@ -397,4 +341,4 @@ const PropertyChat = () => {
   );
 };
 
-export default PropertyChat; 
+export default ProductChat; 

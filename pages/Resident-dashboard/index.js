@@ -32,7 +32,7 @@ export default function Home() {
     useEffect(() => {
         const maxLoadTimer = setTimeout(() => {
             setLoading(false);
-        }, 2000);
+        }, 500);
 
         return () => clearTimeout(maxLoadTimer);
     }, []);
