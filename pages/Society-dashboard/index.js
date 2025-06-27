@@ -18,7 +18,8 @@ import DeliveryManagement from "./components/DeliveryManagement";
 import EmergencyAlerts from "./components/EmergencyAlerts";
 import SecurityProfile from "./components/SecurityProfile";
 import IncidentLogs from "./components/IncidentLogs";
-import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt } from "react-icons/fa";
+import PendingResidents from "./components/PendingResidents";
+import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt, FaUserClock } from "react-icons/fa";
 import { CiLogout } from "react-icons/ci";
 
 export default function Home() {
@@ -28,6 +29,30 @@ export default function Home() {
     const [loading, setLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [managerDetails, setManagerDetails] = useState({});
+
+    // Handle hash change and initial hash
+    useEffect(() => {
+        // Function to set component based on hash
+        const handleHash = () => {
+            const hash = window.location.hash.slice(1); // Remove the # symbol
+            if (hash) {
+                setComponent(hash);
+                // Set the active link name based on the hash
+                const linkName = hash.replace(/([A-Z])/g, ' $1').trim(); // Convert camelCase to space-separated
+                setActiveLink(linkName);
+            }
+        };
+
+        // Listen for hash changes
+        window.addEventListener('hashchange', handleHash);
+        
+        // Handle initial hash on load
+        handleHash();
+
+        return () => {
+            window.removeEventListener('hashchange', handleHash);
+        };
+    }, []);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -73,6 +98,8 @@ export default function Home() {
         setComponent(item);
         setActiveLink(linkName);
         setIsSidebarOpen(false);
+        // Update URL hash without triggering a page reload
+        window.location.hash = item;
     };
 
     const renderComponent = () => {
@@ -85,6 +112,8 @@ export default function Home() {
                 return <ApartmentStructureForm />;
             case "OwnerProfiles":
                 return <OwnerProfiles />;
+            case "PendingResidents":
+                return <PendingResidents />;
             case "TenantProfiles":
                 return <TenantProfiles />;
             case "MaintenanceBills":
@@ -149,65 +178,83 @@ export default function Home() {
                                 className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Dashboard" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
                                 onClick={() => handleComponent("DashboardDefault", "Dashboard")}
                             >
-                                Dashboard
+                                <a href="#DashboardDefault" className="flex items-center w-full">
+                                    Dashboard
+                                </a>
                             </li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "SocietyProfile" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("SocietyProfile", "SocietyProfile")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Society Profile" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("SocietyProfile", "Society Profile")}
                             >
-                                Society Profile
+                                <a href="#SocietyProfile" className="flex items-center w-full">
+                                    Society Profile
+                                </a>
                             </li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "ApartmentStructureForm" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("ApartmentStructureForm", "ApartmentStructureForm")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Apartment Structure Form" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("ApartmentStructureForm", "Apartment Structure Form")}
                             >
-                                Apartment Structure Form
+                                <a href="#ApartmentStructureForm" className="flex items-center w-full">
+                                    Apartment Structure Form
+                                </a>
                             </li>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Resident Management</li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "OwnerProfiles" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("OwnerProfiles", "OwnerProfiles")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Pending Residents" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("PendingResidents", "Pending Residents")}
                             >
-                                <FaUserTie className="mr-3" />
-                                Owner Profiles
+                                <a href="#PendingResidents" className="flex items-center w-full">
+                                    <FaUserClock className="mr-3" />
+                                    Pending Residents
+                                </a>
                             </li>
-                            {/* <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "TenantProfiles" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("TenantProfiles", "TenantProfiles")}
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Owner Profiles" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("OwnerProfiles", "Owner Profiles")}
                             >
-                                <FaUsers className="mr-3" />
-                                Tenant Profiles
-                            </li> */}
+                                <a href="#OwnerProfiles" className="flex items-center w-full">
+                                    <FaUserTie className="mr-3" />
+                                    Owner Profiles
+                                </a>
+                            </li>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Finance & Maintenance</li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "MaintenanceBills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("MaintenanceBills", "MaintenanceBills")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Maintenance Bills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("MaintenanceBills", "Maintenance Bills")}
                             >
-                                <FaWrench className="mr-3" />
-                                Maintenance Bills
+                                <a href="#MaintenanceBills" className="flex items-center w-full">
+                                    <FaWrench className="mr-3" />
+                                    Maintenance Bills
+                                </a>
                             </li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "UtilityBills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("UtilityBills", "UtilityBills")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Utility Bills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("UtilityBills", "Utility Bills")}
                             >
-                                <FaClipboardList className="mr-3" />
-                                Utility Bills
+                                <a href="#UtilityBills" className="flex items-center w-full">
+                                    <FaClipboardList className="mr-3" />
+                                    Utility Bills
+                                </a>
                             </li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "PaymentTracking" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("PaymentTracking", "PaymentTracking")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Payment Tracking" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("PaymentTracking", "Payment Tracking")}
                             >
-                                <FaMoneyBill className="mr-3" />
-                                Payment Tracking
+                                <a href="#PaymentTracking" className="flex items-center w-full">
+                                    <FaMoneyBill className="mr-3" />
+                                    Payment Tracking
+                                </a>
                             </li>
                             <li
                                 className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Tickets" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
                                 onClick={() => handleComponent("Tickets", "Tickets")}
                             >
-                                <FaStickyNote className="mr-3" />
-                                Tickets
+                                <a href="#Tickets" className="flex items-center w-full">
+                                    <FaStickyNote className="mr-3" />
+                                    Tickets
+                                </a>
                             </li>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Notices & Community</li>
@@ -215,69 +262,81 @@ export default function Home() {
                                 className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Announcements" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
                                 onClick={() => handleComponent("Announcements", "Announcements")}
                             >
-                                <FaBullhorn className="mr-3" />
-                                Announcements
+                                <a href="#Announcements" className="flex items-center w-full">
+                                    <FaBullhorn className="mr-3" />
+                                    Announcements
+                                </a>
                             </li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "PollsSurveys" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("PollsSurveys", "PollsSurveys")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Polls & Surveys" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("PollsSurveys", "Polls & Surveys")}
                             >
-                                <FaPoll className="mr-3" />
-                                Polls & Surveys
+                                <a href="#PollsSurveys" className="flex items-center w-full">
+                                    <FaPoll className="mr-3" />
+                                    Polls & Surveys
+                                </a>
                             </li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "DiscussionForums" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("DiscussionForums", "DiscussionForums")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Discussion Forums" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("DiscussionForums", "Discussion Forums")}
                             >
-                                <FaComments className="mr-3" />
-                                Discussion Forums
+                                <a href="#DiscussionForums" className="flex items-center w-full">
+                                    <FaComments className="mr-3" />
+                                    Discussion Forums
+                                </a>
                             </li>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Security & Emergency</li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "SecurityProfile" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("SecurityProfile", "SecurityProfile")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Security Profile" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("SecurityProfile", "Security Profile")}
                             >
-                                <FaUserShield className="mr-3" />
-                                Security Profile
+                                <a href="#SecurityProfile" className="flex items-center w-full">
+                                    <FaUserShield className="mr-3" />
+                                    Security Profile
+                                </a>
                             </li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "VisitorEntry" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("VisitorEntry", "VisitorEntry")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Visitor Entry" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("VisitorEntry", "Visitor Entry")}
                             >
-                                <FaUserShield className="mr-3" />
-                                Visitor Entry
+                                <a href="#VisitorEntry" className="flex items-center w-full">
+                                    <FaUserShield className="mr-3" />
+                                    Visitor Entry
+                                </a>
                             </li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "DeliveryManagement" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("DeliveryManagement", "DeliveryManagement")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Delivery Management" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("DeliveryManagement", "Delivery Management")}
                             >
-                                <FaBox className="mr-3" />
-                                Delivery Management
+                                <a href="#DeliveryManagement" className="flex items-center w-full">
+                                    <FaBox className="mr-3" />
+                                    Delivery Management
+                                </a>
                             </li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "EmergencyAlerts" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("EmergencyAlerts", "EmergencyAlerts")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Emergency Alerts" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("EmergencyAlerts", "Emergency Alerts")}
                             >
-                                <FaExclamationTriangle className="mr-3" />
-                                Emergency Alerts
+                                <a href="#EmergencyAlerts" className="flex items-center w-full">
+                                    <FaExclamationTriangle className="mr-3" />
+                                    Emergency Alerts
+                                </a>
                             </li>
                             <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "IncidentLogs" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("IncidentLogs", "IncidentLogs")}
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Incident Logs" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("IncidentLogs", "Incident Logs")}
                             >
-                                <FaFileAlt className="mr-3" />
-                                Incident Logs
+                                <a href="#IncidentLogs" className="flex items-center w-full">
+                                    <FaFileAlt className="mr-3" />
+                                    Incident Logs
+                                </a>
                             </li>
                             <li onClick={handleLogout} className="mb-1 flex text-lg items-center py-2 px-5 rounded cursor-pointer transition-all bg-red-800 hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
                                 <CiLogout className="mr-3" />
                                 <a>Logout</a>
                             </li>
-
                         </ul>
-                        {/* <button onClick={handleLogout} className="bg-gray-700 w-full text-white px-8 py-3 rounded-full text-lg shadow-lg hover:bg-red-600 transition">
-                            Logout
-                        </button> */}
                     </nav>
                 </aside>
 

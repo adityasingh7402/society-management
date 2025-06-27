@@ -25,6 +25,7 @@ import {
   UserCog,
   MessageCircle,
   Store,
+  Clock,
 } from 'lucide-react';
 
 const AndroidDashboard = ({ onLoaded }) => {
@@ -51,6 +52,7 @@ const AndroidDashboard = ({ onLoaded }) => {
   const [propertyMessages, setPropertyMessages] = useState([]);
   const [productMessages, setProductMessages] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [component, setComponent] = useState("DashboardDefault");
 
   // Add new states and refs for drag functionality
   const [dragStartX, setDragStartX] = useState(null);
@@ -61,35 +63,6 @@ const AndroidDashboard = ({ onLoaded }) => {
   const MENU_WIDTH = 320; // Width of the menu in pixels
   const DRAG_THRESHOLD = 50; // Minimum drag distance to trigger menu action
 
-  const notifications = [
-    {
-      id: 1,
-      type: 'success',
-      title: 'Maintenance Request Completed',
-      message: 'Your plumbing repair request has been resolved.',
-      time: '2 hours ago',
-      icon: CheckCircle2,
-      color: 'bg-green-500'
-    },
-    {
-      id: 2,
-      type: 'warning',
-      title: 'Due Bill Reminder',
-      message: 'Your maintenance bill for March is due in 3 days.',
-      time: '5 hours ago',
-      icon: AlertCircle,
-      color: 'bg-orange-500'
-    },
-    {
-      id: 3,
-      type: 'info',
-      title: 'Community Update',
-      message: 'New gym equipment will be installed next week.',
-      time: '1 day ago',
-      icon: Info,
-      color: 'bg-blue-500'
-    }
-  ];
   // Bottom navigation items
   const bottomNavItems = [
     { id: 'home', icon: Home, label: 'Home', href: '/Resident-dashboard' },
@@ -965,6 +938,131 @@ const AndroidDashboard = ({ onLoaded }) => {
           </div>
         </div>
       </div>
+
+      {/* Flat Selection Notice - Show when no flat is assigned */}
+      {flatNumber === 'N/A' && (
+        <div className="mx-4 my-6">
+          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl p-6 shadow-lg border border-indigo-100/50 relative overflow-hidden">
+            {/* Decorative elements */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-400/10 to-blue-400/10 rounded-full transform translate-x-16 -translate-y-16"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full transform -translate-x-16 translate-y-16"></div>
+
+            <div className="relative z-10">
+              {/* Icon */}
+              <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center mb-4 border border-indigo-100/50">
+                <Building className="w-8 h-8 text-indigo-600" />
+              </div>
+
+              {/* Content */}
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Select Your Apartment</h3>
+              <p className="text-gray-600 mb-6">Please choose your residence details to access all features and stay connected with your community.</p>
+
+              {/* Action Button */}
+              <Link href="/Resident-dashboard/components/selectApartment">
+                <button className="w-full bg-[#1A75FF] hover:bg-blue-700 text-white py-3 px-6 rounded-xl font-medium transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl flex items-center justify-center space-x-2">
+                  <Home className="w-5 h-5" />
+                  <span>Choose Your Apartment</span>
+                </button>
+              </Link>
+
+              {/* Benefits List */}
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center space-x-3 text-gray-600">
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm">Access community features</span>
+                </div>
+                <div className="flex items-center space-x-3 text-gray-600">
+                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <span className="text-sm">Receive important notifications</span>
+                </div>
+                <div className="flex items-center space-x-3 text-gray-600">
+                  <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <span className="text-sm">Connect with neighbors</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Status Notice - Show when flat is assigned and pending/rejected */}
+      {flatNumber !== 'N/A' && residentDetails.flatDetails && (
+        <div className="mx-4 my-6">
+          {residentDetails.societyVerification === 'Reject' ? (
+            // Rejected State
+            <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-6 shadow-lg border border-red-100/50 relative overflow-hidden">
+              {/* Decorative elements */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-400/10 to-pink-400/10 rounded-full transform translate-x-16 -translate-y-16"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-br from-pink-400/10 to-red-400/10 rounded-full transform -translate-x-16 translate-y-16"></div>
+
+              <div className="relative z-10">
+                {/* Icon */}
+                <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center mb-4 border border-red-100/50">
+                  <AlertCircle className="w-8 h-8 text-red-600" />
+                </div>
+
+                {/* Content */}
+                <h3 className="text-xl font-semibold text-red-900 mb-2">Flat Verification Rejected</h3>
+                <p className="text-red-600 mb-6">Your flat selection ({flatNumber}) has been rejected by the society administration. Please contact them for more information or select a different flat.</p>
+
+                {/* Action Button */}
+                <Link href="/Contact">
+                  <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-xl font-medium transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl flex items-center justify-center space-x-2">
+                    <Home className="w-5 h-5" />
+                    <span>Contact Society</span>
+                  </button>
+                </Link>
+              </div>
+            </div>
+          ) : residentDetails.societyVerification === 'Pending' && (
+            // Pending State
+            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-6 shadow-lg border border-yellow-100/50 relative overflow-hidden">
+              {/* Decorative elements */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-400/10 to-orange-400/10 rounded-full transform translate-x-16 -translate-y-16"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-br from-orange-400/10 to-yellow-400/10 rounded-full transform -translate-x-16 translate-y-16"></div>
+
+              <div className="relative z-10">
+                {/* Icon */}
+                <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center mb-4 border border-yellow-100/50">
+                  <Clock className="w-8 h-8 text-yellow-600" />
+                </div>
+
+                {/* Content */}
+                <h3 className="text-xl font-semibold text-yellow-900 mb-2">Flat Verification Pending</h3>
+                <p className="text-yellow-700 mb-6">Your flat selection ({flatNumber}) is under review. Please wait for the society administration to verify your residence.</p>
+
+                {/* Status Indicator */}
+                <div className="flex items-center justify-center space-x-2 mb-6">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium text-yellow-700">Awaiting Verification</span>
+                </div>
+
+                {/* Benefits List */}
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center space-x-3 text-yellow-700">
+                    <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-4 h-4 text-yellow-600" />
+                    </div>
+                    <span className="text-sm">Verification in progress for {flatNumber}</span>
+                  </div>
+                  <div className="flex items-center space-x-3 text-yellow-700">
+                    <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Info className="w-4 h-4 text-yellow-600" />
+                    </div>
+                    <span className="text-sm">You'll be notified once verified</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="px-4 pb-5 pt-2">

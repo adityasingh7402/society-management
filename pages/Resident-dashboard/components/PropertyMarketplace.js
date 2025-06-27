@@ -45,6 +45,7 @@ const PropertyMarketplace = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [messages, setMessages] = useState([]);
   const [unreadMessages, setUnreadMessages] = useState({});
+  const [messagesLoading, setMessagesLoading] = useState(false);
 
   // Add effect to refresh messages when component is focused
   useEffect(() => {
@@ -315,6 +316,33 @@ const PropertyMarketplace = () => {
     router.push('/Resident-dashboard');
   };
 
+  // Add hash change listener and initialize from URL
+  useEffect(() => {
+    // Function to set active tab from hash
+    const setTabFromHash = () => {
+      const hash = window.location.hash.slice(1); // Remove the # symbol
+      if (['all', 'my-listings', 'responses'].includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+
+    // Set initial tab from URL hash
+    setTabFromHash();
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', setTabFromHash);
+
+    return () => {
+      window.removeEventListener('hashchange', setTabFromHash);
+    };
+  }, []);
+
+  // Update URL hash when tab changes
+  const handleTabChange = (tabId) => {
+    window.location.hash = tabId;
+    setActiveTab(tabId);
+  };
+
   useEffect(() => {
     if (residentData?.societyId) {
       fetchProperties(residentData.societyId);
@@ -324,6 +352,7 @@ const PropertyMarketplace = () => {
 
   const fetchMessages = async () => {
     try {
+      setMessagesLoading(true);
       const token = localStorage.getItem('Resident');
       if (!token) {
         console.error('No token found');
@@ -401,6 +430,8 @@ const PropertyMarketplace = () => {
         console.error('Server error details:', error.response.data.error);
       }
       toast.error('Failed to load messages');
+    } finally {
+      setMessagesLoading(false);
     }
   };
 
@@ -460,7 +491,7 @@ const PropertyMarketplace = () => {
           {/* Tabs */}
           <div className="flex mt-6 border-b">
             <button
-              onClick={() => setActiveTab('all')}
+              onClick={() => handleTabChange('all')}
               className={`flex-1 px-4 py-2 text-sm font-medium ${
                 activeTab === 'all'
                   ? 'bg-white text-blue-600 border-b-2 border-blue-600'
@@ -470,7 +501,7 @@ const PropertyMarketplace = () => {
               Properties
             </button>
             <button
-              onClick={() => setActiveTab('my-listings')}
+              onClick={() => handleTabChange('my-listings')}
               className={`flex-1 px-4 py-2 text-sm font-medium ${
                 activeTab === 'my-listings'
                   ? 'bg-white text-blue-600 border-b-2 border-blue-600'
@@ -480,7 +511,7 @@ const PropertyMarketplace = () => {
               My Listings
             </button>
             <button
-              onClick={() => setActiveTab('responses')}
+              onClick={() => handleTabChange('responses')}
               className={`flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center relative ${
                 activeTab === 'responses'
                   ? 'bg-white text-blue-600 border-b-2 border-blue-600'
@@ -654,8 +685,13 @@ const PropertyMarketplace = () => {
         {activeTab === 'responses' ? (
           // Messages View
           <div className="bg-white rounded-lg shadow">
-            {messages.length === 0 ? (
-          <div className="text-center py-10">
+            {messagesLoading ? (
+              <div className="text-center py-10">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading messages...</p>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="text-center py-10">
                 <MessageCircle size={48} className="mx-auto text-gray-400 mb-4" />
                 <h2 className="text-xl font-semibold text-gray-700 mb-2">No messages yet</h2>
                 <p className="text-gray-500">When you receive messages about properties, they'll appear here.</p>

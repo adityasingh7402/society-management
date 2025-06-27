@@ -22,7 +22,6 @@ import Preloader from "../components/Preloader";
 export default function Home() {
     
     const [component, setComponent] = useState("DashboardDefault");
-    const [activeLink, setActiveLink] = useState("Dashboard");
     const [loading, setLoading] = useState(true);
     
     const handleDashboardLoaded = () => {

@@ -1,5 +1,6 @@
 import connectToDatabase from "../../../lib/mongodb";
 import Resident from '../../../models/Resident';
+import Society from '../../../models/Society';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -7,7 +8,8 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { db } = await connectToDatabase();
+        await connectToDatabase();
+        
         const {
             name,
             phone,
@@ -17,8 +19,7 @@ export default async function handler(req, res) {
             street,
             city,
             state,
-            pinCode,
-            fcmToken
+            pinCode
         } = req.body;
 
         // Validate required fields
@@ -26,36 +27,43 @@ export default async function handler(req, res) {
             return res.status(400).json({ message: 'Missing required fields' });
         }
 
-        // Check if resident already exists with the same phone number
+        // Check if resident already exists
         const existingResident = await Resident.findOne({ phone });
         if (existingResident) {
-            return res.status(400).json({ message: 'A resident with this phone number already exists' });
+            return res.status(400).json({ message: 'Resident already exists with this phone number' });
         }
 
-        // Create new resident
+        // Find society by societyId (which is actually the society code)
+        const society = await Society.findOne({ societyId });
+        if (!society) {
+            return res.status(404).json({ message: 'Society not found' });
+        }
+
+        // Create new resident with proper structure
         const resident = new Resident({
             name,
             phone,
             email,
-            societyId,
+            societyId: society._id,
+            societyCode: societyId,
             societyName,
             address: {
+                societyName,
                 street,
                 city,
                 state,
                 pinCode
-            },
-            fcmToken,
-            isVerified: false,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            }
         });
 
         await resident.save();
-
         return res.status(201).json({ message: 'Resident signed up successfully!' });
+
     } catch (error) {
         console.error('Error in resident signup:', error);
-        return res.status(500).json({ message: 'Internal server error' });
+        return res.status(500).json({ 
+            message: 'Internal server error', 
+            error: error.message 
+        });
     }
 }
