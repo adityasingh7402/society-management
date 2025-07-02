@@ -27,6 +27,8 @@ import {
   Store,
   Clock,
 } from 'lucide-react';
+import { Splide, SplideSlide } from '@splidejs/react-splide';
+import '@splidejs/react-splide/css';
 
 const AndroidDashboard = ({ onLoaded }) => {
   const [activeTab, setActiveTab] = useState('home');
@@ -34,13 +36,8 @@ const AndroidDashboard = ({ onLoaded }) => {
   const [categoryPopup, setCategoryPopup] = useState(null);
   const [isClosingPopup, setIsClosingPopup] = useState(false);
   const [isOpeningPopup, setIsOpeningPopup] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [imagesLoadedCount, setImagesLoadedCount] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const sliderRef = useRef(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [residentDetails, setResidentDetails] = useState({});
   const [flatNumber, setFlatNumber] = useState('');
@@ -53,15 +50,14 @@ const AndroidDashboard = ({ onLoaded }) => {
   const [productMessages, setProductMessages] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [component, setComponent] = useState("DashboardDefault");
-
-  // Add new states and refs for drag functionality
-  const [dragStartX, setDragStartX] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(null);
   const [menuPosition, setMenuPosition] = useState(0);
   const menuRef = useRef(null);
   const dragAreaRef = useRef(null);
   const MENU_WIDTH = 320; // Width of the menu in pixels
   const DRAG_THRESHOLD = 50; // Minimum drag distance to trigger menu action
+  const [greeting, setGreeting] = useState('');
 
   // Bottom navigation items
   const bottomNavItems = [
@@ -92,15 +88,6 @@ const AndroidDashboard = ({ onLoaded }) => {
       subtitle: 'Connect with your neighbors'
     }
   ];
-
-  // Add these functions for slider navigation
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % banners.length);
-  };
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + banners.length) % banners.length);
-  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -313,14 +300,6 @@ const AndroidDashboard = ({ onLoaded }) => {
     return () => clearTimeout(timer);
   }, [onLoaded]);
 
-  // Auto-slide functionality
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % banners.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [banners.length]);
-
   // Update the onLoaded useEffect to use the loading state
   useEffect(() => {
     if (!loading && onLoaded) {
@@ -339,21 +318,17 @@ const AndroidDashboard = ({ onLoaded }) => {
   // Popup handlers with proper open and close animations
   const handleClosePopup = () => {
     setIsClosingPopup(true);
+    setIsOpeningPopup(false);
     setTimeout(() => {
       setCategoryPopup(null);
       setIsClosingPopup(false);
-      setIsOpeningPopup(false);
-    }, 300); // Match animation duration
+    }, 300);
   };
 
   const handleOpenPopup = (category) => {
-    setCategoryPopup(category);
-    setIsClosingPopup(false);
     setIsOpeningPopup(true);
-    // Reset opening state after animation completes
-    setTimeout(() => {
-      setIsOpeningPopup(false);
-    }, 300);
+    setIsClosingPopup(false);
+    setCategoryPopup(category);
   };
 
   // New function to handle link clicks within popup
@@ -552,6 +527,33 @@ const AndroidDashboard = ({ onLoaded }) => {
     }
   };
 
+  // Function to get time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) {
+      return 'Good Morning';
+    } else if (hour >= 12 && hour < 17) {
+      return 'Good Afternoon';
+    } else if (hour >= 17 && hour < 21) {
+      return 'Good Evening';
+    } else {
+      return 'Good Night';
+    }
+  };
+
+  // Update greeting every minute
+  useEffect(() => {
+    // Set initial greeting
+    setGreeting(getGreeting());
+
+    // Update greeting every minute
+    const interval = setInterval(() => {
+      setGreeting(getGreeting());
+    }, 60000); // 60000 ms = 1 minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 relative">
       {/* Background pattern overlay */}
@@ -608,7 +610,7 @@ const AndroidDashboard = ({ onLoaded }) => {
                 <Menu size={20} />
               </button>
               <div>
-                <h1 className="text-xl font-semibold bg-gradient-to-r from-gray-700 to-gray-800 bg-clip-text text-transparent">Good Morning</h1>
+                <h1 className="text-xl font-semibold bg-gradient-to-r from-gray-700 to-gray-800 bg-clip-text text-transparent">{greeting}</h1>
                 <p className="from-gray-700 to-gray-800 text-sm">Welcome to Harmony Heights</p>
               </div>
             </div>
@@ -888,54 +890,39 @@ const AndroidDashboard = ({ onLoaded }) => {
 
       {/* Content with enhanced spacing and backgrounds */}
       <div className="relative -mt-7 z-10">
-        <div className="relative overflow-hidden animate-fade-in mx-4">
-          <div className="relative h-48 overflow-hidden rounded-2xl">
-            <div
-              className="flex transition-transform duration-500 ease-in-out"
-              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-            >
-              {banners.map((banner) => (
-                <div key={banner.id} className="w-full flex-shrink-0 relative">
+        <div className="relative overflow-hidden rounded-2xl animate-fade-in mx-4">
+          <Splide
+            options={{
+              type: 'loop',
+              perPage: 1,
+              arrows: false,
+              pagination: true,
+              autoplay: true,
+              interval: 4000,
+              speed: 1000,
+              pauseOnHover: false,
+              pauseOnFocus: false,
+              rewind: true,
+            }}
+            className="h-48"
+          >
+            {banners.map((banner) => (
+              <SplideSlide key={banner.id}>
+                <div className="relative h-48">
                   <img
                     src={banner.image}
                     alt={banner.title}
-                    className="w-full h-48 object-cover"
+                    className="w-full h-48 object-cover rounded-2xl"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-4 left-4 text-white">
+                  <div className="absolute inset-0 bg-gradient-to-t rounded-2xl from-black/60 to-transparent" />
+                  <div className="absolute bottom-10 left-4 text-white">
                     <h3 className="font-bold text-lg">{banner.title}</h3>
                     <p className="text-sm opacity-90">{banner.subtitle}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Navigation Arrows */}
-            <button
-              onClick={prevSlide}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/30 rounded-full p-1 transition-colors"
-            >
-              <ChevronLeft size={20} className="text-white" />
-            </button>
-            <button
-              onClick={nextSlide}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/30 rounded-full p-1 transition-colors"
-            >
-              <ChevronRight size={20} className="text-white" />
-            </button>
-          </div>
-
-          {/* Dots Indicator */}
-          <div className="flex justify-center space-x-2 py-3">
-            {banners.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentSlide(index)}
-                className={`w-2 h-2 rounded-full transition-colors ${index === currentSlide ? 'bg-[#1A75FF]' : 'bg-white/50'
-                  }`}
-              />
+              </SplideSlide>
             ))}
-          </div>
+          </Splide>
         </div>
       </div>
 
@@ -1065,9 +1052,9 @@ const AndroidDashboard = ({ onLoaded }) => {
       )}
 
       {/* Main Content */}
-      <div className="px-4 pb-5 pt-2">
+      <div className="pb-5 pt-2">
         {/* Stats heading */}
-        <div className="flex items-center gap-6 mb-2">
+        <div className="flex items-center gap-6 mb-2 px-4">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-indigo-500" />
             <h2 className="text-[17px] font-semibold text-gray-900">Stats</h2>
@@ -1075,7 +1062,7 @@ const AndroidDashboard = ({ onLoaded }) => {
           <div className="w-12 h-[2px] bg-indigo-500/30"></div>
         </div>
         {/* Quick Stats Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-4 mb-8 px-4">
           <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
             {/* Background gradient decoration */}
             <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-red-500/20 to-red-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
@@ -1099,39 +1086,17 @@ const AndroidDashboard = ({ onLoaded }) => {
             </div>
           </div>
         </div>
-        {/* <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
-            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-green-500/20 to-green-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
-            <div className="flex flex-col relative z-10">
-              <p className="text-sm text-gray-600 font-medium">Messages</p>
-              <p className="text-2xl font-bold text-gray-900 group-hover:text-green-600 transition-colors duration-300">4</p>
-              <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
-                <MessageCircleMore className="w-6 h-6 text-green-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
-            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-blue-500/20 to-blue-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
-            <div className="flex flex-col relative z-10">
-              <p className="text-sm text-gray-600 font-medium">Notifications</p>
-              <p className="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300">6</p>
-              <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
-                <FolderCheck className="w-6 h-6 text-blue-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
-              </div>
-            </div>
-          </div>
-        </div> */}
 
         {/* Quick Access heading */}
-        <div className="flex items-center gap-6 mb-2">
+        <div className="flex items-center gap-6 mb-2 px-4">
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-indigo-500" />
             <h2 className="text-[17px] font-semibold text-gray-900">Quick Access</h2>
           </div>
           <div className="w-12 h-[2px] bg-indigo-500/30"></div>
         </div>
-        <div className="bg-white/85 rounded-2xl shadow-lg justify-center overflow-hidden animate-fade-in mb-8">
-          <div className="flex space-x-7 overflow-x-auto pb-4 justify-center pt-4 scrollbar-hide">
+        <div className="bg-white/85 rounded-2xl shadow-lg justify-center overflow-hidden animate-fade-in mb-8 mx-4">
+          <div className="flex space-x-9 overflow-x-auto pb-4 justify-center pt-4 scrollbar-hide">
             {quickLinks.map((link) => (
               <Link
                 key={link.id}
@@ -1140,10 +1105,10 @@ const AndroidDashboard = ({ onLoaded }) => {
               >
                 <div className="flex flex-col items-center space-y-2">
                   <div
-                    className={`w-14 h-14 ${link.color} rounded-full flex items-center justify-center ${link.shadowColor} shadow-lg 
+                    className={`w-10 h-10 ${link.color} rounded-full flex items-center justify-center ${link.shadowColor} shadow-lg 
                     transform transition-all duration-200 group-hover:scale-110 group-active:scale-95`}
                   >
-                    <link.icon className="w-5 h-5 text-white" />
+                    <link.icon className="w-4 h-4 text-white" />
                   </div>
                   <span className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">{link.label}</span>
                 </div>
@@ -1152,8 +1117,63 @@ const AndroidDashboard = ({ onLoaded }) => {
           </div>
         </div>
 
+        {/* Society Ads Slider */}
+        <div className="mt-8 mb-8 relative overflow-hidden">
+          <Splide
+            options={{
+              type: 'loop',
+              perPage: 1,
+              arrows: false,
+              pagination: false,
+              autoplay: true,
+              interval: 5000,
+              speed: 1000,
+              pauseOnHover: false,
+              pauseOnFocus: false,
+              rewind: true,
+            }}
+            className="h-[180px]"
+          >
+            {[
+              {
+                id: 1,
+                image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1973&q=80',
+                title: 'Premium Apartments',
+                description: 'Luxury living spaces available'
+              },
+              {
+                id: 2,
+                image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+                title: 'Community Events',
+                description: 'Join our upcoming festivities'
+              },
+              {
+                id: 3,
+                image: 'https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+                title: 'Maintenance Services',
+                description: '24/7 professional support'
+              }
+            ].map((ad) => (
+              <SplideSlide key={ad.id}>
+                <div className="relative h-[180px]">
+                  <img
+                    src={ad.image}
+                    alt={ad.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                  <div className="absolute bottom-6 left-6 text-white">
+                    <h3 className="text-2xl font-bold mb-2">{ad.title}</h3>
+                    <p className="text-sm text-white/90">{ad.description}</p>
+                  </div>
+                </div>
+              </SplideSlide>
+            ))}
+          </Splide>
+        </div>
+
         {/* Services heading */}
-        <div className="flex items-center gap-6 mb-2">
+        <div className="flex items-center gap-6 mb-2 px-4">
           <div className="flex items-center gap-2">
             <Layout className="w-5 h-5 text-indigo-500" />
             <h2 className="text-[17px] font-semibold text-gray-900">Services</h2>
@@ -1162,8 +1182,8 @@ const AndroidDashboard = ({ onLoaded }) => {
         </div>
 
         {/* Feature Categories */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-4 px-4">
+          <div className="grid grid-cols-3 gap-2">
             {featureCategories.map((category) => (
               <div
                 key={category.id}
@@ -1184,14 +1204,14 @@ const AndroidDashboard = ({ onLoaded }) => {
 
                   {/* Icon with gradient background and subtle shadow */}
                   <div
-                    className={`w-14 h-14 rounded-full flex items-center justify-center mb-3 shadow-md transform transition-all duration-300 hover:scale-110 hover:rotate-3
+                    className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 shadow-md transform transition-all duration-300 hover:scale-110 hover:rotate-3
                       ${category.id === 'property' ? 'bg-gradient-to-br from-blue-400 to-blue-600' :
                         category.id === 'services' ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
                           category.id === 'community' ? 'bg-gradient-to-br from-green-400 to-green-600' :
                             category.id === 'directory' ? 'bg-gradient-to-br from-cyan-400 to-blue-600' :
                               'bg-gradient-to-br from-purple-400 to-purple-600'}`}
                   >
-                    <category.icon className="w-6 h-6 text-white" />
+                    <category.icon className="w-4 h-4 text-white" />
                   </div>
 
                   {/* Title and services count */}
@@ -1287,25 +1307,18 @@ const AndroidDashboard = ({ onLoaded }) => {
 
       {/* Category Popup - With proper open and close animations */}
       {categoryPopup && (
-        <div className={`fixed inset-0 bg-black/50 z-50 flex items-end transition-all duration-300 ${isClosingPopup ? 'bg-opacity-0' :
-          isOpeningPopup ? 'bg-opacity-0' : 'bg-opacity-50'
-          }`}>
-          <div className={`bg-white w-full rounded-t-3xl max-h-[80vh] overflow-y-auto transition-transform duration-300 ease-out shadow-2xl ${isClosingPopup ? 'translate-y-full' :
-            isOpeningPopup ? 'translate-y-full' : 'translate-y-0'
-            }`}>
-            {/* Decorative Background Icons
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <Building className="absolute top-[15%] left-[10%] w-20 h-20 text-indigo-600/5 transform rotate-12 float-animation" />
-              <Trees className="absolute top-[35%] right-[8%] w-24 h-24 text-purple-600/5 transform -rotate-6 float-animation-reverse" />
-              <Waves className="absolute bottom-[25%] left-[5%] w-32 h-32 text-indigo-600/5 transform rotate-12 float-animation-slow" />
-              <Sun className="absolute top-[45%] left-[25%] w-16 h-16 text-purple-600/5 transform rotate-45 float-animation" />
-              <Cloud className="absolute top-[10%] right-[25%] w-20 h-20 text-indigo-600/5 transform -rotate-12 float-animation-reverse" />
-              <Leaf className="absolute bottom-[40%] right-[15%] w-16 h-16 text-purple-600/5 transform rotate-12 float-animation" />
-              <Palmtree className="absolute bottom-[15%] right-[10%] w-24 h-24 text-indigo-600/5 transform -rotate-6 float-animation-slow" />
-              <ShieldCheck className="absolute top-[60%] left-[15%] w-20 h-20 text-purple-600/5 transform rotate-12 float-animation-reverse" />
-              <CloudSun className="absolute bottom-[10%] left-[20%] w-16 h-16 text-indigo-600/5 transform -rotate-12 float-animation" />
-            </div> */}
-
+        <div 
+          className={`fixed inset-0 z-50 transition-all duration-300 ${
+            isClosingPopup ? 'bg-black/0' : 'bg-black/50'
+          }`}
+          onClick={handleClosePopup}
+        >
+          <div 
+            className={`fixed bottom-0 inset-x-0 bg-white w-full rounded-t-3xl max-h-[80vh] overflow-y-auto ${
+              isClosingPopup ? 'animate-slide-down' : 'animate-slide-up'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Popup header with gradient background */}
             <div className={`p-6 border-b border-gray-100 relative z-10 overflow-hidden
               ${categoryPopup.id === 'property' ? 'bg-gradient-to-br from-blue-400 to-blue-600' :
@@ -1374,142 +1387,31 @@ const AndroidDashboard = ({ onLoaded }) => {
       )}
 
       {/* Custom CSS for animations */}
-      <style jsx>{`
-        /* Basic Animations */
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        @keyframes fade-out {
-          from { opacity: 1; }
-          to { opacity: 0; }
-        }
-
-        @keyframes fade-in-up {
-          0% { 
-            opacity: 0; 
-            transform: translateY(20px); 
-          }
-          100% { 
-            opacity: 1; 
-            transform: translateY(0); 
-          }
-        }
-
-        @keyframes fade-out-down {
-          from { 
-            opacity: 1; 
-            transform: translateY(0); 
-          }
-          to { 
-            opacity: 0; 
-            transform: translateY(20px); 
-          }
-        }
-
-        /* Slide Animations */
-        @keyframes slide-in-left {
+      <style jsx global>{`
+        @keyframes slideUp {
           from {
-            opacity: 0;
-            transform: translateX(100%) scale(0.95);
+            transform: translateY(100%);
           }
           to {
-            opacity: 1;
-            transform: translateX(0) scale(1);
+            transform: translateY(0);
           }
         }
-
-        @keyframes slide-out-right {
+        
+        @keyframes slideDown {
           from {
-            opacity: 1;
-            transform: translateX(0) scale(1);
+            transform: translateY(0);
           }
           to {
-            opacity: 0;
-            transform: translateX(100%) scale(0.95);
+            transform: translateY(100%);
           }
         }
 
-        @keyframes slide-menu {
-          from { transform: translateX(-100%); }
-          to { transform: translateX(0); }
+        .animate-slide-up {
+          animation: slideUp 0.3s ease-out forwards;
         }
 
-        /* Float Animations */
-        @keyframes float {
-          0% {
-            transform: translateY(0px) rotate(0deg);
-          }
-          50% {
-            transform: translateY(-10px) rotate(5deg);
-          }
-          100% {
-            transform: translateY(0px) rotate(0deg);
-          }
-        }
-
-        /* Gradient Animation */
-        @keyframes gradient-shift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-
-        /* Animation Classes */
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out forwards;
-        }
-
-        .animate-fade-out {
-          animation: fade-out 0.2s ease-out forwards;
-        }
-
-        .animate-fade-in-up-delayed {
-          animation: fade-in-up 0.3s ease-out;
-          opacity: 0;
-          animation-fill-mode: forwards;
-        }
-
-        .animate-fade-out-down {
-          animation: fade-out-down 0.2s ease-out forwards;
-        }
-
-        .animate-slide-in-left {
-          animation: slide-in-left 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        .animate-slide-out-right {
-          animation: slide-out-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        /* Float Animation Variants */
-        .float-animation {
-          animation: float 8s ease-in-out infinite;
-        }
-
-        .float-animation-reverse {
-          animation: float 6s ease-in-out infinite reverse;
-        }
-
-        .float-animation-slow {
-          animation: float 10s ease-in-out infinite;
-        }
-
-        /* Gradient Animation */
-        .animated-gradient {
-          background-size: 200% 200%;
-          animation: gradient-shift 3s ease infinite;
-        }
-
-        /* Utility Classes */
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+        .animate-slide-down {
+          animation: slideDown 0.3s ease-out forwards;
         }
       `}</style>
     </div>

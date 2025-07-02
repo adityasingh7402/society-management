@@ -750,7 +750,7 @@ const VehicleTagRequest = () => {
                           <ChevronDown className="w-5 h-5" />
                         )}
                       </div>
-                    ) : !isExpired && (
+                    ) : (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -827,19 +827,17 @@ const VehicleTagRequest = () => {
                         )}
                         {/* Delete and Status Section */}
                         <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
-                          {!isExpired && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setTagToDelete(tag);
-                                setShowDeleteModal(true);
-                              }}
-                              className="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                              <span className="text-sm font-medium">Delete Tag</span>
-                            </button>
-                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTagToDelete(tag);
+                              setShowDeleteModal(true);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                            <span className="text-sm font-medium">Delete Tag</span>
+                          </button>
                           <div className="flex items-center gap-2">
                             <div className={`px-3 py-2 rounded-lg ${statusColor} flex items-center gap-2`}>
                               <StatusIcon className="w-5 h-5" />
