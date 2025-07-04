@@ -1,100 +1,62 @@
 import mongoose from 'mongoose';
 
-const JournalEntrySchema = new mongoose.Schema({
-  ledgerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Ledger',
-    required: true
-  },
-  type: {
-    type: String,
-    enum: ['Debit', 'Credit'],
-    required: true
-  },
-  amount: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  description: String
-});
-
 const JournalVoucherSchema = new mongoose.Schema({
   societyId: {
-    type: String,
-    required: true,
-    index: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Society',
+    required: true
   },
-
-  // Voucher Details
-  voucherNo: {
+  voucherNumber: {
     type: String,
     required: true,
     unique: true
   },
   voucherDate: {
     type: Date,
-    required: true,
-    default: Date.now
+    required: true
   },
   voucherType: {
     type: String,
-    enum: [
-      'Payment',
-      'Receipt',
-      'Contra',
-      'Journal',
-      'Sales',
-      'Purchase',
-      'Debit Note',
-      'Credit Note'
-    ],
+    enum: ['Receipt', 'Payment', 'Journal', 'Contra', 'Sales', 'Purchase', 'Credit Note', 'Debit Note'],
     required: true
   },
-  referenceNo: String,
-  referenceDate: Date,
-
-  // Transaction Details
-  entries: {
-    type: [JournalEntrySchema],
-    validate: {
-      validator: function(entries) {
-        if (entries.length < 2) return false;
-        
-        // Calculate total debits and credits
-        const totals = entries.reduce((acc, entry) => {
-          if (entry.type === 'Debit') {
-            acc.totalDebit += entry.amount;
-          } else {
-            acc.totalCredit += entry.amount;
-          }
-          return acc;
-        }, { totalDebit: 0, totalCredit: 0 });
-
-        // Check if debits equal credits
-        return Math.abs(totals.totalDebit - totals.totalCredit) < 0.01; // Allow for minor rounding differences
-      },
-      message: 'Total debits must equal total credits'
+  
+  // Reference documents
+  referenceType: {
+    type: String,
+    enum: ['Bill', 'Payment', 'Manual', 'Other']
+  },
+  referenceId: mongoose.Schema.Types.ObjectId,
+  referenceNumber: String,
+  
+  // Entries
+  entries: [{
+    ledgerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Ledger',
+      required: true
     },
-    required: true
-  },
-
-  // Narration and Tags
+    type: {
+      type: String,
+      enum: ['debit', 'credit'],
+      required: true
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    description: String
+  }],
+  
+  // Narration and tags
   narration: {
     type: String,
     required: true
   },
   tags: [String],
-
-  // Document References
-  attachments: [{
-    fileName: String,
-    fileType: String,
-    fileUrl: String,
-    uploadedAt: Date
-  }],
-
-  // GST Details
+  
+  // GST details
   gstDetails: {
     isGSTApplicable: {
       type: Boolean,
@@ -102,136 +64,162 @@ const JournalVoucherSchema = new mongoose.Schema({
     },
     gstType: {
       type: String,
-      enum: ['CGST_SGST', 'IGST', 'None'],
-      default: 'None'
+      enum: ['Regular', 'ReverseCharge', 'Composition', 'Exempt', 'NonGST']
     },
-    gstAmount: {
-      type: Number,
-      default: 0
-    },
-    gstPercentage: {
-      type: Number,
-      default: 0
-    },
-    placeOfSupply: String,
-    reverseCharge: {
-      type: Boolean,
-      default: false
-    }
+    gstMonth: Date,
+    gstEntries: [{
+      type: {
+        type: String,
+        enum: ['CGST', 'SGST', 'IGST']
+      },
+      rate: Number,
+      amount: Number,
+      ledgerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Ledger'
+      }
+    }]
   },
-
-  // TDS Details
+  
+  // TDS details
   tdsDetails: {
     isTDSApplicable: {
       type: Boolean,
       default: false
     },
     tdsSection: String,
-    tdsPercentage: {
-      type: Number,
-      default: 0
-    },
-    tdsAmount: {
-      type: Number,
-      default: 0
+    tdsRate: Number,
+    tdsAmount: Number,
+    tdsLedgerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Ledger'
     }
   },
-
-  // Status and Workflow
-  status: {
+  
+  // Approval workflow
+  approvalStatus: {
     type: String,
-    enum: ['Draft', 'Posted', 'Cancelled'],
+    enum: ['Draft', 'Pending', 'Approved', 'Rejected'],
     default: 'Draft'
   },
-  postingDate: Date,
-  cancellationReason: String,
+  approvalWorkflow: [{
+    action: {
+      type: String,
+      enum: ['Created', 'Modified', 'Submitted', 'Approved', 'Rejected']
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    remarks: String,
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   
-  // Audit Fields
+  // Attachments
+  attachments: [{
+    fileName: String,
+    fileType: String,
+    fileSize: Number,
+    fileUrl: String,
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  
+  // Status and audit
+  status: {
+    type: String,
+    enum: ['Active', 'Cancelled', 'Deleted'],
+    default: 'Active'
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  modifiedBy: {
+  updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  },
-  modifiedAt: Date,
-  approvedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  approvedAt: Date
+  }
 }, {
   timestamps: true
 });
 
-// Indexes for better query performance
-JournalVoucherSchema.index({ societyId: 1, voucherDate: -1 });
-JournalVoucherSchema.index({ societyId: 1, voucherType: 1 });
-JournalVoucherSchema.index({ societyId: 1, status: 1 });
+// Compound index for unique voucher number per society
+JournalVoucherSchema.index({ societyId: 1, voucherNumber: 1 }, { unique: true });
+
+// Method to validate entries (total debit = total credit)
+JournalVoucherSchema.methods.validateEntries = function() {
+  const totalDebit = this.entries
+    .filter(entry => entry.type === 'debit')
+    .reduce((sum, entry) => sum + entry.amount, 0);
+    
+  const totalCredit = this.entries
+    .filter(entry => entry.type === 'credit')
+    .reduce((sum, entry) => sum + entry.amount, 0);
+    
+  return Math.abs(totalDebit - totalCredit) < 0.01; // Allow for small rounding differences
+};
+
+// Method to post entries to ledgers
+JournalVoucherSchema.methods.postToLedgers = async function() {
+  const Ledger = mongoose.model('Ledger');
+  
+  for (const entry of this.entries) {
+    const ledger = await Ledger.findById(entry.ledgerId);
+    if (!ledger) throw new Error(`Ledger not found: ${entry.ledgerId}`);
+    
+    await ledger.updateBalance(entry.amount, entry.type);
+  }
+};
+
+// Method to cancel voucher
+JournalVoucherSchema.methods.cancel = async function(userId, remarks) {
+  if (this.status !== 'Active') {
+    throw new Error('Cannot cancel non-active voucher');
+  }
+  
+  // Reverse all entries
+  const Ledger = mongoose.model('Ledger');
+  for (const entry of this.entries) {
+    const ledger = await Ledger.findById(entry.ledgerId);
+    if (!ledger) throw new Error(`Ledger not found: ${entry.ledgerId}`);
+    
+    // Reverse the entry (debit becomes credit and vice versa)
+    await ledger.updateBalance(entry.amount, entry.type === 'debit' ? 'credit' : 'debit');
+  }
+  
+  // Update status and add to workflow
+  this.status = 'Cancelled';
+  this.approvalWorkflow.push({
+    action: 'Cancelled',
+    userId,
+    remarks,
+    timestamp: new Date()
+  });
+  
+  await this.save();
+};
 
 // Pre-save middleware
 JournalVoucherSchema.pre('save', function(next) {
-  if (this.isModified()) {
-    this.modifiedAt = new Date();
+  // Validate entries if they've been modified
+  if (this.isModified('entries')) {
+    if (!this.validateEntries()) {
+      next(new Error('Total debit must equal total credit'));
+      return;
+    }
   }
-  if (this.status === 'Posted' && !this.postingDate) {
-    this.postingDate = new Date();
-  }
+  
   next();
 });
 
-// Instance method to calculate totals
-JournalVoucherSchema.methods.calculateTotals = function() {
-  return this.entries.reduce((acc, entry) => {
-    if (entry.type === 'Debit') {
-      acc.totalDebit += entry.amount;
-    } else {
-      acc.totalCredit += entry.amount;
-    }
-    return acc;
-  }, { totalDebit: 0, totalCredit: 0 });
-};
-
-// Static method to get vouchers by date range
-JournalVoucherSchema.statics.getVouchersByDateRange = function(societyId, startDate, endDate) {
-  return this.find({
-    societyId,
-    voucherDate: {
-      $gte: startDate,
-      $lte: endDate
-    },
-    status: 'Posted'
-  })
-  .sort({ voucherDate: 1, voucherNo: 1 })
-  .populate('entries.ledgerId', 'code name');
-};
-
-// Static method to get ledger entries
-JournalVoucherSchema.statics.getLedgerEntries = function(societyId, ledgerId, startDate, endDate) {
-  return this.aggregate([
-    {
-      $match: {
-        societyId,
-        status: 'Posted',
-        voucherDate: { $gte: startDate, $lte: endDate }
-      }
-    },
-    { $unwind: '$entries' },
-    {
-      $match: {
-        'entries.ledgerId': mongoose.Types.ObjectId(ledgerId)
-      }
-    },
-    {
-      $sort: {
-        voucherDate: 1,
-        voucherNo: 1
-      }
-    }
-  ]);
-};
-
-const JournalVoucher = mongoose.models.JournalVoucher || mongoose.model('JournalVoucher', JournalVoucherSchema);
-export default JournalVoucher; 
+export default mongoose.models.JournalVoucher || mongoose.model('JournalVoucher', JournalVoucherSchema); 
