@@ -19,7 +19,10 @@ import EmergencyAlerts from "./components/EmergencyAlerts";
 import SecurityProfile from "./components/SecurityProfile";
 import IncidentLogs from "./components/IncidentLogs";
 import PendingResidents from "./components/PendingResidents";
-import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt, FaUserClock } from "react-icons/fa";
+import BillHeads from "./components/BillHeads";
+import GeneralLedger from './components/GeneralLedger';
+import ScheduledBills from './components/ScheduledBills';
+import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt, FaUserClock, FaFileInvoiceDollar } from "react-icons/fa";
 import { CiLogout } from "react-icons/ci";
 
 export default function Home() {
@@ -140,6 +143,12 @@ export default function Home() {
                 return <EmergencyAlerts />;
             case "IncidentLogs":
                 return <IncidentLogs />;
+            case "BillHeads":
+                return <BillHeads />;
+            case "GeneralLedger":
+                return <GeneralLedger />;
+            case "ScheduledBills":
+                return <ScheduledBills />;
             default:
                 return <DashboardDefault />;
         }
@@ -220,6 +229,15 @@ export default function Home() {
                             </li>
 
                             <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Finance & Maintenance</li>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Bill Heads" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("BillHeads", "Bill Heads")}
+                            >
+                                <a href="#BillHeads" className="flex items-center w-full">
+                                    <FaFileInvoiceDollar className="mr-3" />
+                                    Bill Heads
+                                </a>
+                            </li>
                             <li
                                 className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Maintenance Bills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
                                 onClick={() => handleComponent("MaintenanceBills", "Maintenance Bills")}
@@ -330,6 +348,24 @@ export default function Home() {
                                 <a href="#IncidentLogs" className="flex items-center w-full">
                                     <FaFileAlt className="mr-3" />
                                     Incident Logs
+                                </a>
+                            </li>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "General Ledger" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("GeneralLedger", "General Ledger")}
+                            >
+                                <a href="#GeneralLedger" className="flex items-center w-full">
+                                    <FaFileInvoiceDollar className="mr-3" />
+                                    General Ledger
+                                </a>
+                            </li>
+                            <li
+                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Scheduled Bills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
+                                onClick={() => handleComponent("ScheduledBills", "Scheduled Bills")}
+                            >
+                                <a href="#ScheduledBills" className="flex items-center w-full">
+                                    <FaUserClock className="mr-3" />
+                                    Scheduled Bills
                                 </a>
                             </li>
                             <li onClick={handleLogout} className="mb-1 flex text-lg items-center py-2 px-5 rounded cursor-pointer transition-all bg-red-800 hover:bg-gray-800 hover:border-r-4 hover:border-red-600">

@@ -46,6 +46,15 @@ const residentSchema = new mongoose.Schema({
     floorIndex: { type: Number },
     flatNumber: { type: String },
     structureType: { type: String }
+  },
+  notificationPreferences: {
+    phone: { type: Boolean, default: true },
+    email: { type: Boolean, default: true }
+  },
+  approvedBy: {
+    adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'Society' },
+    adminName: { type: String },
+    approvedAt: { type: Date }
   }
 });
 

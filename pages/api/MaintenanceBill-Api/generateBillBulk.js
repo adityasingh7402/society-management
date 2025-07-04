@@ -1,5 +1,8 @@
+import connectToDatabase from '../../../lib/mongodb';
 import MaintenanceBill from '../../../models/MaintenanceBill';
-import connectDB from '../../../lib/mongodb';
+import BillHead from '../../../models/BillHead';
+import JournalVoucher from '../../../models/JournalVoucher';
+import { verifyToken } from '../../../utils/auth';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,122 +10,137 @@ export default async function handler(req, res) {
   }
 
   try {
-    await connectDB();
-    
+    // Verify token
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = await verifyToken(token);
+    if (!decoded) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    await connectToDatabase();
+
     const {
       societyId,
       residents,
-      billType,
+      billHeadId,
+      billHeadDetails,
       description,
-      amount,
+      baseAmount,
+      additionalCharges,
+      gstDetails,
       issueDate,
       dueDate,
-      finePerDay,
-      additionalCharges = []
+      finePerDay
     } = req.body;
 
-    console.log('societyId', societyId)
-    console.log('residents', residents)
-    console.log('billType', billType)
-    console.log('description', description)
-    console.log('amount', amount)
-    console.log('issueDate', issueDate)
-    console.log('dueDate', dueDate)
-    console.log('finePerDay', finePerDay)
-    console.log('additionalCharges', additionalCharges)
+    // Validate bill head exists
+    const billHead = await BillHead.findById(billHeadId);
+    if (!billHead) {
+      return res.status(400).json({ message: 'Invalid bill head' });
+    }
 
-    if (!societyId || !residents || !Array.isArray(residents) || residents.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Society ID and at least one resident are required' 
+    // Generate bills for each resident
+    const generatedBills = await Promise.all(residents.map(async resident => {
+      const totalAmount = baseAmount + 
+        (gstDetails?.totalGst || 0) + 
+        additionalCharges.reduce((sum, charge) => sum + parseFloat(charge.amount), 0);
+
+      // Create maintenance bill
+      const bill = await MaintenanceBill.create({
+        societyId,
+        flatId: resident.flatDetails?.flatId,
+        flatNumber: resident.flatDetails?.flatNumber,
+        blockName: resident.flatDetails?.blockName,
+        floorNumber: resident.flatDetails?.floorNumber,
+        residentId: resident._id,
+        ownerName: resident.name,
+        ownerMobile: resident.phone,
+        ownerEmail: resident.email,
+        billHeadId,
+        billHeadDetails,
+        description,
+        baseAmount,
+        additionalCharges,
+        gstDetails: {
+          cgst: gstDetails?.cgst || 0,
+          sgst: gstDetails?.sgst || 0,
+          igst: gstDetails?.igst || 0,
+          totalGst: gstDetails?.totalGst || 0
+        },
+        issueDate,
+        dueDate,
+        finePerDay,
+        totalAmount,
+        status: 'Pending',
+        generatedBy: decoded.userId,
+        generatedAt: new Date()
       });
-    }
 
-    if (!billType || !amount || !dueDate) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Bill type, amount, and due date are required' 
+      // Create journal voucher entries
+      const journalVoucher = await JournalVoucher.create({
+        societyId,
+        date: new Date(),
+        type: 'Bill',
+        referenceId: bill._id,
+        referenceNumber: bill.billNumber,
+        description: `Maintenance bill generated for ${resident.flatDetails?.flatNumber}`,
+        entries: [
+          // Debit entry for resident's account
+          {
+            account: 'Resident Receivables',
+            description: `Bill for ${billHeadDetails.name}`,
+            debit: totalAmount,
+            credit: 0
+          },
+          // Credit entry for income account
+          {
+            account: billHead.incomeAccount || 'Maintenance Income',
+            description: `Bill for ${billHeadDetails.name}`,
+            debit: 0,
+            credit: baseAmount
+          },
+          // GST entries if applicable
+          ...(gstDetails?.cgst ? [{
+            account: 'CGST Payable',
+            description: 'CGST on maintenance bill',
+            debit: 0,
+            credit: gstDetails.cgst
+          }] : []),
+          ...(gstDetails?.sgst ? [{
+            account: 'SGST Payable',
+            description: 'SGST on maintenance bill',
+            debit: 0,
+            credit: gstDetails.sgst
+          }] : []),
+          ...(gstDetails?.igst ? [{
+            account: 'IGST Payable',
+            description: 'IGST on maintenance bill',
+            debit: 0,
+            credit: gstDetails.igst
+          }] : []),
+          // Additional charges entries
+          ...additionalCharges.map(charge => ({
+            account: billHead.incomeAccount || 'Other Income',
+            description: charge.description,
+            debit: 0,
+            credit: charge.amount
+          }))
+        ],
+        status: 'Posted',
+        postedBy: decoded.userId,
+        postedAt: new Date()
       });
-    }
 
-    // Calculate the total additional charges
-    const totalAdditionalCharges = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
-    
-    // Create bills for each resident
-    const createdBills = [];
-    const failedBills = [];
+      return { bill, journalVoucher };
+    }));
 
-    for (const resident of residents) {
-      try {
-        const {
-          _id: residentId,
-          name: ownerName,
-          phone: ownerMobile,
-          email: ownerEmail,
-          flatDetails
-        } = resident;
-
-        if (!flatDetails || !flatDetails.flatNumber) {
-          failedBills.push({ residentId, reason: 'Missing flat details' });
-          continue;
-        }
-
-        // Parse flat number to get block and floor
-        const flatParts = flatDetails.flatNumber.split('-');
-        if (flatParts.length !== 2) {
-          failedBills.push({ residentId, reason: 'Invalid flat number format' });
-          continue;
-        }
-
-        const blockName = flatParts[0];
-        const flatNumber = flatDetails.flatNumber;
-        const floorNumber = flatParts[1].charAt(0); // First digit of flat number is floor
-
-        const newBill = new MaintenanceBill({
-          societyId,
-          flatId: flatDetails.flatId || null,
-          flatNumber,
-          blockName,
-          floorNumber,
-          residentId,
-          ownerName,
-          ownerMobile,
-          ownerEmail,
-          billType,
-          description,
-          amount: parseFloat(amount),
-          additionalCharges,
-          issueDate: issueDate || new Date().toISOString().split('T')[0],
-          dueDate,
-          finePerDay: parseFloat(finePerDay),
-          penaltyAmount: 0,
-          remainingAmount: parseFloat(amount) + totalAdditionalCharges
-        });
-
-        await newBill.save();
-        createdBills.push(newBill);
-      } catch (error) {
-        console.error(`Error creating bill for resident ${resident._id}:`, error);
-        failedBills.push({ 
-          residentId: resident._id, 
-          reason: error.message || 'Unknown error' 
-        });
-      }
-    }
-
-    res.status(201).json({ 
-      success: true, 
-      message: `Successfully created ${createdBills.length} bills`,
-      totalCreated: createdBills.length,
-      totalFailed: failedBills.length,
-      failedBills
+    res.status(201).json({
+      message: `Successfully generated ${generatedBills.length} bills`,
+      bills: generatedBills.map(({ bill }) => bill),
+      journalVouchers: generatedBills.map(({ journalVoucher }) => journalVoucher)
     });
   } catch (error) {
-    console.error('Error generating bulk bills:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to generate bulk bills', 
-      error: error.message 
-    });
+    console.error('Error generating bills:', error);
+    res.status(500).json({ message: 'Error generating bills', error: error.message });
   }
 }

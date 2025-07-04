@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { Building, FileText } from 'lucide-react';
+import { useRouter } from 'next/router';
 
 export default function UtilityBills() {
+  const router = useRouter();
   // States for UI
   const [activeTab, setActiveTab] = useState('generate');
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,8 @@ export default function UtilityBills() {
   const [selectedFloor, setSelectedFloor] = useState('');
   const [selectedFlat, setSelectedFlat] = useState('');
   const [selectedResident, setSelectedResident] = useState(null);
+  const [billHeadId, setBillHeadId] = useState('');
+  const [billHeads, setBillHeads] = useState([]);
   const [utilityType, setUtilityType] = useState('');
   const [description, setDescription] = useState('');
   const [structureType, setStructureType] = useState('Block');
@@ -47,7 +51,7 @@ export default function UtilityBills() {
   const [billHistory, setBillHistory] = useState([]);
   const [filteredHistory, setFilteredHistory] = useState([]);
 
-  // Fetch residents on component mount
+  // Fetch residents and bills on component mount
   useEffect(() => {
     fetchInitialData();
   }, []);
@@ -55,9 +59,32 @@ export default function UtilityBills() {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      // First get society details
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+      const societyCode = societyData.societyId;
+      const societyId = societyData._id;
+
+      // Fetch residents, bills, and bill heads in parallel
       const [residentsResponse, billsResponse] = await Promise.all([
-        fetch('/api/Resident-Api/getAllResidents'),
-        fetch('/api/UtilityBill-Api/getBills')
+        fetch(`/api/Resident-Api/getAllResidents?societyId=${societyCode}`),
+        fetch(`/api/UtilityBill-Api/getBills?societyId=${societyId}`),
+        fetchBillHeads(societyId)
       ]);
 
       if (residentsResponse.ok) {
@@ -92,8 +119,34 @@ export default function UtilityBills() {
       }
     } catch (error) {
       console.error('Error fetching initial data:', error);
+      router.push('/societyLogin');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBillHeads = async (societyId) => {
+    try {
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      const response = await fetch(`/api/BillHead-Api/get-bill-heads?societyId=${societyId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Filter bill heads for utility bills only
+        const utilityBillHeads = data.data.filter(head => head.category === 'Utility');
+        setBillHeads(utilityBillHeads);
+      }
+    } catch (error) {
+      console.error('Error fetching bill heads:', error);
     }
   };
 
@@ -266,7 +319,7 @@ export default function UtilityBills() {
         return;
       }
 
-      if (!utilityType || !unitUsage || !perUnitRate || !dueDate) {
+      if (!billHeadId || !utilityType || !unitUsage || !perUnitRate || !dueDate) {
         alert('Please fill all required fields');
         return;
       }
@@ -275,6 +328,7 @@ export default function UtilityBills() {
 
       const newBill = {
         societyId: selectedResident.societyId,
+        flatId: selectedResident.flatDetails?.flatId,
         flatNumber: `${selectedBlock}-${selectedFlat}`,
         blockName: selectedBlock,
         floorNumber: parseInt(selectedFloor),
@@ -282,6 +336,7 @@ export default function UtilityBills() {
         ownerName: selectedResident.name,
         ownerMobile: selectedResident.phone,
         ownerEmail: selectedResident.email,
+        billHeadId,
         utilityType,
         description,
         unitUsage: parseFloat(unitUsage),
@@ -370,6 +425,7 @@ export default function UtilityBills() {
     setSelectedFloor('');
     setSelectedFlat('');
     setSelectedResident(null);
+    setBillHeadId('');
     setUtilityType('');
     setDescription('');
     setUnitUsage('');
@@ -566,6 +622,23 @@ export default function UtilityBills() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Bill Head *</label>
+                          <select
+                            className="w-full border border-gray-300 rounded-md px-3 py-2"
+                            value={billHeadId}
+                            onChange={(e) => setBillHeadId(e.target.value)}
+                            required
+                          >
+                            <option value="">Select Bill Head</option>
+                            {billHeads.map(head => (
+                              <option key={head._id} value={head._id}>
+                                {head.code} - {head.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Utility Type *</label>
                           <select

@@ -9,8 +9,15 @@ export default async function handler(req, res) {
   try {
     await connectDB();
 
-    // Get all bills
-    const bills = await UtilityBill.find().sort({ createdAt: -1 });
+    // Get societyId from query parameters
+    const { societyId } = req.query;
+    
+    if (!societyId) {
+      return res.status(400).json({ message: 'Society ID is required' });
+    }
+
+    // Get all bills for the specific society
+    const bills = await UtilityBill.find({ societyId }).sort({ createdAt: -1 });
 
     // Update penalty amounts for overdue bills
     const updatedBills = await Promise.all(bills.map(async (bill) => {

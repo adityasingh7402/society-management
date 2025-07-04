@@ -2,143 +2,256 @@ import mongoose from 'mongoose';
 
 const MaintenanceBillSchema = new mongoose.Schema({
   // References
-  societyId: { type: String, required: true }, // Society ID
-  flatNumber: { type: String, required: true }, // Flat number for easier querying/display
-  blockName: { type: String, required: true }, // Block name
-  floorNumber: { type: Number, required: true }, // Floor number
-  residentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident' }, // Resident reference
-
-  // Owner details
-  ownerName: { type: String, required: true }, // Owner's name
-  ownerMobile: { type: String, required: true }, // Owner's mobile number
-  ownerEmail: { type: String, required: true }, // Owner's email address
-
-  // Bill Type
-  billType: {
+  societyId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Society',
+    required: true 
+  },
+  billHeadId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BillHead',
+    required: true
+  },
+  billNumber: {
     type: String,
     required: true,
-    enum: ['Security', 'Cleaning', 'Parking', 'Other'], // Added more bill types
+    unique: true
+  },
+  flatNumber: { 
+    type: String, 
+    required: true 
+  },
+  blockName: { 
+    type: String, 
+    required: true 
+  },
+  floorNumber: { 
+    type: Number, 
+    required: true 
+  },
+  residentId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Resident',
+    required: true
   },
 
+  // Owner details
+  ownerName: { type: String, required: true },
+  ownerMobile: { type: String, required: true },
+  ownerEmail: { type: String, required: true },
+
   // Bill details
-  description: { type: String }, // Description of the bill
-  amount: { type: Number, required: true }, // Bill base amount
-  additionalCharges: [
-    {
-      description: String,
-      amount: Number,
-    },
-  ], // Extra charges if any
+  description: String,
+  baseAmount: { 
+    type: Number, 
+    required: true 
+  },
+  additionalCharges: [{
+    description: String,
+    amount: Number
+  }],
+  
+  // GST details
+  gstDetails: {
+    isGSTApplicable: { type: Boolean, default: false },
+    cgst: { type: Number, default: 0 },
+    sgst: { type: Number, default: 0 },
+    igst: { type: Number, default: 0 },
+    totalGST: { type: Number, default: 0 }
+  },
 
   // Dates
-  issueDate: { type: Date, default: Date.now }, // Date when the bill was issued
-  dueDate: { type: Date, required: true }, // Due date for payment
+  issueDate: { type: Date, default: Date.now },
+  dueDate: { type: Date, required: true },
 
   // Late payment and penalty
-  finePerDay: { type: Number, default: 0 }, // Fine per day after the due date
-  penaltyAmount: { type: Number, default: 0 }, // Fixed additional penalty if any
-  currentPenalty: { type: Number, default: 0 }, // Accumulated late payment penalty
+  latePaymentConfig: {
+    isApplicable: { type: Boolean, default: false },
+    gracePeriodDays: { type: Number, default: 0 },
+    chargeType: { 
+      type: String,
+      enum: ['Fixed', 'Percentage'],
+      default: 'Fixed'
+    },
+    chargeValue: { type: Number, default: 0 },
+    compoundingFrequency: {
+      type: String,
+      enum: ['Daily', 'Weekly', 'Monthly'],
+      default: 'Monthly'
+    }
+  },
+  currentPenalty: { type: Number, default: 0 },
 
   // Payment details
-  amountPaid: { type: Number, default: 0 }, // Amount paid so far
-  remainingAmount: { type: Number }, // Remaining amount to be paid
+  totalAmount: { type: Number, required: true },
+  amountPaid: { type: Number, default: 0 },
+  remainingAmount: { type: Number },
   status: {
     type: String,
     required: true,
-    enum: ['Pending', 'Paid', 'Overdue', 'Partially Paid'], // Bill status
-    default: 'Pending',
+    enum: ['Pending', 'Partially Paid', 'Paid', 'Overdue', 'Cancelled'],
+    default: 'Pending'
   },
-  paymentHistory: [
-    {
-      amount: Number,
-      paymentDate: Date,
-      paymentMethod: String,
-      transactionId: String,
+  paymentHistory: [{
+    amount: Number,
+    paymentDate: Date,
+    paymentMethod: {
+      type: String,
+      enum: ['Cash', 'Cheque', 'Bank Transfer', 'UPI', 'Other']
     },
-  ],
+    transactionId: String,
+    receiptNumber: String,
+    notes: String,
+    recordedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  }],
 
-}, { timestamps: true });
+  // Accounting entries
+  journalEntries: [{
+    voucherId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'JournalVoucher'
+    },
+    type: {
+      type: String,
+      enum: ['Bill', 'Payment', 'Late Fee', 'Cancellation']
+    },
+    amount: Number,
+    date: Date
+  }],
 
-// Calculate penalty based on days overdue and fine per day
+  // Notifications
+  notifications: [{
+    type: {
+      type: String,
+      enum: ['Reminder', 'Payment', 'Overdue', 'Other']
+    },
+    sentAt: Date,
+    channel: {
+      type: String,
+      enum: ['Email', 'SMS', 'Push']
+    },
+    status: {
+      type: String,
+      enum: ['Sent', 'Failed', 'Pending']
+    }
+  }],
+
+  // Audit trail
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }
+}, { 
+  timestamps: true 
+});
+
+// Calculate penalty based on configuration
 MaintenanceBillSchema.methods.calculatePenalty = function() {
-  // If bill is already paid, no penalty
-  if (this.status === 'Paid') {
+  if (this.status === 'Paid' || !this.latePaymentConfig.isApplicable) {
     return 0;
   }
   
-  // Calculate days overdue
   const today = new Date();
   const dueDate = new Date(this.dueDate);
+  dueDate.setDate(dueDate.getDate() + this.latePaymentConfig.gracePeriodDays);
   
-  // If not yet due, no penalty
   if (today <= dueDate) {
     return 0;
   }
   
-  // Calculate days difference
-  const diffTime = Math.abs(today - dueDate);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = Math.ceil((today - dueDate) / (1000 * 60 * 60 * 24));
+  let penalty = 0;
   
-  // Calculate penalty amount
-  const finePerDay = this.finePerDay || 50; // Default to 50 if not specified
-  const penalty = diffDays * finePerDay;
+  if (this.latePaymentConfig.chargeType === 'Fixed') {
+    switch(this.latePaymentConfig.compoundingFrequency) {
+      case 'Daily':
+        penalty = diffDays * this.latePaymentConfig.chargeValue;
+        break;
+      case 'Weekly':
+        penalty = Math.ceil(diffDays / 7) * this.latePaymentConfig.chargeValue;
+        break;
+      case 'Monthly':
+        penalty = Math.ceil(diffDays / 30) * this.latePaymentConfig.chargeValue;
+        break;
+    }
+  } else { // Percentage
+    const baseForPenalty = this.baseAmount + this.gstDetails.totalGST;
+    const percentagePerPeriod = this.latePaymentConfig.chargeValue;
+    
+    switch(this.latePaymentConfig.compoundingFrequency) {
+      case 'Daily':
+        penalty = baseForPenalty * Math.pow(1 + (percentagePerPeriod/100), diffDays) - baseForPenalty;
+        break;
+      case 'Weekly':
+        const weeks = Math.ceil(diffDays / 7);
+        penalty = baseForPenalty * Math.pow(1 + (percentagePerPeriod/100), weeks) - baseForPenalty;
+        break;
+      case 'Monthly':
+        const months = Math.ceil(diffDays / 30);
+        penalty = baseForPenalty * Math.pow(1 + (percentagePerPeriod/100), months) - baseForPenalty;
+        break;
+    }
+  }
   
-  return penalty;
+  return Math.round(penalty * 100) / 100; // Round to 2 decimal places
 };
 
-// Calculate total amount including base amount, additional charges, and penalty
+// Calculate total amount
 MaintenanceBillSchema.methods.calculateTotalAmount = function() {
-  const baseAmount = this.amount || 0;
+  const baseAmount = this.baseAmount || 0;
+  const additionalChargesTotal = this.additionalCharges.reduce((sum, charge) => sum + (charge.amount || 0), 0);
+  const gstTotal = this.gstDetails.totalGST || 0;
+  const penalty = this.currentPenalty || 0;
   
-  // Sum additional charges
-  const additionalChargesTotal = this.additionalCharges.reduce((sum, charge) => {
-    return sum + (charge.amount || 0);
-  }, 0);
-  
-  // Add penalties
-  const fixedPenalty = this.penaltyAmount || 0;
-  const currentPenalty = this.currentPenalty || 0;
-  
-  return baseAmount + additionalChargesTotal + fixedPenalty + currentPenalty;
+  return baseAmount + additionalChargesTotal + gstTotal + penalty;
 };
 
 // Calculate remaining amount
 MaintenanceBillSchema.methods.calculateRemainingAmount = function() {
-  if (this.status === 'Paid') {
-    return 0;
-  }
-  
-  const totalAmount = this.calculateTotalAmount();
-  return totalAmount - (this.amountPaid || 0);
+  return this.calculateTotalAmount() - (this.amountPaid || 0);
 };
 
-// Pre-save hook to update remaining amount and penalty
+// Pre-save middleware
 MaintenanceBillSchema.pre('save', function(next) {
-  // Update current penalty amount
+  // Update penalty
   if (this.status !== 'Paid') {
     this.currentPenalty = this.calculatePenalty();
     
-    // Update status to Overdue if past due date
-    if (new Date() > new Date(this.dueDate)) {
+    // Update status based on due date and payments
+    const today = new Date();
+    if (today > this.dueDate && this.status !== 'Partially Paid') {
       this.status = 'Overdue';
     }
     
-    // If partially paid, ensure status reflects that
     if (this.amountPaid > 0 && this.amountPaid < this.calculateTotalAmount()) {
       this.status = 'Partially Paid';
     }
   }
   
-  // Update remaining amount
+  // Update total and remaining amounts
+  this.totalAmount = this.calculateTotalAmount();
   this.remainingAmount = this.calculateRemainingAmount();
   
   next();
 });
 
-// Virtual field to calculate total due amount (bill + additional charges + penalties - paid amount)
-MaintenanceBillSchema.virtual('totalDue').get(function () {
+// Virtual field for total due amount
+MaintenanceBillSchema.virtual('totalDue').get(function() {
   return this.calculateRemainingAmount();
 });
 
-const MaintenanceBill = mongoose.models.MaintenanceBill || mongoose.model('MaintenanceBill', MaintenanceBillSchema);
-export default MaintenanceBill;
+// Indexes for better query performance
+MaintenanceBillSchema.index({ societyId: 1, billNumber: 1 }, { unique: true });
+MaintenanceBillSchema.index({ societyId: 1, status: 1 });
+MaintenanceBillSchema.index({ societyId: 1, dueDate: 1 });
+MaintenanceBillSchema.index({ residentId: 1, status: 1 });
+
+export default mongoose.models.MaintenanceBill || mongoose.model('MaintenanceBill', MaintenanceBillSchema);

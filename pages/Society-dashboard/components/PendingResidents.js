@@ -62,13 +62,38 @@ export default function PendingResidents() {
   // Handle approval or rejection
   const handleAction = async (residentId, action) => {
     try {
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      // Get society admin details
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+
       const response = await fetch(`/api/Resident-Api/${residentId}/${action}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          flatDetails: selectedResident.flatDetails
+          flatDetails: selectedResident.flatDetails,
+          adminDetails: {
+            adminId: societyData._id,
+            adminName: societyData.managerName || societyData.name,
+            approvedAt: new Date()
+          }
         })
       });
 

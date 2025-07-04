@@ -5,7 +5,7 @@ import Society from '../../../../models/Society';
 export default async function handler(req, res) {
   if (req.method === 'PUT') {
     const { residentId, action } = req.query;
-    const { flatDetails } = req.body;
+    const { flatDetails, adminDetails } = req.body;
 
     await connectToDatabase();
 
@@ -23,6 +23,15 @@ export default async function handler(req, res) {
       // Update flat details if provided
       if (flatDetails) {
         resident.flatDetails = flatDetails;
+      }
+
+      // Add admin approval details if action is 'Approved'
+      if (action === 'Approved' && adminDetails) {
+        resident.approvedBy = {
+          adminId: adminDetails.adminId,
+          adminName: adminDetails.adminName,
+          approvedAt: adminDetails.approvedAt
+        };
       }
       
       await resident.save();

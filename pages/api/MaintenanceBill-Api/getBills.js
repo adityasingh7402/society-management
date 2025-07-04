@@ -1,5 +1,6 @@
+import connectToDatabase from '../../../lib/mongodb';
 import MaintenanceBill from '../../../models/MaintenanceBill';
-import connectDB from '../../../lib/mongodb';
+import { verifyToken } from '../../../utils/auth';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -7,59 +8,75 @@ export default async function handler(req, res) {
   }
 
   try {
-    await connectDB();
-    
-    const bills = await MaintenanceBill.find().sort({ issueDate: -1 });
-    
-    // Calculate and update penalties in database
-    const updatedBills = await Promise.all(bills.map(async bill => {
-      const plainBill = bill.toObject();
-      
-      // Skip penalty calculation for paid bills
-      if (plainBill.status === 'Paid') {
-        return plainBill;
-      }
-      
-      // Calculate days overdue
-      const today = new Date();
-      const dueDate = new Date(plainBill.dueDate);
-      
-      if (today > dueDate) {
-        const diffTime = Math.abs(today - dueDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const currentPenalty = diffDays * (plainBill.finePerDay || 50);
-        
-        // Update bill in database with new penalty and status
-        await MaintenanceBill.findByIdAndUpdate(bill._id, {
-          penaltyAmount: currentPenalty,
-          status: 'Overdue'
-        });
+    // Verify token
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = await verifyToken(token);
+    if (!decoded) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
 
-        plainBill.penaltyAmount = currentPenalty;
-        plainBill.status = 'Overdue';
-      }
-      
-      return plainBill;
-    }));
+    await connectToDatabase();
 
-    // Calculate summary with updated penalties
+    const { societyId, status, billHeadId, fromDate, toDate } = req.query;
+
+    // Build query
+    const query = { societyId };
+    if (status) query.status = status;
+    if (billHeadId) query.billHeadId = billHeadId;
+    if (fromDate && toDate) {
+      query.issueDate = {
+        $gte: new Date(fromDate),
+        $lte: new Date(toDate)
+      };
+    }
+
+    // Get bills with populated bill head details
+    const bills = await MaintenanceBill.find(query)
+      .sort({ issueDate: -1 });
+
+    // Calculate summary
     const summary = {
       totalBills: bills.length,
-      totalAmount: updatedBills.reduce((sum, bill) => sum + bill.amount + 
-        (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0), 0),
-      totalPaidAmount: updatedBills.filter(bill => bill.status === 'Paid')
-        .reduce((sum, bill) => sum + bill.amount + 
-          (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0), 0),
-      totalDueAmount: updatedBills.filter(bill => bill.status !== 'Paid')
-        .reduce((sum, bill) => sum + bill.amount + 
-          (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
-          (bill.penaltyAmount || 0), 0),
-      totalPenalty: updatedBills.reduce((sum, bill) => sum + (bill.penaltyAmount || 0), 0)
+      totalAmount: bills.reduce((sum, bill) => sum + bill.totalAmount, 0),
+      totalPaid: bills.filter(bill => bill.status === 'Paid').reduce((sum, bill) => sum + bill.totalAmount, 0),
+      totalPending: bills.filter(bill => bill.status === 'Pending').reduce((sum, bill) => sum + bill.totalAmount, 0),
+      totalOverdue: bills.filter(bill => bill.status === 'Overdue').reduce((sum, bill) => sum + bill.totalAmount, 0),
+      totalGstCollected: bills.reduce((sum, bill) => sum + (bill.gstDetails?.totalGst || 0), 0),
+      byBillHead: {},
+      byStatus: {
+        Paid: bills.filter(bill => bill.status === 'Paid').length,
+        Pending: bills.filter(bill => bill.status === 'Pending').length,
+        Overdue: bills.filter(bill => bill.status === 'Overdue').length
+      }
     };
 
-    res.status(200).json({ bills: updatedBills, summary });
+    // Group by bill head
+    bills.forEach(bill => {
+      const headName = bill.billHeadDetails?.name || 'Other';
+      if (!summary.byBillHead[headName]) {
+        summary.byBillHead[headName] = {
+          count: 0,
+          amount: 0,
+          gst: 0
+        };
+      }
+      summary.byBillHead[headName].count++;
+      summary.byBillHead[headName].amount += bill.baseAmount;
+      summary.byBillHead[headName].gst += bill.gstDetails?.totalGst || 0;
+    });
+
+    res.status(200).json({
+      bills,
+      summary,
+      filters: {
+        fromDate,
+        toDate,
+        status,
+        billHeadId
+      }
+    });
   } catch (error) {
     console.error('Error fetching bills:', error);
-    res.status(500).json({ message: 'Failed to fetch bills', error: error.message });
+    res.status(500).json({ message: 'Error fetching bills', error: error.message });
   }
 }

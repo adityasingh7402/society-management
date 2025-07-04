@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { Building, CreditCard } from 'lucide-react';
+import { useRouter } from 'next/router';
 
 export default function PaymentTracking() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterUtilityType, setFilterUtilityType] = useState("all");
@@ -17,7 +19,28 @@ export default function PaymentTracking() {
   const fetchBills = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/MaintenanceBill-Api/getBills');
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      // First get society details
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+      const societyId = societyData._id;
+
+      // Then fetch bills for this society
+      const response = await fetch(`/api/MaintenanceBill-Api/getBills?societyId=${societyId}`);
       if (response.ok) {
         const data = await response.json();
         setBillHistory(data.bills);
@@ -25,10 +48,41 @@ export default function PaymentTracking() {
       }
     } catch (error) {
       console.error('Error fetching bills:', error);
+      router.push('/societyLogin');
     } finally {
       setLoading(false);
     }
   };
+
+  // Add useEffect for filtering bills
+  useEffect(() => {
+    if (billHistory.length > 0) {
+      let filtered = [...billHistory];
+
+      // Filter by status
+      if (filterStatus !== "all") {
+        filtered = filtered.filter(bill => 
+          filterStatus === "paid" ? bill.status === "Paid" : bill.status !== "Paid"
+        );
+      }
+
+      // Filter by utility type
+      if (filterUtilityType !== "all") {
+        filtered = filtered.filter(bill => bill.billType === filterUtilityType);
+      }
+
+      // Filter by date
+      if (filterDate) {
+        const filterDateObj = new Date(filterDate);
+        filtered = filtered.filter(bill => {
+          const billDate = new Date(bill.issueDate);
+          return billDate.toDateString() === filterDateObj.toDateString();
+        });
+      }
+
+      setFilteredHistory(filtered);
+    }
+  }, [filterStatus, filterUtilityType, filterDate, billHistory]);
 
   return (
     <div>

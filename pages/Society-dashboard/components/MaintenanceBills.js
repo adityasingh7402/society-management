@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { Building, Receipt } from 'lucide-react';
+import { useRouter } from 'next/router';
 
 export default function MaintenanceBills() {
+  const router = useRouter();
   // States for UI
   const [activeTab, setActiveTab] = useState('generate');
   const [loading, setLoading] = useState(false);
@@ -39,7 +41,8 @@ export default function MaintenanceBills() {
   const [selectedFloor, setSelectedFloor] = useState('');
   const [selectedFlat, setSelectedFlat] = useState('');
   const [selectedResident, setSelectedResident] = useState(null);
-  const [billType, setBillType] = useState('');
+  const [billHeadId, setBillHeadId] = useState('');
+  const [billHeads, setBillHeads] = useState([]);
   const [description, setDescription] = useState('');
   const [structureType, setStructureType] = useState('Block');
   const [amount, setAmount] = useState('');
@@ -48,6 +51,7 @@ export default function MaintenanceBills() {
   const [finePerDay, setFinePerDay] = useState('50');
   const [additionalCharges, setAdditionalCharges] = useState([]);
   const [newCharge, setNewCharge] = useState({ description: '', amount: '' });
+  const [selectedBillHead, setSelectedBillHead] = useState(null);
 
   // States for bill history
   const [historyBlock, setHistoryBlock] = useState('');
@@ -56,36 +60,84 @@ export default function MaintenanceBills() {
   const [billHistory, setBillHistory] = useState([]);
   const [filteredHistory, setFilteredHistory] = useState([]);
 
-  // Fetch residents on component mount
+  // Fetch society details and residents on component mount
   useEffect(() => {
-    const fetchResidents = async () => {
+    const fetchSocietyAndResidents = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/Resident-Api/getAllResidents');
-        if (response.ok) {
-          const data = await response.json();
-          setResidentList(data);
-          organizeResidentsByStructure(data);
-        } else {
-          console.error('Failed to fetch residents');
+        const token = localStorage.getItem('Society');
+        if (!token) {
+          router.push('/societyLogin');
+          return;
         }
+
+        // First get society details
+        const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!societyResponse.ok) {
+          throw new Error('Failed to fetch society details');
+        }
+
+        const societyData = await societyResponse.json();
+        const societyId = societyData.societyId;
+
+        // Fetch both residents and bill heads in parallel
+        await Promise.all([
+          (async () => {
+            const residentsResponse = await fetch(`/api/Resident-Api/getAllResidents?societyId=${societyId}`);
+            if (residentsResponse.ok) {
+              const data = await residentsResponse.json();
+              setResidentList(data);
+              organizeResidentsByStructure(data);
+            }
+          })(),
+          fetchBillHeads(societyId)
+        ]);
       } catch (error) {
-        console.error('Error fetching residents:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchResidents();
-  }, []);
+    fetchSocietyAndResidents();
+  }, [router]);
 
   // Fetch bill summary
   useEffect(() => {
-    // Update the fetchBillSummary function
-    setLoading(true);
     const fetchBillSummary = async () => {
+      setLoading(true);
       try {
-        const response = await fetch('/api/MaintenanceBill-Api/getBills');
+        const token = localStorage.getItem('Society');
+        if (!token) {
+          router.push('/societyLogin');
+          return;
+        }
+
+        // Get society details first
+        const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!societyResponse.ok) {
+          throw new Error('Failed to fetch society details');
+        }
+
+        const societyData = await societyResponse.json();
+        const societyId = societyData.societyId;
+
+        // Then fetch bills for this society
+        const response = await fetch(`/api/MaintenanceBill-Api/getBills?societyId=${societyId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (response.ok) {
           const data = await response.json();
           // Calculate correct totals including penalties
@@ -119,28 +171,51 @@ export default function MaintenanceBills() {
     };
 
     fetchBillSummary();
-  }, []);
+  }, [router]);
 
-    // Toggle resident selection for bulk generation
-    const toggleResidentSelection = (residentId) => {
-      if (selectedResidents.includes(residentId)) {
-        setSelectedResidents(selectedResidents.filter(id => id !== residentId));
-      } else {
-        setSelectedResidents([...selectedResidents, residentId]);
+  // Add fetchBillHeads function after fetchSocietyAndResidents
+  const fetchBillHeads = async (societyId) => {
+    try {
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
       }
-    };
-    
-    // Select or deselect all residents
-    const toggleAllResidents = () => {
-      if (selectedResidents.length === filteredResidents.length) {
-        setSelectedResidents([]);
-      } else {
-        setSelectedResidents(filteredResidents.map(r => r._id));
+
+      const response = await fetch(`/api/BillHead-Api/get-bill-heads?societyId=${societyId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setBillHeads(data.data);
       }
-    };
-    
-    // Handle bulk bill generation
-      // Handle bulk bill generation
+    } catch (error) {
+      console.error('Error fetching bill heads:', error);
+    }
+  };
+
+  // Toggle resident selection for bulk generation
+  const toggleResidentSelection = (residentId) => {
+    if (selectedResidents.includes(residentId)) {
+      setSelectedResidents(selectedResidents.filter(id => id !== residentId));
+    } else {
+      setSelectedResidents([...selectedResidents, residentId]);
+    }
+  };
+  
+  // Select or deselect all residents
+  const toggleAllResidents = () => {
+    if (selectedResidents.length === filteredResidents.length) {
+      setSelectedResidents([]);
+    } else {
+      setSelectedResidents(filteredResidents.map(r => r._id));
+    }
+  };
+  
+  // Handle bulk bill generation
   const handleBulkBillGeneration = async (e) => {
     e.preventDefault();
     
@@ -175,6 +250,7 @@ export default function MaintenanceBills() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('Society')}`,
         },
         body: JSON.stringify(bulkBillData),
       });
@@ -191,7 +267,11 @@ export default function MaintenanceBills() {
         setBulkDueDate('');
         
         // Refresh bill history
-        const historyResponse = await fetch('/api/MaintenanceBill-Api/getBills');
+        const historyResponse = await fetch('/api/MaintenanceBill-Api/getBills', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('Society')}`,
+          },
+        });
         if (historyResponse.ok) {
           const data = await historyResponse.json();
           setBillHistory(data.bills);
@@ -210,33 +290,33 @@ export default function MaintenanceBills() {
       setLoading(false);
     }
   };
-    // Filter residents for bulk generation
-    useEffect(() => {
-      if (residentList.length > 0) {
-        let filtered = [...residentList];
-        
-        if (bulkFilter.block) {
-          filtered = filtered.filter(resident => 
-            resident.flatDetails?.flatNumber?.startsWith(bulkFilter.block + '-')
-          );
-        }
-        
-        if (bulkFilter.floor) {
-          filtered = filtered.filter(resident => {
-            const flatNumber = resident.flatDetails?.flatNumber?.split('-')[1];
-            return flatNumber && flatNumber.startsWith(bulkFilter.floor);
-          });
-        }
-        
-        
-        setFilteredResidents(filtered);
-        
-        // Initialize selected residents if empty
-        if (selectedResidents.length === 0) {
-          setSelectedResidents(filtered.map(r => r._id));
-        }
+  // Filter residents for bulk generation
+  useEffect(() => {
+    if (residentList.length > 0) {
+      let filtered = [...residentList];
+      
+      if (bulkFilter.block) {
+        filtered = filtered.filter(resident => 
+          resident.flatDetails?.flatNumber?.startsWith(bulkFilter.block + '-')
+        );
       }
-    }, [residentList, bulkFilter]);
+      
+      if (bulkFilter.floor) {
+        filtered = filtered.filter(resident => {
+          const flatNumber = resident.flatDetails?.flatNumber?.split('-')[1];
+          return flatNumber && flatNumber.startsWith(bulkFilter.floor);
+        });
+      }
+      
+      
+      setFilteredResidents(filtered);
+      
+      // Initialize selected residents if empty
+      if (selectedResidents.length === 0) {
+        setSelectedResidents(filtered.map(r => r._id));
+      }
+    }
+  }, [residentList, bulkFilter]);
   // Filter history when history block/floor/flat changes
   useEffect(() => {
     if (billHistory.length > 0) {
@@ -373,7 +453,7 @@ export default function MaintenanceBills() {
       return;
     }
 
-    if (!billType || !amount || !dueDate) {
+    if (!billHeadId || !amount || !dueDate) {
       alert('Please fill all required fields');
       return;
     }
@@ -381,6 +461,23 @@ export default function MaintenanceBills() {
     setLoading(true);
 
     try {
+      let baseAmount = parseFloat(amount);
+      let gstDetails = {};
+
+      // Calculate GST if applicable
+      if (selectedBillHead?.gstApplicable) {
+        const cgst = (baseAmount * (selectedBillHead.cgstPercentage || 0)) / 100;
+        const sgst = (baseAmount * (selectedBillHead.sgstPercentage || 0)) / 100;
+        const igst = (baseAmount * (selectedBillHead.igstPercentage || 0)) / 100;
+
+        gstDetails = {
+          cgst,
+          sgst,
+          igst,
+          totalGst: cgst + sgst + igst
+        };
+      }
+
       const newBill = {
         societyId: selectedResident.societyId,
         flatId: selectedResident.flatDetails?.flatId,
@@ -391,20 +488,30 @@ export default function MaintenanceBills() {
         ownerName: selectedResident.name,
         ownerMobile: selectedResident.phone,
         ownerEmail: selectedResident.email,
-        billType,
+        billHeadId,
+        billHeadDetails: {
+          code: selectedBillHead.code,
+          name: selectedBillHead.name,
+          category: selectedBillHead.category,
+          calculationType: selectedBillHead.calculationType
+        },
         description,
-        amount: parseFloat(amount),
+        baseAmount,
         additionalCharges,
+        gstDetails,
         issueDate,
         dueDate,
         finePerDay: parseFloat(finePerDay),
-        penaltyAmount: 0
+        penaltyAmount: 0,
+        totalAmount: baseAmount + (gstDetails.totalGst || 0) + 
+          additionalCharges.reduce((sum, charge) => sum + parseFloat(charge.amount), 0)
       };
 
       const response = await fetch('/api/MaintenanceBill-Api/generateBill', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('Society')}`,
         },
         body: JSON.stringify(newBill),
       });
@@ -414,7 +521,11 @@ export default function MaintenanceBills() {
         resetForm();
 
         // Refresh bill history
-        const historyResponse = await fetch('/api/MaintenanceBill-Api/getBills');
+        const historyResponse = await fetch('/api/MaintenanceBill-Api/getBills', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('Society')}`,
+          },
+        });
         if (historyResponse.ok) {
           const data = await historyResponse.json();
           setBillHistory(data.bills);
@@ -457,7 +568,8 @@ export default function MaintenanceBills() {
     setSelectedFloor('');
     setSelectedFlat('');
     setSelectedResident(null);
-    setBillType('');
+    setBillHeadId('');
+    setSelectedBillHead(null);
     setDescription('');
     setAmount('');
     setIssueDate(new Date().toISOString().split('T')[0]);
@@ -472,6 +584,32 @@ export default function MaintenanceBills() {
     const baseAmount = parseFloat(amount) || 0;
     const additionalTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
     return baseAmount + additionalTotal;
+  };
+
+  const handleBillHeadChange = (e) => {
+    const selectedId = e.target.value;
+    setBillHeadId(selectedId);
+    
+    if (selectedId) {
+      const billHead = billHeads.find(head => head._id === selectedId);
+      setSelectedBillHead(billHead);
+      
+      // Pre-fill amount if fixed amount is set
+      if (billHead.calculationType === 'Fixed') {
+        setAmount(billHead.fixedAmount.toString());
+      } else {
+        setAmount(''); // Clear amount for other calculation types
+      }
+      
+      // Pre-fill description if available
+      if (billHead.description) {
+        setDescription(billHead.description);
+      }
+    } else {
+      setSelectedBillHead(null);
+      setAmount('');
+      setDescription('');
+    }
   };
 
   if (loading) {
@@ -651,20 +789,61 @@ export default function MaintenanceBills() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bill Type *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Bill Head *</label>
                       <select
                         className="w-full border border-gray-300 rounded-md px-3 py-2"
-                        value={billType}
-                        onChange={(e) => setBillType(e.target.value)}
+                        value={billHeadId}
+                        onChange={handleBillHeadChange}
                         required
                       >
-                        <option value="">Select Type</option>
-                        <option value="Security">Security</option>
-                        <option value="Cleaning">Cleaning</option>
-                        <option value="Parking">Parking</option>
-                        <option value="Other">Other</option>
+                        <option value="">Select Bill Head</option>
+                        {billHeads.map(head => (
+                          <option key={head._id} value={head._id}>
+                            {head.code} - {head.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
+
+                    {selectedBillHead && (
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Bill Head Details</h4>
+                        <div className="space-y-2">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Category:</span> {selectedBillHead.category}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Calculation Type:</span> {selectedBillHead.calculationType}
+                          </p>
+                          {selectedBillHead.calculationType === 'Fixed' && (
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Fixed Amount:</span> ₹{selectedBillHead.fixedAmount}
+                            </p>
+                          )}
+                          {selectedBillHead.calculationType === 'Formula' && (
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Formula:</span> {selectedBillHead.formula}
+                            </p>
+                          )}
+                          {selectedBillHead.gstApplicable && (
+                            <div className="text-sm text-gray-600">
+                              <span className="font-medium">GST:</span>
+                              <ul className="list-disc list-inside pl-4">
+                                {selectedBillHead.cgstPercentage > 0 && (
+                                  <li>CGST: {selectedBillHead.cgstPercentage}%</li>
+                                )}
+                                {selectedBillHead.sgstPercentage > 0 && (
+                                  <li>SGST: {selectedBillHead.sgstPercentage}%</li>
+                                )}
+                                {selectedBillHead.igstPercentage > 0 && (
+                                  <li>IGST: {selectedBillHead.igstPercentage}%</li>
+                                )}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹) *</label>
