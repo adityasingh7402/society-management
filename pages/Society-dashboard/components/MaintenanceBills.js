@@ -83,7 +83,9 @@ export default function MaintenanceBills() {
         }
 
         const societyData = await societyResponse.json();
-        const societyId = societyData.societyId;
+        console.log('Society Data:', societyData); // Add this log
+        const societyCode = societyData.societyId;  // Add this line
+        const societyId = societyData._id; // Change this line to use _id instead of societyId
 
         // Fetch both residents and bill heads in parallel
         await Promise.all([
@@ -113,12 +115,15 @@ export default function MaintenanceBills() {
       setLoading(true);
       try {
         const token = localStorage.getItem('Society');
+        console.log('Token from localStorage:', token ? 'Present' : 'Missing');
+        
         if (!token) {
           router.push('/societyLogin');
           return;
         }
 
         // Get society details first
+        console.log('Fetching society details...');
         const societyResponse = await fetch('/api/Society-Api/get-society-details', {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -126,43 +131,64 @@ export default function MaintenanceBills() {
         });
 
         if (!societyResponse.ok) {
+          const errorData = await societyResponse.json();
+          console.error('Society API error:', errorData);
           throw new Error('Failed to fetch society details');
         }
 
         const societyData = await societyResponse.json();
-        const societyId = societyData.societyId;
+        console.log('Society Data:', societyData);
+        const societyCode = societyData.societyId;  // Add this line
+        const societyId = societyData._id;
 
         // Then fetch bills for this society
-        const response = await fetch(`/api/MaintenanceBill-Api/getBills?societyId=${societyId}`, {
+        const billsUrl = `/api/MaintenanceBill-Api/getBills?societyId=${societyId}`;
+        console.log('Fetching bills from:', billsUrl);
+        
+        const response = await fetch(billsUrl, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-        if (response.ok) {
-          const data = await response.json();
-          // Calculate correct totals including penalties
-          const summary = {
-            totalBills: data.bills.length,
-            totalAmount: data.bills.reduce((sum, bill) => sum +
-              bill.amount +
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Bills API error:', errorData);
+          throw new Error(`Failed to fetch bills: ${errorData.message || 'Unknown error'}`);
+        }
+
+        const data = await response.json();
+        console.log('Bills API Response:', data);
+
+        if (!data || !Array.isArray(data.bills)) {
+          console.error('Invalid bills data:', data);
+          throw new Error('Invalid bills data received');
+        }
+
+        // Calculate correct totals using the correct property names
+        const summary = {
+          totalBills: data.bills.length,
+          totalAmount: data.bills.reduce((sum, bill) => sum + 
+            (bill.baseAmount || 0) + 
+            (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+            (bill.penaltyAmount || 0), 0),
+          totalPaidAmount: data.bills.filter(bill => bill.status === 'Paid')
+            .reduce((sum, bill) => sum + 
+              (bill.baseAmount || 0) + 
               (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
               (bill.penaltyAmount || 0), 0),
-            totalPaidAmount: data.bills.filter(bill => bill.status === 'Paid')
-              .reduce((sum, bill) => sum +
-                bill.amount +
-                (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
-                (bill.penaltyAmount || 0), 0),
-            totalDueAmount: data.bills.filter(bill => bill.status !== 'Paid')
-              .reduce((sum, bill) => sum +
-                bill.amount +
-                (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
-                (bill.penaltyAmount || 0), 0),
-            totalPenalty: data.bills.reduce((sum, bill) => sum + (bill.penaltyAmount || 0), 0)
-          };
-          setSummaryData(summary);
-          setBillHistory(data.bills);
-          setFilteredHistory(data.bills);
-        }
+          totalDueAmount: data.bills.filter(bill => bill.status !== 'Paid')
+            .reduce((sum, bill) => sum + 
+              (bill.baseAmount || 0) + 
+              (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
+              (bill.penaltyAmount || 0), 0),
+          totalPenalty: data.bills.reduce((sum, bill) => sum + (bill.penaltyAmount || 0), 0)
+        };
+        console.log('Calculated summary:', summary);
+
+        setSummaryData(summary);
+        setBillHistory(data.bills);
+        setFilteredHistory(data.bills);
       } catch (error) {
         console.error('Error fetching bill summary:', error);
       } finally {
@@ -1281,7 +1307,7 @@ export default function MaintenanceBills() {
                     filteredHistory.map((bill) => (
                       <tr key={bill._id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {bill.billNumber || bill._id.substring(0, 8)}
+                          {bill._id.substring(0, 8)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{bill.ownerName}</div>
@@ -1296,10 +1322,18 @@ export default function MaintenanceBills() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">₹{bill.amount.toLocaleString()}</div>
-                          {bill.penaltyAmount > 0 && (
-                            <div className="text-xs text-red-600">+₹{bill.penaltyAmount} penalty</div>
-                          )}
+                          <div className="text-sm font-medium text-gray-900">
+                              ₹{(
+                                (bill.baseAmount || 0) +
+                                (bill.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0) +
+                                (bill.penaltyAmount || 0)
+                              ).toFixed(2)}
+                            </div>
+                            {bill.penaltyAmount > 0 && (
+                              <div className="text-xs text-red-500">
+                                (includes ₹{bill.penaltyAmount.toFixed(2)} penalty)
+                              </div>
+                            )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {new Date(bill.issueDate).toLocaleDateString()}
@@ -1308,21 +1342,16 @@ export default function MaintenanceBills() {
                           {new Date(bill.dueDate).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${bill.status === 'Paid'
-                            ? 'bg-green-100 text-green-800'
-                            : bill.status === 'Overdue'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                            }`}>
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            bill.status === 'Paid'
+                              ? 'bg-green-100 text-green-800'
+                              : bill.status === 'Overdue'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                          }`}>
                             {bill.status}
                           </span>
                         </td>
-                        {/* <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <a href={`/Society-M-Bill/${bill._id}`} className="text-blue-600 hover:text-blue-900 mr-4">View</a>
-                          {bill.status !== 'Paid' && (
-                            <a href={`/bill/${bill._id}/pay`} className="text-green-600 hover:text-green-900">Pay</a>
-                          )}
-                        </td> */}
                       </tr>
                     ))
                   ) : (

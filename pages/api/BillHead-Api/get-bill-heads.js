@@ -1,5 +1,6 @@
 import connectToDatabase from "../../../lib/mongodb";
 import BillHead from '../../../models/BillHead';
+import Society from '../../../models/Society';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -16,8 +17,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Society ID is required' });
     }
 
-    // Build query
-    const query = { societyId };
+    // First find the society with the given societyId (which is a string)
+    const society = await Society.findOne({ societyId: societyId });
+    if (!society) {
+      return res.status(404).json({ message: 'Society not found' });
+    }
+
+    // Build query using society's _id
+    const query = { societyId: society._id };
     if (status) {
       query.status = status;
     }
@@ -41,6 +48,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error fetching bill heads:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 } 

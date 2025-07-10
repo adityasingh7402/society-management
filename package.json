@@ -29,7 +29,7 @@
     "lucide-react": "^0.483.0",
     "mongoose": "^8.9.2",
     "nanoid": "^5.1.5",
-    "next": "15.1.2",
+    "next": "^15.3.5",
     "next-connect": "^1.0.0",
     "qr-code-styling": "^1.9.2",
     "qrcode": "^1.5.4",
@@ -48,7 +48,8 @@
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "swiper": "^11.2.6",
-    "twilio": "^5.4.0"
+    "twilio": "^5.4.0",
+    "yarn": "^1.22.22"
   },
   "devDependencies": {
     "postcss": "^8",

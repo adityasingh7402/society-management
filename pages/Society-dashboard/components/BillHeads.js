@@ -49,7 +49,10 @@ export default function BillHeads() {
       chargeValue: 0,
       compoundingFrequency: 'Monthly'
     },
-    ledgerId: '',
+    accountingConfig: {
+      incomeLedgerId: '',
+      receivableLedgerId: ''
+    },
     status: 'Active'
   });
 
@@ -231,7 +234,11 @@ export default function BillHeads() {
       
       const payload = {
         ...formData,
-        societyId: societyData.societyId
+        societyId: societyData.societyId,
+        accountingConfig: {
+          incomeLedgerId: formData.accountingConfig.incomeLedgerId || null,
+          receivableLedgerId: formData.accountingConfig.receivableLedgerId || null
+        }
       };
 
       const url = editingBillHead 
@@ -242,22 +249,24 @@ export default function BillHeads() {
         method: editingBillHead ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save bill head');
+        throw new Error(errorData.message || errorData.error || 'Failed to save bill head');
       }
 
       showNotification(
-        `Bill head ${editingBillHead ? 'updated' : 'created'} successfully`,
+        editingBillHead ? 'Bill head updated successfully' : 'Bill head created successfully',
         'success'
       );
-      
+
+      // Reset form and refresh data
       resetForm();
+      setShowForm(false);
       fetchBillHeads();
     } catch (error) {
       console.error('Error saving bill head:', error);
@@ -291,7 +300,10 @@ export default function BillHeads() {
         chargeValue: billHead.latePaymentConfig?.chargeValue || 0,
         compoundingFrequency: billHead.latePaymentConfig?.compoundingFrequency || 'Monthly'
       },
-      ledgerId: billHead.ledgerId || '',
+      accountingConfig: {
+        incomeLedgerId: billHead.accountingConfig?.incomeLedgerId || '',
+        receivableLedgerId: billHead.accountingConfig?.receivableLedgerId || ''
+      },
       status: billHead.status || 'Active'
     });
     setShowForm(true);
@@ -321,7 +333,10 @@ export default function BillHeads() {
         chargeValue: 0,
         compoundingFrequency: 'Monthly'
       },
-      ledgerId: '',
+      accountingConfig: {
+        incomeLedgerId: '',
+        receivableLedgerId: ''
+      },
       status: 'Active'
     });
     setShowForm(false);
@@ -818,6 +833,82 @@ export default function BillHeads() {
                     </div>
                   </>
                 )}
+
+                <div className="md:col-span-2">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      checked={Boolean(formData.accountingConfig.incomeLedgerId)}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        accountingConfig: {
+                          ...formData.accountingConfig,
+                          incomeLedgerId: e.target.checked ? (ledgers[0]?._id || '') : ''
+                        }
+                      })}
+                    />
+                    <label className="ml-2 block text-sm text-gray-900">Income Ledger</label>
+                  </div>
+                  {Boolean(formData.accountingConfig.incomeLedgerId) && (
+                    <select
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
+                      value={formData.accountingConfig.incomeLedgerId}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        accountingConfig: {
+                          ...formData.accountingConfig,
+                          incomeLedgerId: e.target.value
+                        }
+                      })}
+                    >
+                      <option value="">Select Income Ledger</option>
+                      {ledgers.filter(ledger => ledger.category === 'Operating Income').map((ledger) => (
+                        <option key={ledger._id} value={ledger._id}>
+                          {ledger.code} - {ledger.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      checked={Boolean(formData.accountingConfig.receivableLedgerId)}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        accountingConfig: {
+                          ...formData.accountingConfig,
+                          receivableLedgerId: e.target.checked ? (ledgers[0]?._id || '') : ''
+                        }
+                      })}
+                    />
+                    <label className="ml-2 block text-sm text-gray-900">Receivable Ledger</label>
+                  </div>
+                  {Boolean(formData.accountingConfig.receivableLedgerId) && (
+                    <select
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
+                      value={formData.accountingConfig.receivableLedgerId}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        accountingConfig: {
+                          ...formData.accountingConfig,
+                          receivableLedgerId: e.target.value
+                        }
+                      })}
+                    >
+                      <option value="">Select Receivable Ledger</option>
+                      {ledgers.filter(ledger => ledger.category === 'Receivable').map((ledger) => (
+                        <option key={ledger._id} value={ledger._id}>
+                          {ledger.code} - {ledger.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Status</label>

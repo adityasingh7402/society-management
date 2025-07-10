@@ -1,6 +1,7 @@
 import connectToDatabase from '../../../lib/mongodb';
 import MaintenanceBill from '../../../models/MaintenanceBill';
 import { verifyToken } from '../../../utils/auth';
+import mongoose from 'mongoose';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -14,13 +15,22 @@ export default async function handler(req, res) {
     if (!decoded) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
+    console.log('Token verified for user:', decoded);
 
     await connectToDatabase();
+    console.log('Connected to database');
 
     const { societyId, status, billHeadId, fromDate, toDate } = req.query;
+    console.log('Received query params:', { societyId, status, billHeadId, fromDate, toDate });
 
-    // Build query
-    const query = { societyId };
+    // Build query with both string and ObjectId possibilities for societyId
+    const query = {
+      $or: [
+        { societyId: societyId }, // Try as string
+        { societyId: new mongoose.Types.ObjectId(societyId) } // Try as ObjectId
+      ]
+    };
+    
     if (status) query.status = status;
     if (billHeadId) query.billHeadId = billHeadId;
     if (fromDate && toDate) {
@@ -30,18 +40,37 @@ export default async function handler(req, res) {
       };
     }
 
-    // Get bills with populated bill head details
+    console.log('Query being executed:', JSON.stringify(query, null, 2));
+
+    // Get all bills first to check collection
+    const allBills = await MaintenanceBill.find({}).lean();
+    console.log('Database check:', {
+      totalBillsFound: allBills.length,
+      uniqueSocietyIds: [...new Set(allBills.map(bill => bill.societyId))],
+      sampleBill: allBills[0]
+    });
+
+    // Get bills with the query
     const bills = await MaintenanceBill.find(query)
-      .sort({ issueDate: -1 });
+      .sort({ issueDate: -1 })
+      .lean();
+
+    console.log('Query results:', {
+      billsFound: bills.length,
+      sampleQueryBill: bills[0]
+    });
 
     // Calculate summary
     const summary = {
       totalBills: bills.length,
-      totalAmount: bills.reduce((sum, bill) => sum + bill.totalAmount, 0),
-      totalPaid: bills.filter(bill => bill.status === 'Paid').reduce((sum, bill) => sum + bill.totalAmount, 0),
-      totalPending: bills.filter(bill => bill.status === 'Pending').reduce((sum, bill) => sum + bill.totalAmount, 0),
-      totalOverdue: bills.filter(bill => bill.status === 'Overdue').reduce((sum, bill) => sum + bill.totalAmount, 0),
-      totalGstCollected: bills.reduce((sum, bill) => sum + (bill.gstDetails?.totalGst || 0), 0),
+      totalAmount: bills.reduce((sum, bill) => sum + (bill.amount || 0), 0),
+      totalPaid: bills.filter(bill => bill.status === 'Paid')
+        .reduce((sum, bill) => sum + (bill.amount || 0), 0),
+      totalPending: bills.filter(bill => bill.status === 'Pending')
+        .reduce((sum, bill) => sum + (bill.amount || 0), 0),
+      totalOverdue: bills.filter(bill => bill.status === 'Overdue')
+        .reduce((sum, bill) => sum + (bill.amount || 0), 0),
+      totalGstCollected: bills.reduce((sum, bill) => sum + (bill.gstAmount || 0), 0),
       byBillHead: {},
       byStatus: {
         Paid: bills.filter(bill => bill.status === 'Paid').length,
@@ -50,33 +79,19 @@ export default async function handler(req, res) {
       }
     };
 
-    // Group by bill head
-    bills.forEach(bill => {
-      const headName = bill.billHeadDetails?.name || 'Other';
-      if (!summary.byBillHead[headName]) {
-        summary.byBillHead[headName] = {
-          count: 0,
-          amount: 0,
-          gst: 0
-        };
-      }
-      summary.byBillHead[headName].count++;
-      summary.byBillHead[headName].amount += bill.baseAmount;
-      summary.byBillHead[headName].gst += bill.gstDetails?.totalGst || 0;
-    });
+    console.log('Calculated summary:', summary);
 
-    res.status(200).json({
+    return res.status(200).json({
       bills,
       summary,
       filters: {
-        fromDate,
-        toDate,
-        status,
-        billHeadId
+        status: ['Paid', 'Pending', 'Overdue'],
+        billHeads: [...new Set(bills.map(bill => bill.billHeadId))]
       }
     });
+
   } catch (error) {
-    console.error('Error fetching bills:', error);
-    res.status(500).json({ message: 'Error fetching bills', error: error.message });
+    console.error('Error in getBills:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 }

@@ -1,5 +1,7 @@
 import connectToDatabase from "../../../lib/mongodb";
 import BillHead from '../../../models/BillHead';
+import Society from '../../../models/Society';
+import Ledger from '../../../models/Ledger';
 import { verifyToken } from '../../../utils/auth';
 
 export default async function handler(req, res) {
@@ -15,7 +17,7 @@ export default async function handler(req, res) {
     }
 
     const decoded = await verifyToken(token);
-    if (!decoded) {
+    if (!decoded || !decoded.id) {
       return res.status(401).json({ message: 'Invalid token' });
     }
 
@@ -31,12 +33,9 @@ export default async function handler(req, res) {
       fixedAmount,
       perUnitRate,
       formula,
-      gstApplicable,
-      cgstPercentage,
-      sgstPercentage,
-      igstPercentage,
+      gstConfig,
       latePaymentConfig,
-      ledgerId
+      accountingConfig
     } = req.body;
 
     // Validate required fields
@@ -45,6 +44,59 @@ export default async function handler(req, res) {
         message: 'Missing required fields',
         required: ['societyId', 'code', 'name', 'category', 'calculationType']
       });
+    }
+
+    // Find society by societyId string
+    const society = await Society.findOne({ societyId });
+    if (!society) {
+      return res.status(404).json({ message: 'Society not found' });
+    }
+
+    // Find or create default ledgers if not provided
+    let incomeLedger, receivableLedger;
+
+    // Handle income ledger
+    if (!accountingConfig?.incomeLedgerId) {
+      incomeLedger = await Ledger.findOne({ 
+        societyId: society._id,
+        code: 'INC001',
+        name: 'Income Account'
+      });
+      
+      if (!incomeLedger) {
+        incomeLedger = await Ledger.create({
+          societyId: society._id,
+          code: 'INC001',
+          name: 'Income Account',
+          type: 'Income',
+          category: 'Operating Income', // Updated to use correct enum value
+          balanceType: 'Credit',
+          openingBalance: 0,
+          createdBy: decoded.id
+        });
+      }
+    }
+
+    // Handle receivable ledger
+    if (!accountingConfig?.receivableLedgerId) {
+      receivableLedger = await Ledger.findOne({
+        societyId: society._id,
+        code: 'REC001',
+        name: 'Receivables Account'
+      });
+
+      if (!receivableLedger) {
+        receivableLedger = await Ledger.create({
+          societyId: society._id,
+          code: 'REC001',
+          name: 'Receivables Account',
+          type: 'Asset',
+          category: 'Receivable', // Updated to use correct enum value
+          balanceType: 'Debit',
+          openingBalance: 0,
+          createdBy: decoded.id
+        });
+      }
     }
 
     // Validate calculation type specific fields
@@ -72,19 +124,9 @@ export default async function handler(req, res) {
         break;
     }
 
-    // Validate GST percentages if applicable
-    if (gstApplicable) {
-      const totalGST = (cgstPercentage || 0) + (sgstPercentage || 0) + (igstPercentage || 0);
-      if (totalGST <= 0 || totalGST > 28) {
-        return res.status(400).json({ 
-          message: 'Invalid GST percentages. Total GST must be between 0 and 28%'
-        });
-      }
-    }
-
     // Create bill head
     const billHead = await BillHead.create({
-      societyId,
+      societyId: society._id,
       code: code.toUpperCase(),
       name,
       category,
@@ -93,11 +135,11 @@ export default async function handler(req, res) {
       fixedAmount,
       perUnitRate,
       formula,
-      gstConfig: {
-        isGSTApplicable: gstApplicable || false,
-        cgstPercentage: cgstPercentage || 0,
-        sgstPercentage: sgstPercentage || 0,
-        igstPercentage: igstPercentage || 0
+      gstConfig: gstConfig || {
+        isGSTApplicable: false,
+        cgstPercentage: 0,
+        sgstPercentage: 0,
+        igstPercentage: 0
       },
       latePaymentConfig: latePaymentConfig || {
         isLatePaymentChargeApplicable: false,
@@ -106,12 +148,15 @@ export default async function handler(req, res) {
         chargeValue: 0,
         compoundingFrequency: 'Monthly'
       },
-      ledgerId,
+      accountingConfig: {
+        incomeLedgerId: accountingConfig?.incomeLedgerId || incomeLedger._id,
+        receivableLedgerId: accountingConfig?.receivableLedgerId || receivableLedger._id
+      },
       status: 'Active',
-      createdBy: decoded.userId
+      createdBy: decoded.id
     });
 
-    return res.status(200).json({
+    return res.status(201).json({
       message: 'Bill head created successfully',
       data: billHead
     });
