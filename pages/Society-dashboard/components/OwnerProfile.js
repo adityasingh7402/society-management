@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { Eye, User, Tag } from 'lucide-react';
 import { useRouter } from 'next/router';
-import DetailPopup from '../widget/ownerComponents/DetailPopup';
-import UpdatePopup from '../widget/ownerComponents/UpdatePopup';
-import Notification from '../widget/ownerComponents/Notification';
+import DetailPopup from '../../../components/Society/widgets/DetailPopup';
+import UpdatePopup from '../../../components/Society/widgets/UpdatePopup';
+import Notification from '../../../components/Society/widgets/Notification';
 import TagsPopup from '../../../components/Society/widgets/TagsPopup';
 
 export default function OwnerProfile() {
