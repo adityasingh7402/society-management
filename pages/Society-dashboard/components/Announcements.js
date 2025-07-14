@@ -3,9 +3,15 @@ import axios from 'axios';
 import { useRouter } from 'next/router';
 import { Megaphone, Calendar, Clock, Trash2, Upload, Edit, AlertCircle, X, Save, Plus, Loader2, Building, Bell } from 'lucide-react';
 import PreloaderSociety from '../../components/PreloaderSociety';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 export default function Announcements() {
   const router = useRouter();
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_notices") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
   // Add missing state variables
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

@@ -64,7 +64,7 @@ export default async function handler(req, res) {
       
       // Set maker details
       maker: {
-        userId: decoded.userId,
+        userId: decoded.Id,
         remarks
       },
       
@@ -87,7 +87,7 @@ export default async function handler(req, res) {
 
     // If auto-approval is enabled for this payment mode, process approval
     if (['UPI', 'Card', 'NetBanking'].includes(paymentMode)) {
-      await payment.processApproval(decoded.userId, 'Approved', 'Auto-approved online payment');
+      await payment.processApproval(decoded.Id, 'Approved', 'Auto-approved online payment');
     }
 
     return res.status(200).json({

@@ -57,6 +57,47 @@ const SocietySchema = new mongoose.Schema({
   managerPhone: { type: String, required: true, unique: true },
   managerEmail: { type: String, required: true },
   
+  // New members array to store society members with roles
+  members: [{
+    name: { type: String, required: true },
+    phone: { type: String, required: true },
+    email: { type: String, required: true },
+    role: { 
+      type: String, 
+      required: true,
+      enum: ['admin', 'manager', 'accountant', 'security_admin', 'maintenance_admin', 'member'],
+      default: 'member'
+    },
+    permissions: [{
+      type: String,
+      enum: [
+        'manage_residents',
+        'manage_bills',
+        'manage_maintenance',
+        'manage_security',
+        'manage_notices',
+        'manage_amenities',
+        'manage_complaints',
+        'view_reports',
+        'manage_members',
+        'full_access'
+      ]
+    }],
+    status: {
+      type: String,
+      enum: ['active', 'inactive'],
+      default: 'active'
+    },
+    addedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Society'
+    },
+    addedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  
   // Address Fields
   street: { type: String, required: true },
   city: { type: String, required: true },

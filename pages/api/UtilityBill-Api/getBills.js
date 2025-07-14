@@ -1,5 +1,7 @@
+import connectToDatabase from '../../../lib/mongodb';
 import UtilityBill from '../../../models/UtilityBill';
-import connectDB from '../../../lib/mongodb';
+import { verifyToken } from '../../../utils/auth';
+import mongoose from 'mongoose';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -7,72 +9,91 @@ export default async function handler(req, res) {
   }
 
   try {
-    await connectDB();
+    // Verify token
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = await verifyToken(token);
+    if (!decoded) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    console.log('Token verified for user:', decoded);
 
-    // Get societyId from query parameters
-    const { societyId } = req.query;
+    await connectToDatabase();
+    console.log('Connected to database');
+
+    const { societyId, status, billHeadId, fromDate, toDate } = req.query;
+    console.log('Received query params:', { societyId, status, billHeadId, fromDate, toDate });
+
+    // Build query
+    const query = {
+      societyId: new mongoose.Types.ObjectId(societyId)
+    };
     
-    if (!societyId) {
-      return res.status(400).json({ message: 'Society ID is required' });
+    if (status) query.status = status;
+    if (billHeadId) query.billHeadId = new mongoose.Types.ObjectId(billHeadId);
+    if (fromDate && toDate) {
+      query.issueDate = {
+        $gte: new Date(fromDate),
+        $lte: new Date(toDate)
+      };
     }
 
-    // Get all bills for the specific society
-    const bills = await UtilityBill.find({ societyId }).sort({ createdAt: -1 });
+    console.log('Query being executed:', JSON.stringify(query, null, 2));
 
-    // Update penalty amounts for overdue bills
-    const updatedBills = await Promise.all(bills.map(async (bill) => {
-      // Check if bill is overdue but not paid
-      if (bill.status !== 'Paid' && new Date(bill.dueDate) < new Date()) {
-        // Calculate penalty
-        const penalty = bill.calculatePenalty(); 
+    // Get bills with populated bill head details
+    const bills = await UtilityBill.find(query)
+      .populate('billHeadId', 'name code')
+      .sort({ issueDate: -1 })
+      .lean();
 
-        // If penalty has changed, update the bill
-        if (penalty !== bill.penaltyAmount) {
-          bill.penaltyAmount = penalty;
-          bill.status = 'Overdue';
-          await bill.save();
-        }
-      }
-
-      return bill;
-    }));
+    console.log("bills",bills);
+    console.log('Query results:', {
+      billsFound: bills.length,
+      sampleQueryBill: bills[0]
+    });
 
     // Calculate summary
-    const summary = updatedBills.reduce((acc, bill) => {
-      acc.totalBills += 1;
-
-      // Use baseAmount instead of totalAmount
-      const baseAmount = Number(bill.baseAmount) || 0;
-      acc.totalAmount += baseAmount;
-
-      if (bill.status === 'Paid') {
-        acc.totalPaidAmount += baseAmount;
-      } else {
-        // Use remainingAmount for due amount
-        const remainingAmount = Number(bill.remainingAmount) || 0;
-        acc.totalDueAmount += remainingAmount;
+    const summary = {
+      totalBills: bills.length,
+      totalAmount: bills.reduce((sum, bill) => sum + (bill.totalAmount || 0), 0),
+      totalPaid: bills.filter(bill => bill.status === 'Paid')
+        .reduce((sum, bill) => sum + (bill.totalAmount || 0), 0),
+      totalPending: bills.filter(bill => bill.status === 'Pending')
+        .reduce((sum, bill) => sum + (bill.remainingAmount || 0), 0),
+      totalOverdue: bills.filter(bill => bill.status === 'Overdue')
+        .reduce((sum, bill) => sum + (bill.remainingAmount || 0), 0),
+      totalGstCollected: bills.reduce((sum, bill) => {
+        if (!bill.gstDetails?.isGSTApplicable) return sum;
+        return sum + (
+          (bill.gstDetails.cgstAmount || 0) +
+          (bill.gstDetails.sgstAmount || 0) +
+          (bill.gstDetails.igstAmount || 0)
+        );
+      }, 0),
+      byStatus: {
+        Paid: bills.filter(bill => bill.status === 'Paid').length,
+        Pending: bills.filter(bill => bill.status === 'Pending').length,
+        'Partially Paid': bills.filter(bill => bill.status === 'Partially Paid').length,
+        Overdue: bills.filter(bill => bill.status === 'Overdue').length
       }
+    };
 
-      // Use penaltyAmount for total penalty
-      const penaltyAmount = Number(bill.penaltyAmount) || 0;
-      acc.totalPenalty += penaltyAmount;
+    console.log('Calculated summary:', summary);
 
-      return acc;
-    }, {
-      totalBills: 0,
-      totalAmount: 0,
-      totalPaidAmount: 0,
-      totalDueAmount: 0,
-      totalPenalty: 0
-    });
-
-    res.status(200).json({
-      success: true,
-      bills: updatedBills,
+    return res.status(200).json({
+      bills,
       summary,
+      filters: {
+        status: ['Paid', 'Pending', 'Partially Paid', 'Overdue'],
+        billHeads: [...new Set(bills.map(bill => ({
+          id: bill.billHeadId._id,
+          name: bill.billHeadId.name,
+          code: bill.billHeadId.code
+        })))]
+      }
     });
+
   } catch (error) {
-    console.error('Error fetching bills:', error);
-    res.status(500).json({ message: 'Failed to fetch bills', error: error.message });
+    console.error('Error in getBills:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 }

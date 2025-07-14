@@ -10,7 +10,6 @@ import PaymentTracking from "./components/PaymentTracking";
 import Tickets from "./components/Tickets";
 import Announcements from "./components/Announcements";
 import PollsSurveys from "./components/PollsSurveys";
-import PreloaderSociety from "../components/PreloaderSociety";
 import DiscussionForums from "./components/DiscussionForums";
 import ApartmentStructureForm from "./components/ApartmentStructureForm";
 import VisitorEntry from "./components/VisitorEntry";
@@ -22,8 +21,76 @@ import PendingResidents from "./components/PendingResidents";
 import BillHeads from "./components/BillHeads";
 import GeneralLedger from './components/GeneralLedger';
 import ScheduledBills from './components/ScheduledBills';
-import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt, FaUserClock, FaFileInvoiceDollar } from "react-icons/fa";
+import ManageMembers from './components/ManageMembers';
+import LoadingScreen from './widget/societyComponents/loaderScreen';
+import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt, FaUserClock, FaFileInvoiceDollar, FaUserCog } from "react-icons/fa";
 import { CiLogout } from "react-icons/ci";
+import React from "react";
+import { motion } from "framer-motion";
+import { PermissionsContext } from "../../components/PermissionsContext";
+
+// Sidebar navigation model
+const NAV_SECTIONS = [
+  {
+    section: "Main",
+    items: [
+      { label: "Dashboard", component: "DashboardDefault", icon: null, requiredPermissions: null },
+      { label: "Society Profile", component: "SocietyProfile", icon: null, requiredPermissions: null },
+      { label: "Apartment Structure Form", component: "ApartmentStructureForm", icon: null, requiredPermissions: null },
+    ],
+  },
+  {
+    section: "Resident Management",
+    items: [
+      { label: "Pending Residents", component: "PendingResidents", icon: <FaUserClock className="mr-3" />, requiredPermissions: ["manage_residents"] },
+      { label: "Owner Profiles", component: "OwnerProfiles", icon: <FaUserTie className="mr-3" />, requiredPermissions: ["manage_residents"] },
+    ],
+  },
+  {
+    section: "Finance & Maintenance",
+    items: [
+      { label: "Bill Heads", component: "BillHeads", icon: <FaFileInvoiceDollar className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Maintenance Bills", component: "MaintenanceBills", icon: <FaWrench className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Utility Bills", component: "UtilityBills", icon: <FaClipboardList className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Payment Tracking", component: "PaymentTracking", icon: <FaMoneyBill className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Tickets", component: "Tickets", icon: <FaStickyNote className="mr-3" />, requiredPermissions: ["manage_maintenance"] },
+    ],
+  },
+  {
+    section: "Notices & Community",
+    items: [
+      { label: "Announcements", component: "Announcements", icon: <FaBullhorn className="mr-3" />, requiredPermissions: ["manage_notices"] },
+      { label: "Polls & Surveys", component: "PollsSurveys", icon: <FaPoll className="mr-3" />, requiredPermissions: ["manage_notices"] },
+      { label: "Discussion Forums", component: "DiscussionForums", icon: <FaComments className="mr-3" />, requiredPermissions: ["manage_notices"] },
+    ],
+  },
+  {
+    section: "Security & Emergency",
+    items: [
+      { label: "Security Profile", component: "SecurityProfile", icon: <FaUserShield className="mr-3" />, requiredPermissions: ["manage_security"] },
+      { label: "Visitor Entry", component: "VisitorEntry", icon: <FaUserShield className="mr-3" />, requiredPermissions: ["manage_security"] },
+      { label: "Delivery Management", component: "DeliveryManagement", icon: <FaBox className="mr-3" />, requiredPermissions: ["manage_security"] },
+      { label: "Emergency Alerts", component: "EmergencyAlerts", icon: <FaExclamationTriangle className="mr-3" />, requiredPermissions: ["manage_security"] },
+      { label: "Incident Logs", component: "IncidentLogs", icon: <FaFileAlt className="mr-3" />, requiredPermissions: ["manage_security"] },
+    ],
+  },
+  {
+    section: "Finance & Reports",
+    items: [
+      { label: "General Ledger", component: "GeneralLedger", icon: <FaFileInvoiceDollar className="mr-3" />, requiredPermissions: ["view_reports"] },
+      { label: "Scheduled Bills", component: "ScheduledBills", icon: <FaUserClock className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Manage Members", component: "ManageMembers", icon: <FaUserCog className="mr-3" />, requiredPermissions: ["manage_members"] },
+    ],
+  },
+];
+
+// Build a mapping from component name to label
+const componentToLabel = {};
+NAV_SECTIONS.forEach(section => {
+  section.items.forEach(item => {
+    componentToLabel[item.component] = item.label;
+  });
+});
 
 export default function Home() {
     const router = useRouter();
@@ -32,6 +99,7 @@ export default function Home() {
     const [loading, setLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [managerDetails, setManagerDetails] = useState({});
+    const [userPermissions, setUserPermissions] = useState([]);
 
     // Handle hash change and initial hash
     useEffect(() => {
@@ -40,18 +108,17 @@ export default function Home() {
             const hash = window.location.hash.slice(1); // Remove the # symbol
             if (hash) {
                 setComponent(hash);
-                // Set the active link name based on the hash
-                const linkName = hash.replace(/([A-Z])/g, ' $1').trim(); // Convert camelCase to space-separated
-                setActiveLink(linkName);
+                setActiveLink(componentToLabel[hash] || "Dashboard");
+            } else {
+                setComponent("DashboardDefault");
+                setActiveLink("Dashboard");
             }
         };
 
         // Listen for hash changes
         window.addEventListener('hashchange', handleHash);
-        
         // Handle initial hash on load
         handleHash();
-
         return () => {
             window.removeEventListener('hashchange', handleHash);
         };
@@ -66,31 +133,30 @@ export default function Home() {
                     router.push("/societyLogin");
                     return;
                 }
-
                 const response = await fetch("/api/Society-Api/get-society-details", {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
                 });
-
                 if (!response.ok) {
                     throw new Error("Failed to fetch profile");
                 }
                 const data = await response.json();
                 setManagerDetails(data);
+                setUserPermissions(data.permissions || []);
             } catch (error) {
                 console.error("Error fetching profile:", error);
                 if (error.message === "Failed to fetch profile") {
                     localStorage.removeItem("Society");
-                    router.push("/societyLogin");
+                    router.push("/societyLog in");
                 }
             } finally {
                 setLoading(false);
             }
         };
-
         fetchProfile();
     }, [router]);
+    console.log(userPermissions);
 
     const handleLogout = () => {
         localStorage.removeItem("Society");
@@ -149,12 +215,18 @@ export default function Home() {
                 return <GeneralLedger />;
             case "ScheduledBills":
                 return <ScheduledBills />;
+            case "ManageMembers":
+                return <ManageMembers />;
             default:
                 return <DashboardDefault />;
         }
     };
 
+    if (loading) {
+      return <LoadingScreen />;
+    }
     return (
+      <PermissionsContext.Provider value={userPermissions}>
         <div className="flex flex-col min-h-screen bg-gray-100">
             {/* Navbar */}
             <div className="text-xl font-semibold bg-white h-20 p-4 flex justify-between items-center shadow-md w-full sticky top-0 z-50">
@@ -166,7 +238,6 @@ export default function Home() {
                 <div className="heading">Welcome to Society Panel</div>
                 <div className="heading">{managerDetails.managerName}</div>
             </div>
-
             {/* Layout Container */}
             <div className="flex flex-1 min-h-screen">
                 {/* Sidebar */}
@@ -179,208 +250,57 @@ export default function Home() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
-
                     <nav>
-                        <ul className="text-base pb-20">
-                            <li className="mb-1 font-semibold text-gray-400 px-5">Main</li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Dashboard" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("DashboardDefault", "Dashboard")}
-                            >
-                                <a href="#DashboardDefault" className="flex items-center w-full">
-                                    Dashboard
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Society Profile" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("SocietyProfile", "Society Profile")}
-                            >
-                                <a href="#SocietyProfile" className="flex items-center w-full">
-                                    Society Profile
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Apartment Structure Form" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("ApartmentStructureForm", "Apartment Structure Form")}
-                            >
-                                <a href="#ApartmentStructureForm" className="flex items-center w-full">
-                                    Apartment Structure Form
-                                </a>
-                            </li>
-
-                            <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Resident Management</li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Pending Residents" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("PendingResidents", "Pending Residents")}
-                            >
-                                <a href="#PendingResidents" className="flex items-center w-full">
-                                    <FaUserClock className="mr-3" />
-                                    Pending Residents
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Owner Profiles" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("OwnerProfiles", "Owner Profiles")}
-                            >
-                                <a href="#OwnerProfiles" className="flex items-center w-full">
-                                    <FaUserTie className="mr-3" />
-                                    Owner Profiles
-                                </a>
-                            </li>
-
-                            <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Finance & Maintenance</li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Bill Heads" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("BillHeads", "Bill Heads")}
-                            >
-                                <a href="#BillHeads" className="flex items-center w-full">
-                                    <FaFileInvoiceDollar className="mr-3" />
-                                    Bill Heads
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Maintenance Bills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("MaintenanceBills", "Maintenance Bills")}
-                            >
-                                <a href="#MaintenanceBills" className="flex items-center w-full">
-                                    <FaWrench className="mr-3" />
-                                    Maintenance Bills
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Utility Bills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("UtilityBills", "Utility Bills")}
-                            >
-                                <a href="#UtilityBills" className="flex items-center w-full">
-                                    <FaClipboardList className="mr-3" />
-                                    Utility Bills
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Payment Tracking" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("PaymentTracking", "Payment Tracking")}
-                            >
-                                <a href="#PaymentTracking" className="flex items-center w-full">
-                                    <FaMoneyBill className="mr-3" />
-                                    Payment Tracking
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Tickets" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("Tickets", "Tickets")}
-                            >
-                                <a href="#Tickets" className="flex items-center w-full">
-                                    <FaStickyNote className="mr-3" />
-                                    Tickets
-                                </a>
-                            </li>
-
-                            <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Notices & Community</li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Announcements" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("Announcements", "Announcements")}
-                            >
-                                <a href="#Announcements" className="flex items-center w-full">
-                                    <FaBullhorn className="mr-3" />
-                                    Announcements
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Polls & Surveys" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("PollsSurveys", "Polls & Surveys")}
-                            >
-                                <a href="#PollsSurveys" className="flex items-center w-full">
-                                    <FaPoll className="mr-3" />
-                                    Polls & Surveys
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Discussion Forums" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("DiscussionForums", "Discussion Forums")}
-                            >
-                                <a href="#DiscussionForums" className="flex items-center w-full">
-                                    <FaComments className="mr-3" />
-                                    Discussion Forums
-                                </a>
-                            </li>
-
-                            <li className="mb-1 font-semibold text-gray-400 px-5 border-t border-gray-600 pt-2">Security & Emergency</li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Security Profile" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("SecurityProfile", "Security Profile")}
-                            >
-                                <a href="#SecurityProfile" className="flex items-center w-full">
-                                    <FaUserShield className="mr-3" />
-                                    Security Profile
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Visitor Entry" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("VisitorEntry", "Visitor Entry")}
-                            >
-                                <a href="#VisitorEntry" className="flex items-center w-full">
-                                    <FaUserShield className="mr-3" />
-                                    Visitor Entry
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Delivery Management" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("DeliveryManagement", "Delivery Management")}
-                            >
-                                <a href="#DeliveryManagement" className="flex items-center w-full">
-                                    <FaBox className="mr-3" />
-                                    Delivery Management
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Emergency Alerts" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("EmergencyAlerts", "Emergency Alerts")}
-                            >
-                                <a href="#EmergencyAlerts" className="flex items-center w-full">
-                                    <FaExclamationTriangle className="mr-3" />
-                                    Emergency Alerts
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Incident Logs" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("IncidentLogs", "Incident Logs")}
-                            >
-                                <a href="#IncidentLogs" className="flex items-center w-full">
-                                    <FaFileAlt className="mr-3" />
-                                    Incident Logs
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "General Ledger" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("GeneralLedger", "General Ledger")}
-                            >
-                                <a href="#GeneralLedger" className="flex items-center w-full">
-                                    <FaFileInvoiceDollar className="mr-3" />
-                                    General Ledger
-                                </a>
-                            </li>
-                            <li
-                                className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${activeLink === "Scheduled Bills" ? "bg-gray-800 border-r-4 border-red-600" : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"}`}
-                                onClick={() => handleComponent("ScheduledBills", "Scheduled Bills")}
-                            >
-                                <a href="#ScheduledBills" className="flex items-center w-full">
-                                    <FaUserClock className="mr-3" />
-                                    Scheduled Bills
-                                </a>
-                            </li>
-                            <li onClick={handleLogout} className="mb-1 flex text-lg items-center py-2 px-5 rounded cursor-pointer transition-all bg-red-800 hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
-                                <CiLogout className="mr-3" />
-                                <a>Logout</a>
-                            </li>
-                        </ul>
+                      <ul className="text-base pb-20">
+                        {NAV_SECTIONS.map((section, idx) => {
+                          const visibleItems = section.items.filter(
+                            item =>
+                              !item.requiredPermissions ||
+                              item.requiredPermissions.some(p => userPermissions.includes(p)) ||
+                              userPermissions.includes("full_access")
+                          );
+                          if (visibleItems.length === 0) return null;
+                          return (
+                            <React.Fragment key={section.section}>
+                              <li
+                                className={`mb-1 font-semibold text-gray-400 px-5 border-b-gray-500 ${
+                                  idx > 0 ? "border-t pt-2 border-gray-600" : ""
+                                }`}
+                              >
+                                {section.section}
+                              </li>
+                              {visibleItems.map(item => (
+                                <li
+                                  key={item.label}
+                                  className={`mb-1 flex items-center py-2 px-5 rounded cursor-pointer transition-all ${
+                                    activeLink === item.label
+                                      ? "bg-gray-800 border-r-4 border-red-600"
+                                      : "hover:bg-gray-800 hover:border-r-4 hover:border-red-600"
+                                  }`}
+                                  onClick={() => handleComponent(item.component, item.label)}
+                                >
+                                  <a href={`#${item.component}`} className="flex items-center w-full">
+                                    {item.icon}
+                                    {item.label}
+                                  </a>
+                                </li>
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
+                        <li onClick={handleLogout} className="mb-1 flex text-lg items-center py-2 px-5 rounded cursor-pointer transition-all bg-red-800 hover:bg-gray-800 hover:border-r-4 hover:border-red-600">
+                          <CiLogout className="mr-3" />
+                          <a>Logout</a>
+                        </li>
+                      </ul>
                     </nav>
                 </aside>
-
                 {/* Main Content */}
                 <main className="flex-1 bg-gray-100 lg:ml-80">
                     {renderComponent()}
                 </main>
             </div>
         </div>
+      </PermissionsContext.Provider>
     );
 }

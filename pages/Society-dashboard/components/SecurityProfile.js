@@ -4,6 +4,8 @@ import { useRouter } from 'next/router';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 const QRCode = dynamic(() => import('qrcode.react'), { ssr: false });
 
@@ -30,6 +32,11 @@ import {
 } from 'lucide-react';
 
 export default function SecurityProfile() {
+    const permissions = usePermissions();
+    if (!permissions.includes("manage_security") && !permissions.includes("full_access")) {
+        return <AccessDenied />;
+    }
+
     const [securityGuards, setSecurityGuards] = useState([]);
     const [selectedGuard, setSelectedGuard] = useState(null);
     const [editingGuard, setEditingGuard] = useState(null);
@@ -297,7 +304,7 @@ export default function SecurityProfile() {
     return (
         loading ? <PreloaderSociety /> : (
         <div className="min-h-screen bg-gray-100">
-            <header className="bg-gray-800 shadow-lg border-b-4 border-blue-500">
+            <header className="bg-gray-800 shadow-lg border-b-4 border-green-500">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex items-center justify-between">
                         <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
@@ -323,7 +330,7 @@ export default function SecurityProfile() {
                         <div className="space-y-4">
                             <button
                                 onClick={handleDirectEnrollment}
-                                className="w-full p-4 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center justify-center"
+                                className="w-full p-4 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors flex items-center justify-center"
                             >
                                 <UserPlus className="mr-2" size={24} />
                                 Create Security Profile Here
@@ -357,7 +364,7 @@ export default function SecurityProfile() {
                         <div className="flex justify-center mb-6 min-h-[200px] items-center">
                             {qrLoading ? (
                                 <div className="flex flex-col items-center">
-                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-3"></div>
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-3"></div>
                                     <p className="text-gray-600">Generating QR Code...</p>
                                 </div>
                             ) : qrCodeUrl ? (
@@ -395,7 +402,7 @@ export default function SecurityProfile() {
                 </div>
             )}
 
-            <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 p-4 md:p-8">
+            <div className="min-h-screen bg-gradient-to-br from-white to-green-50 p-4 md:p-8">
                 <div className="container mx-auto max-w-7xl">
                     {error && (
                         <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
@@ -411,18 +418,18 @@ export default function SecurityProfile() {
                     )}
 
                     {/* Filters and Search */}
-                    <div className="bg-white shadow-md rounded-lg p-5 mb-6 border border-blue-100">
+                    <div className="bg-white shadow-md rounded-lg p-5 mb-6 border border-green-100">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* Verification Filter */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                                    <Filter className="mr-2 text-blue-500" size={18} />
+                                    <Filter className="mr-2 text-green-500" size={18} />
                                     Verification Status
                                 </label>
                                 <select
                                     value={verificationFilter}
                                     onChange={(e) => setVerificationFilter(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                 >
                                     <option value="all">All Guards</option>
                                     <option value="Pending">Pending Verification</option>
@@ -434,7 +441,7 @@ export default function SecurityProfile() {
                             {/* Search Input */}
                             <div className="relative">
                                 <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                                    <Search className="mr-2 text-blue-500" size={18} />
+                                    <Search className="mr-2 text-green-500" size={18} />
                                     Search Guards
                                 </label>
                                 <input
@@ -442,17 +449,17 @@ export default function SecurityProfile() {
                                     placeholder="Search by name or phone"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* Security Guards Table */}
-                    <div className="bg-white shadow-lg rounded-lg overflow-hidden border border-blue-100">
+                    <div className="bg-white shadow-lg rounded-lg overflow-hidden border border-green-100">
                         <div className="overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-blue-600 text-white">
+                                <thead className="bg-green-600 text-white">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
                                             <User className="inline mr-2" size={16} /> Name
@@ -473,7 +480,7 @@ export default function SecurityProfile() {
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
                                     {filteredGuards.map((guard) => (
-                                        <tr key={guard._id} className="hover:bg-blue-50 transition-colors">
+                                        <tr key={guard._id} className="hover:bg-green-50 transition-colors">
                                             <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 {guard.guardName}
                                             </td>
@@ -494,7 +501,7 @@ export default function SecurityProfile() {
                                                 <div className="flex flex-wrap gap-2">
                                                     <button
                                                         onClick={() => setSelectedGuard(guard)}
-                                                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors flex items-center"
+                                                        className="px-2 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors flex items-center"
                                                     >
                                                         <Eye className="mr-1" size={16} /> Details
                                                     </button>
@@ -517,7 +524,7 @@ export default function SecurityProfile() {
                                                     {guard.societyVerification === 'Approved' && (
                                                         <button
                                                             onClick={() => handleEditGuard(guard)}
-                                                            className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors flex items-center"
+                                                            className="px-2 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors flex items-center"
                                                         >
                                                             <Edit className="mr-1" size={16} /> Edit
                                                         </button>
@@ -549,22 +556,22 @@ export default function SecurityProfile() {
                                     <XCircle size={24} />
                                 </button>
 
-                                <h2 className="text-2xl font-bold mb-4 flex items-center text-blue-700 border-b pb-3">
-                                    <User className="mr-3 text-blue-600" size={28} />
+                                <h2 className="text-2xl font-bold mb-4 flex items-center text-green-700 border-b pb-3">
+                                    <User className="mr-3 text-green-600" size={28} />
                                     Guard Details
                                 </h2>
                                 <div className="space-y-4">
-                                    <div className="flex items-center p-2 rounded-md hover:bg-blue-50 transition-colors">
-                                        <User className="mr-3 text-blue-500" size={20} />
+                                    <div className="flex items-center p-2 rounded-md hover:bg-green-50 transition-colors">
+                                        <User className="mr-3 text-green-500" size={20} />
                                         <p><strong>Name:</strong> {selectedGuard.guardName}</p>
                                     </div>
-                                    <div className="flex items-center p-2 rounded-md hover:bg-blue-50 transition-colors">
-                                        <Phone className="mr-3 text-blue-500" size={20} />
+                                    <div className="flex items-center p-2 rounded-md hover:bg-green-50 transition-colors">
+                                        <Phone className="mr-3 text-green-500" size={20} />
                                         <p><strong>Phone:</strong> {selectedGuard.guardPhone}</p>
                                     </div>
                                     {selectedGuard.additionalNumbers && selectedGuard.additionalNumbers.length > 0 && (
-                                        <div className="flex items-start p-2 rounded-md hover:bg-blue-50 transition-colors">
-                                            <Phone className="mr-3 text-blue-500 mt-1" size={20} />
+                                        <div className="flex items-start p-2 rounded-md hover:bg-green-50 transition-colors">
+                                            <Phone className="mr-3 text-green-500 mt-1" size={20} />
                                             <div>
                                                 <strong>Additional Numbers:</strong>
                                                 <ul className="list-disc pl-5 mt-1">
@@ -575,12 +582,12 @@ export default function SecurityProfile() {
                                             </div>
                                         </div>
                                     )}
-                                    <div className="flex items-center p-2 rounded-md hover:bg-blue-50 transition-colors">
-                                        <Clock className="mr-3 text-blue-500" size={20} />
+                                    <div className="flex items-center p-2 rounded-md hover:bg-green-50 transition-colors">
+                                        <Clock className="mr-3 text-green-500" size={20} />
                                         <p><strong>Shift Timings:</strong> {selectedGuard.shiftTimings?.start} - {selectedGuard.shiftTimings?.end}</p>
                                     </div>
-                                    <div className="flex items-start p-2 rounded-md hover:bg-blue-50 transition-colors">
-                                        <MapPin className="mr-3 text-blue-500 mt-1" size={20} />
+                                    <div className="flex items-start p-2 rounded-md hover:bg-green-50 transition-colors">
+                                        <MapPin className="mr-3 text-green-500 mt-1" size={20} />
                                         <div>
                                             <strong>Address:</strong>
                                             <p className="mt-1">{selectedGuard.address?.societyName}</p>
@@ -588,8 +595,8 @@ export default function SecurityProfile() {
                                             <p>{selectedGuard.address?.state} - {selectedGuard.address?.pinCode}</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center p-2 rounded-md hover:bg-blue-50 transition-colors">
-                                        <CheckCircle2 className="mr-3 text-blue-500" size={20} />
+                                    <div className="flex items-center p-2 rounded-md hover:bg-green-50 transition-colors">
+                                        <CheckCircle2 className="mr-3 text-green-500" size={20} />
                                         <p>
                                             <strong>Verification Status:</strong>
                                             <span className={`ml-2 px-2 py-1 text-xs rounded-full ${getVerificationStatusColor(selectedGuard.societyVerification)}`}>
@@ -616,16 +623,16 @@ export default function SecurityProfile() {
                                     <XCircle size={24} />
                                 </button>
 
-                                <h2 className="text-2xl font-bold mb-4 flex items-center text-blue-700 border-b pb-3">
-                                    <Edit className="mr-3 text-blue-600" size={28} />
+                                <h2 className="text-2xl font-bold mb-4 flex items-center text-green-700 border-b pb-3">
+                                    <Edit className="mr-3 text-green-600" size={28} />
                                     Edit Guard Details
                                 </h2>
 
                                 <form onSubmit={handleGuardUpdate} className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {/* Basic Information */}
-                                        <div className="space-y-3 bg-blue-50 p-4 rounded-lg">
-                                            <h3 className="font-medium text-blue-700">Personal Information</h3>
+                                        <div className="space-y-3 bg-green-50 p-4 rounded-lg">
+                                            <h3 className="font-medium text-green-700">Personal Information</h3>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                                                 <input
@@ -633,7 +640,7 @@ export default function SecurityProfile() {
                                                     name="guardName"
                                                     value={formData.guardName}
                                                     onChange={handleChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                                     required
                                                 />
                                             </div>
@@ -645,7 +652,7 @@ export default function SecurityProfile() {
                                                     name="guardPhone"
                                                     value={formData.guardPhone}
                                                     onChange={handleChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                                     required
                                                 />
                                             </div>
@@ -659,7 +666,7 @@ export default function SecurityProfile() {
                                                                 type="tel"
                                                                 value={number}
                                                                 onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
-                                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                                             />
                                                             <button
                                                                 type="button"
@@ -674,7 +681,7 @@ export default function SecurityProfile() {
                                                         <button
                                                             type="button"
                                                             onClick={handleAddNumber}
-                                                            className="flex items-center text-blue-600 hover:text-blue-800 text-sm mt-2 px-2 py-1 rounded-md hover:bg-blue-100 transition-colors"
+                                                            className="flex items-center text-green-600 hover:text-green-800 text-sm mt-2 px-2 py-1 rounded-md hover:bg-green-100 transition-colors"
                                                         >
                                                             <Plus size={16} className="mr-1" /> Add Another Number
                                                         </button>
@@ -684,8 +691,8 @@ export default function SecurityProfile() {
                                         </div>
 
                                         {/* Shift Timings */}
-                                        <div className="space-y-3 bg-blue-50 p-4 rounded-lg">
-                                            <h3 className="font-medium text-blue-700">Shift Information</h3>
+                                        <div className="space-y-3 bg-green-50 p-4 rounded-lg">
+                                            <h3 className="font-medium text-green-700">Shift Information</h3>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Shift Start Time</label>
                                                 <input
@@ -693,7 +700,7 @@ export default function SecurityProfile() {
                                                     name="start"
                                                     value={formData.shiftTimings.start}
                                                     onChange={handleChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                                     required
                                                 />
                                             </div>
@@ -705,7 +712,7 @@ export default function SecurityProfile() {
                                                     name="end"
                                                     value={formData.shiftTimings.end}
                                                     onChange={handleChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                                     required
                                                 />
                                             </div>
@@ -713,9 +720,9 @@ export default function SecurityProfile() {
                                     </div>
 
                                     {/* Address Section */}
-                                    <div className="bg-blue-50 p-4 rounded-lg mt-4">
-                                        <h3 className="text-lg font-medium text-blue-700 mb-3 flex items-center">
-                                            <MapPin className="mr-2 text-blue-500" size={20} />
+                                    <div className="bg-green-50 p-4 rounded-lg mt-4">
+                                        <h3 className="text-lg font-medium text-green-700 mb-3 flex items-center">
+                                            <MapPin className="mr-2 text-green-500" size={20} />
                                             Address Information
                                         </h3>
 
@@ -727,7 +734,7 @@ export default function SecurityProfile() {
                                                     name="address.societyName"
                                                     value={formData.address.societyName}
                                                     onChange={handleChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                                     required
                                                 />
                                             </div>
@@ -739,7 +746,7 @@ export default function SecurityProfile() {
                                                     name="address.street"
                                                     value={formData.address.street}
                                                     onChange={handleChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                                     required
                                                 />
                                             </div>
@@ -751,7 +758,7 @@ export default function SecurityProfile() {
                                                     name="address.city"
                                                     value={formData.address.city}
                                                     onChange={handleChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                                     required
                                                 />
                                             </div>
@@ -763,7 +770,7 @@ export default function SecurityProfile() {
                                                     name="address.state"
                                                     value={formData.address.state}
                                                     onChange={handleChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                                     required
                                                 />
                                             </div>
@@ -775,7 +782,7 @@ export default function SecurityProfile() {
                                                     name="address.pinCode"
                                                     value={formData.address.pinCode}
                                                     onChange={handleChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                                                     required
                                                 />
                                             </div>
@@ -792,7 +799,7 @@ export default function SecurityProfile() {
                                         </button>
                                         <button
                                             type="submit"
-                                            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-md"
+                                            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors shadow-md"
                                         >
                                             <Save className="mr-2" size={16} /> Save Changes
                                         </button>
@@ -806,7 +813,7 @@ export default function SecurityProfile() {
                     {securityGuards.length === 0 && (
                         <div className="bg-white rounded-lg shadow-md p-8 text-center">
                             <div className="flex flex-col items-center justify-center">
-                                <User className="text-blue-300 mb-4" size={64} />
+                                <User className="text-green-300 mb-4" size={64} />
                                 <h3 className="text-xl font-medium text-gray-700 mb-2">No Security Guards Found</h3>
                                 <p className="text-gray-500 mb-4">There are no security guards registered with this society yet.</p>
                             </div>

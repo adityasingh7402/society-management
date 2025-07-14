@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     const scheduledBill = new ScheduledBill({
       ...req.body,
       societyId: decoded.societyId,
-      createdBy: decoded.userId
+      createdBy: decoded.Id
     });
 
     // Validate and save

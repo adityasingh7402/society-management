@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     const vouchers = await JournalVoucher.find({
       societyId,
       voucherDate: { $gte: new Date(fromDate), $lte: new Date(toDate) },
-      status: 'Posted'
+      status: 'Active'
     });
 
     // Calculate ledger balances
@@ -104,7 +104,7 @@ async function calculateLedgerBalances(ledgers, vouchers, fromDate, toDate) {
   const openingVouchers = await JournalVoucher.find({
     societyId: ledgers[0].societyId,
     voucherDate: { $lt: new Date(fromDate) },
-    status: 'Posted'
+    status: 'Active'
   });
   
   for (const voucher of openingVouchers) {
@@ -259,4 +259,4 @@ function generateIncomeExpense(ledgerBalances, fromDate, toDate) {
   statement.surplus = statement.income.total - statement.expense.total;
   
   return statement;
-} 
+}

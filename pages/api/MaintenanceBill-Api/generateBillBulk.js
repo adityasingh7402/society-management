@@ -72,7 +72,7 @@ export default async function handler(req, res) {
         finePerDay,
         totalAmount,
         status: 'Pending',
-        generatedBy: decoded.userId,
+        generatedBy: decoded.Id,
         generatedAt: new Date()
       });
 
@@ -127,7 +127,7 @@ export default async function handler(req, res) {
           }))
         ],
         status: 'Posted',
-        postedBy: decoded.userId,
+        postedBy: decoded.Id,
         postedAt: new Date()
       });
 

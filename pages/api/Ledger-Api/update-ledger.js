@@ -1,5 +1,6 @@
 import connectToDatabase from "../../../lib/mongodb";
 import Ledger from '../../../models/Ledger';
+import { verifyToken } from '../../../utils/auth';
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
@@ -7,6 +8,17 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Verify authentication
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = await verifyToken(token);
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+
     await connectToDatabase();
 
     const { ledgerId } = req.query;
@@ -37,6 +49,25 @@ export default async function handler(req, res) {
       updateData.code = updateData.code.toUpperCase();
     }
 
+    // Validate bill category and subcategory
+    if (updateData.category === 'Operating Income' || 
+        (updateData.category === 'Receivable' && updateData.type === 'Asset') ||
+        (existingLedger.category === 'Operating Income') ||
+        (existingLedger.category === 'Receivable' && existingLedger.type === 'Asset')) {
+      
+      const billCategory = updateData.billCategory || existingLedger.billCategory;
+      if (!billCategory) {
+        return res.status(400).json({ message: 'Bill category is required for income and receivable ledgers' });
+      }
+
+      if ((billCategory === 'Utility' || billCategory === 'Maintenance')) {
+        const subCategory = updateData.subCategory || existingLedger.subCategory;
+        if (!subCategory) {
+          return res.status(400).json({ message: 'Subcategory is required for utility and maintenance ledgers' });
+        }
+      }
+    }
+
     // Validate bank details if category is Bank
     if (updateData.category === 'Bank') {
       const bankDetails = updateData.bankDetails || existingLedger.bankDetails;
@@ -56,10 +87,11 @@ export default async function handler(req, res) {
       {
         $set: {
           ...updateData,
-          modifiedAt: new Date()
+          updatedBy: decoded.id,
+          updatedAt: new Date()
         }
       },
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     res.status(200).json({
@@ -69,6 +101,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error updating ledger:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 } 

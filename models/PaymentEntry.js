@@ -161,26 +161,52 @@ PaymentEntrySchema.methods.processApproval = async function(userId, action, rema
       bill.paidAmount = (bill.paidAmount || 0) + this.amount;
       await bill.save({ session });
       
+      // Get bill head to determine category
+      const BillHead = mongoose.model('BillHead');
+      const billHead = await BillHead.findById(bill.billHeadId).session(session);
+      if (!billHead) {
+        throw new Error('Bill head not found');
+      }
+
+      // Get category-specific ledgers
+      const Ledger = mongoose.model('Ledger');
+      const incomeLedger = await Ledger.findOne({
+        societyId: this.societyId,
+        category: billHead.category,
+        type: 'Income'
+      }).session(session);
+
+      const receivableLedger = await Ledger.findOne({
+        societyId: this.societyId,
+        category: billHead.category,
+        type: 'Asset',
+        subCategory: 'Receivable'
+      }).session(session);
+
+      if (!incomeLedger || !receivableLedger) {
+        throw new Error(`Category-specific ledgers not found for ${billHead.category}`);
+      }
+
       // Create journal voucher
       const JournalVoucher = mongoose.model('JournalVoucher');
       const voucher = await JournalVoucher.create([{
         societyId: this.societyId,
-        voucherNo: await this.generateVoucherNumber(),
+        voucherNumber: await this.generateVoucherNumber(),
         voucherType: 'Receipt',
         voucherDate: this.paymentDate,
         entries: [
           {
             ledgerId: await this.getBankLedgerId(),
-            type: 'Debit',
+            type: 'debit',
             amount: this.amount
           },
           {
-            ledgerId: await this.getBillHeadLedgerId(),
-            type: 'Credit',
+            ledgerId: receivableLedger._id,
+            type: 'credit',
             amount: this.amount
           }
         ],
-        narration: `Payment received for bill ${this.billDetails.billNumber}`,
+        narration: `Payment received for ${billHead.category} bill ${this.billDetails.billNumber}`,
         status: 'Posted',
         createdBy: userId
       }], { session });

@@ -40,6 +40,55 @@ const LedgerSchema = new mongoose.Schema({
     required: true
   },
   
+  // Bill category association (for income and receivable ledgers)
+  billCategory: {
+    type: String,
+    enum: ['Maintenance', 'Utility', 'Amenity', 'Service', 'Other'],
+    required: function() {
+      return this.category === 'Operating Income' || 
+             (this.category === 'Receivable' && this.type === 'Asset');
+    }
+  },
+  
+  // Subcategory for detailed tracking
+  subCategory: {
+    type: String,
+    required: false,
+    validate: {
+      validator: function(value) {
+        // If no value is provided, it's valid
+        if (!value) return true;
+        
+        // If billCategory is not set, any value is valid
+        if (!this.billCategory) return true;
+        
+        const subCategories = {
+          Utility: ['Water', 'Electricity', 'Gas', 'Internet', 'Cable', 'Telephone', 'Other'],
+          Maintenance: ['Cleaning', 'Security', 'Gardening', 'Equipment', 'Repairs', 'Staff', 'Other'],
+          Amenity: ['Gym', 'Swimming Pool', 'Club House', 'Sports', 'Park', 'Community Hall', 'Other'],
+          Service: ['Pest Control', 'Plumbing', 'Electrical', 'Carpentry', 'Housekeeping', 'Other'],
+          Other: [
+            'Society Charges',
+            'Platform Charges',
+            'Transfer Charges',
+            'NOC Charges',
+            'Processing Fees',
+            'Late Payment Charges',
+            'Legal Charges',
+            'Documentation Charges',
+            'Administrative Charges',
+            'Event Charges',
+            'Miscellaneous'
+          ]
+        };
+        
+        // Only validate if a value is provided and billCategory exists
+        return subCategories[this.billCategory]?.includes(value);
+      },
+      message: 'Invalid subcategory for the selected bill category'
+    }
+  },
+  
   // Account details for bank accounts
   bankDetails: {
     accountNumber: String,
@@ -122,7 +171,7 @@ const LedgerSchema = new mongoose.Schema({
 LedgerSchema.index({ societyId: 1, code: 1 }, { unique: true });
 
 // Method to update balance
-LedgerSchema.methods.updateBalance = async function(amount, type) {
+LedgerSchema.methods.updateBalance = async function(amount, type, session) {
   if (type === 'debit') {
     switch(this.type) {
       case 'Asset':
@@ -149,7 +198,7 @@ LedgerSchema.methods.updateBalance = async function(amount, type) {
     }
   }
   
-  await this.save();
+  await this.save({ session });
 };
 
 // Method to get balance type (debit/credit)
@@ -167,48 +216,65 @@ LedgerSchema.methods.getBalanceType = function() {
   }
 };
 
-// Method to calculate GST
-LedgerSchema.methods.calculateGST = function(amount) {
-  if (!this.gstConfig.isGSTApplicable) return 0;
-  return (amount * this.gstConfig.gstPercentage) / 100;
-};
-
-// Method to calculate TDS
-LedgerSchema.methods.calculateTDS = function(amount) {
-  if (!this.tdsConfig.isTDSApplicable) return 0;
-  return (amount * this.tdsConfig.tdsPercentage) / 100;
-};
-
-// Static method to get trial balance
-LedgerSchema.statics.getTrialBalance = async function(societyId) {
-  const ledgers = await this.find({ societyId, status: 'Active' });
-  
-  const trialBalance = {
-    debit: 0,
-    credit: 0,
-    accounts: []
-  };
-  
-  ledgers.forEach(ledger => {
-    const balanceType = ledger.getBalanceType();
-    const absBalance = Math.abs(ledger.currentBalance);
-    
-    trialBalance.accounts.push({
-      code: ledger.code,
-      name: ledger.name,
-      type: ledger.type,
-      debit: balanceType === 'Debit' ? absBalance : 0,
-      credit: balanceType === 'Credit' ? absBalance : 0
-    });
-    
-    if (balanceType === 'Debit') {
-      trialBalance.debit += absBalance;
-    } else if (balanceType === 'Credit') {
-      trialBalance.credit += absBalance;
-    }
+// Static method to get category-specific ledgers
+LedgerSchema.statics.getCategoryLedgers = async function(societyId, billCategory) {
+  const ledgers = await this.find({
+    societyId,
+    billCategory,
+    status: 'Active',
+    $or: [
+      { category: 'Operating Income' },
+      { category: 'Receivable', type: 'Asset' }
+    ]
   });
+
+  return {
+    incomeLedger: ledgers.find(l => l.category === 'Operating Income'),
+    receivableLedger: ledgers.find(l => l.category === 'Receivable')
+  };
+};
+
+// Static method to create default category ledgers
+LedgerSchema.statics.createCategoryLedgers = async function(societyId, billCategory, createdBy) {
+  const code = billCategory.substring(0, 3).toUpperCase();
   
-  return trialBalance;
+  const incomeLedger = await this.findOneAndUpdate(
+    {
+      societyId,
+      code: `${code}INC`,
+      billCategory
+    },
+    {
+      $setOnInsert: {
+        name: `${billCategory} Income`,
+        type: 'Income',
+        category: 'Operating Income',
+        description: `Default Income Ledger for ${billCategory}`,
+        createdBy
+      }
+    },
+    { upsert: true, new: true }
+  );
+
+  const receivableLedger = await this.findOneAndUpdate(
+    {
+      societyId,
+      code: `${code}REC`,
+      billCategory
+    },
+    {
+      $setOnInsert: {
+        name: `${billCategory} Receivable`,
+        type: 'Asset',
+        category: 'Receivable',
+        description: `Default Receivable Ledger for ${billCategory}`,
+        createdBy
+      }
+    },
+    { upsert: true, new: true }
+  );
+
+  return { incomeLedger, receivableLedger };
 };
 
 export default mongoose.models.Ledger || mongoose.model('Ledger', LedgerSchema); 

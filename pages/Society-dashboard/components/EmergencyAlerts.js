@@ -3,8 +3,14 @@ import { Loader2, Building, AlertTriangle } from 'lucide-react';
 import Webcam from 'react-webcam';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { set } from 'mongoose';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 export default function EmergencyAlerts() {
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_security") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
   // State for alerts
   const [alerts, setAlerts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

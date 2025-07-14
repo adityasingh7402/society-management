@@ -58,26 +58,26 @@ export default function Bills() {
 
     // Calculate utility bill stats
     const billStats = {
-        total: utilityBills.reduce((sum, bill) => sum + (
-            bill.baseAmount + 
-            (bill.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0) + 
-            (bill.penaltyAmount || 0)
-        ), 0),
-        unpaid: utilityBills.filter(bill => bill.status !== "Paid").reduce((sum, bill) => sum + (
-            bill.baseAmount + 
-            (bill.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0) + 
-            (bill.penaltyAmount || 0)
-        ), 0),
-        paid: utilityBills.filter(bill => bill.status === "Paid").reduce((sum, bill) => sum + (
-            bill.baseAmount + 
-            (bill.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0) + 
-            (bill.penaltyAmount || 0)
-        ), 0),
+        total: utilityBills.reduce((sum, bill) => sum + bill.totalAmount, 0),
+        unpaid: utilityBills.filter(bill => bill.status !== "Paid").reduce((sum, bill) => sum + bill.totalAmount, 0),
+        paid: utilityBills.filter(bill => bill.status === "Paid").reduce((sum, bill) => sum + bill.totalAmount, 0),
         due: utilityBills.filter(bill =>
             bill.status !== "Paid" &&
             new Date(bill.dueDate) <= new Date(new Date().setDate(new Date().getDate() + 5))
         ).length,
-        totalPenalty: utilityBills.reduce((sum, bill) => sum + (bill.penaltyAmount || 0), 0)
+        totalGst: utilityBills.reduce((sum, bill) => {
+            if (bill.gstDetails?.isGSTApplicable) {
+                return sum + (
+                    (bill.gstDetails.cgstAmount || 0) +
+                    (bill.gstDetails.sgstAmount || 0) +
+                    (bill.gstDetails.igstAmount || 0)
+                );
+            }
+            return sum;
+        }, 0),
+        totalLateFees: utilityBills.reduce((sum, bill) => sum + (bill.latePaymentDetails?.lateFeeAmount || 0), 0),
+        totalAdditionalCharges: utilityBills.reduce((sum, bill) => 
+            sum + (bill.additionalCharges?.reduce((chargeSum, charge) => chargeSum + charge.amount, 0) || 0), 0)
     };
 
     // Handler for opening payment modal
@@ -97,27 +97,36 @@ export default function Bills() {
                 return;
             }
 
-            // Update the bill status to paid
-            const updatedBills = utilityBills.map(bill => {
-                if (bill._id === selectedBill._id) {
-                    return {
-                        ...bill,
-                        status: "Paid",
-                        paidOn: new Date().toISOString().split('T')[0]
-                    };
+            // Create payment details object
+            const paymentDetails = {
+                billId: selectedBill._id,
+                paymentMethod: e.target.paymentMethod.value,
+                paymentReference: `${selectedBill.utilityType.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10000000000)}`,
+                paymentDate: new Date().toISOString(),
+                amount: selectedBill.totalAmount,
+                gstDetails: selectedBill.gstDetails,
+                latePaymentDetails: selectedBill.latePaymentDetails,
+                additionalCharges: selectedBill.additionalCharges,
+                baseAmount: selectedBill.baseAmount,
+                paymentBreakdown: {
+                    baseAmount: selectedBill.baseAmount,
+                    gstAmount: selectedBill.gstDetails?.isGSTApplicable ? (
+                        (selectedBill.gstDetails.cgstAmount || 0) +
+                        (selectedBill.gstDetails.sgstAmount || 0) +
+                        (selectedBill.gstDetails.igstAmount || 0)
+                    ) : 0,
+                    lateFeeAmount: selectedBill.latePaymentDetails?.lateFeeAmount || 0,
+                    additionalChargesAmount: selectedBill.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0
                 }
-                return bill;
-            });
-
-            // Create a new payment history entry
-            const newPaymentRecord = {
-                type: selectedBill.utilityType,
-                amount: selectedBill.baseAmount + selectedBill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0),
-                dueDate: selectedBill.dueDate,
-                paidOn: new Date().toISOString().split('T')[0],
-                transactionId: `${selectedBill.utilityType.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10000000000)}`,
-                paymentMethod: `${e.target.paymentMethod.value} ${e.target.paymentMethod.value === "Credit Card" || e.target.paymentMethod.value === "Debit Card" ? "ending with " + e.target.cardNumber.value.slice(-4) : ""}`
             };
+
+            // Add card details if paying by card
+            if (e.target.paymentMethod.value === "Credit Card" || e.target.paymentMethod.value === "Debit Card") {
+                paymentDetails.cardDetails = {
+                    lastFourDigits: e.target.cardNumber.value.slice(-4),
+                    cardType: e.target.cardType.value
+                };
+            }
 
             // Send payment data to the backend
             const paymentResponse = await fetch("/api/UtilityBill-Api/payBill", {
@@ -126,19 +135,50 @@ export default function Bills() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    billId: selectedBill._id,
-                    paymentDetails: newPaymentRecord
-                }),
+                body: JSON.stringify(paymentDetails),
             });
 
             if (!paymentResponse.ok) {
-                throw new Error("Failed to process payment");
+                const errorData = await paymentResponse.json();
+                throw new Error(errorData.message || "Failed to process payment");
             }
 
-            // Update state
-            setUtilityBills(updatedBills);
-            setPaymentHistory([newPaymentRecord, ...paymentHistory]);
+            const paymentResult = await paymentResponse.json();
+
+            // Update the bills list with the new payment
+            setUtilityBills(prevBills => 
+                prevBills.map(bill => 
+                    bill._id === selectedBill._id 
+                        ? {
+                            ...bill,
+                            status: "Paid",
+                            paidAmount: bill.totalAmount,
+                            remainingAmount: 0,
+                            paidOn: new Date().toISOString(),
+                            paymentDetails: paymentResult.paymentDetails
+                        }
+                        : bill
+                )
+            );
+
+            // Add to payment history
+            const newPaymentRecord = {
+                _id: paymentResult.paymentId,
+                type: selectedBill.utilityType,
+                billNumber: selectedBill.billNumber,
+                amount: selectedBill.totalAmount,
+                baseAmount: selectedBill.baseAmount,
+                gstAmount: paymentDetails.paymentBreakdown.gstAmount,
+                lateFeeAmount: paymentDetails.paymentBreakdown.lateFeeAmount,
+                additionalChargesAmount: paymentDetails.paymentBreakdown.additionalChargesAmount,
+                dueDate: selectedBill.dueDate,
+                paidOn: new Date().toISOString(),
+                paymentMethod: paymentDetails.paymentMethod,
+                paymentReference: paymentDetails.paymentReference,
+                status: "Success"
+            };
+
+            setPaymentHistory(prev => [newPaymentRecord, ...prev]);
             setPaymentSuccess(true);
 
             // Reset after showing success message
@@ -147,9 +187,10 @@ export default function Bills() {
                 setPaymentModalOpen(false);
                 setSelectedBill(null);
             }, 2000);
+
         } catch (error) {
             console.error("Error processing payment:", error);
-            alert("Failed to process payment. Please try again.");
+            alert(error.message || "Failed to process payment. Please try again.");
         }
     };
     const getUnitLabel = (type) => {
@@ -185,26 +226,31 @@ export default function Bills() {
                 {/* Bills Overview Section */}
                 <div className="bg-white rounded-lg shadow p-6 mb-6">
                     <h2 className="text-xl font-semibold text-gray-900 mb-4">Bills Overview</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="bg-blue-50 p-4 rounded-lg text-center">
                             <p className="text-sm text-gray-500">Total Amount</p>
                             <p className="text-2xl font-bold text-blue-600">₹{billStats.total.toFixed(2)}</p>
+                            <div className="mt-2 text-xs text-gray-500">
+                                <p>Base: ₹{(billStats.total - billStats.totalGst - billStats.totalLateFees - billStats.totalAdditionalCharges).toFixed(2)}</p>
+                                <p>GST: ₹{billStats.totalGst.toFixed(2)}</p>
+                            </div>
                         </div>
                         <div className="bg-red-50 p-4 rounded-lg text-center">
                             <p className="text-sm text-gray-500">Unpaid Amount</p>
                             <p className="text-2xl font-bold text-red-600">₹{billStats.unpaid.toFixed(2)}</p>
+                            <p className="mt-2 text-xs text-gray-500">Due Bills: {billStats.due}</p>
                         </div>
                         <div className="bg-green-50 p-4 rounded-lg text-center">
                             <p className="text-sm text-gray-500">Paid Amount</p>
                             <p className="text-2xl font-bold text-green-600">₹{billStats.paid.toFixed(2)}</p>
                         </div>
-                        <div className="bg-yellow-50 p-4 rounded-lg text-center">
-                            <p className="text-sm text-gray-500">Due Soon</p>
-                            <p className="text-2xl font-bold text-yellow-600">{billStats.due} Bills</p>
-                        </div>
                         <div className="bg-orange-50 p-4 rounded-lg text-center">
-                            <p className="text-sm text-gray-500">Total Penalty</p>
-                            <p className="text-2xl font-bold text-orange-600">₹{billStats.totalPenalty.toFixed(2)}</p>
+                            <p className="text-sm text-gray-500">Additional Charges</p>
+                            <p className="text-2xl font-bold text-orange-600">₹{(billStats.totalLateFees + billStats.totalAdditionalCharges).toFixed(2)}</p>
+                            <div className="mt-2 text-xs text-gray-500">
+                                <p>Late Fees: ₹{billStats.totalLateFees.toFixed(2)}</p>
+                                <p>Other: ₹{billStats.totalAdditionalCharges.toFixed(2)}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -295,6 +341,41 @@ export default function Bills() {
                                                     <span className="text-sm font-medium">₹{bill.baseAmount.toFixed(2)}</span>
                                                 </div>
 
+                                                {/* GST Details */}
+                                                {bill.gstDetails?.isGSTApplicable && (
+                                                    <div className="mb-2">
+                                                        <span className="text-sm text-gray-500">GST Details:</span>
+                                                        <div className="ml-4 mt-1">
+                                                            {bill.gstDetails.cgstAmount > 0 && (
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span>CGST ({bill.gstDetails.cgstRate}%):</span>
+                                                                    <span>₹{bill.gstDetails.cgstAmount.toFixed(2)}</span>
+                                                                </div>
+                                                            )}
+                                                            {bill.gstDetails.sgstAmount > 0 && (
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span>SGST ({bill.gstDetails.sgstRate}%):</span>
+                                                                    <span>₹{bill.gstDetails.sgstAmount.toFixed(2)}</span>
+                                                                </div>
+                                                            )}
+                                                            {bill.gstDetails.igstAmount > 0 && (
+                                                                <div className="flex justify-between text-sm">
+                                                                    <span>IGST ({bill.gstDetails.igstRate}%):</span>
+                                                                    <span>₹{bill.gstDetails.igstAmount.toFixed(2)}</span>
+                                                                </div>
+                                                            )}
+                                                            <div className="flex justify-between text-sm font-medium pt-1 border-t border-gray-200 mt-1">
+                                                                <span>Total GST:</span>
+                                                                <span>₹{(
+                                                                    (bill.gstDetails.cgstAmount || 0) +
+                                                                    (bill.gstDetails.sgstAmount || 0) +
+                                                                    (bill.gstDetails.igstAmount || 0)
+                                                                ).toFixed(2)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {/* Additional Charges */}
                                                 {bill.additionalCharges && bill.additionalCharges.length > 0 && (
                                                     <div className="mb-2">
@@ -310,23 +391,29 @@ export default function Bills() {
                                                     </div>
                                                 )}
 
-                                                {/* Penalty Amount */}
-                                                <div className="flex justify-between mb-2">
-                                                    <span className="text-sm text-gray-500">Penalty Amount:</span>
-                                                    <span className="text-sm font-medium text-red-500">
-                                                        ₹{(bill.penaltyAmount || 0).toFixed(2)}
-                                                    </span>
-                                                </div>
+                                                {/* Late Payment Details */}
+                                                {bill.latePaymentDetails && (
+                                                    <div className="mb-2">
+                                                        <div className="flex justify-between text-sm">
+                                                            <span className="text-sm text-gray-500">Late Fee Rate:</span>
+                                                            <span className="text-sm font-medium">{bill.latePaymentDetails.lateFeeRate}% per day</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-sm">
+                                                            <span className="text-sm text-gray-500">Days Late:</span>
+                                                            <span className="text-sm font-medium">{bill.latePaymentDetails.daysLate || 0} days</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-sm">
+                                                            <span className="text-sm text-gray-500">Late Fee Amount:</span>
+                                                            <span className="text-sm font-medium text-red-500">₹{(bill.latePaymentDetails.lateFeeAmount || 0).toFixed(2)}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 {/* Total Amount */}
                                                 <div className="flex justify-between mb-4 pt-2 border-t border-gray-200 mt-2">
                                                     <span className="text-sm font-semibold text-gray-700">Total Amount:</span>
                                                     <span className="text-lg font-bold">
-                                                        ₹{(
-                                                            bill.baseAmount +
-                                                            (bill.additionalCharges ? bill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0) : 0) +
-                                                            (bill.penaltyAmount || 0)
-                                                        ).toFixed(2)}
+                                                        ₹{bill.totalAmount.toFixed(2)}
                                                     </span>
                                                 </div>
 
@@ -372,13 +459,15 @@ export default function Bills() {
                                         <thead className="bg-gray-50">
                                             <tr>
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Number</th>
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Amount</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue Date</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penalty</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Late Fee</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Additional</th>
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
@@ -390,42 +479,36 @@ export default function Bills() {
                                                                 <FaBuilding className="text-blue-600" />
                                                             </div>
                                                             <div className="ml-4">
-                                                                <div className="text-sm font-medium text-gray-900">{payment.utilityType}</div>
-                                                                <div className="text-xs text-gray-500">{payment.description}</div>
+                                                                <div className="text-sm font-medium text-gray-900">{payment.type}</div>
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {payment.unitUsage} {getUnitLabel(payment.utilityType)}
+                                                        {payment.billNumber}
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                         ₹{payment.baseAmount?.toFixed(2)}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {new Date(payment.dueDate).toLocaleDateString()}
+                                                        {payment.gstAmount > 0 ? `₹${payment.gstAmount.toFixed(2)}` : 'N/A'}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {new Date(payment.issueDate).toLocaleDateString()}
+                                                        {payment.lateFeeAmount > 0 ? `₹${payment.lateFeeAmount.toFixed(2)}` : 'N/A'}
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500">
-                                                        ₹{(payment.penaltyAmount || 0).toFixed(2)}
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {payment.additionalChargesAmount > 0 ? `₹${payment.additionalChargesAmount.toFixed(2)}` : 'N/A'}
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                                                        ₹{(
-                                                            payment.baseAmount +
-                                                            (payment.additionalCharges ? payment.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0) : 0) +
-                                                            (payment.penaltyAmount || 0)
-                                                        ).toFixed(2)}
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        ₹{payment.amount.toFixed(2)}
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-2 py-1 text-xs rounded-full ${payment.status === 'Paid'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : payment.status === 'Overdue'
-                                                                    ? 'bg-red-100 text-red-800'
-                                                                    : 'bg-yellow-100 text-yellow-800'
-                                                            }`}>
-                                                            {payment.status}
-                                                        </span>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {new Date(payment.paidOn).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {payment.paymentMethod}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        {payment.paymentReference}
                                                     </td>
                                                 </tr>
                                             ))}

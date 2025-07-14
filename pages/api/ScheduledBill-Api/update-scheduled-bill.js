@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     // Update fields
     const updateData = {
       ...req.body,
-      modifiedBy: decoded.userId,
+      modifiedBy: decoded.Id,
       modifiedAt: new Date()
     };
 

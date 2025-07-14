@@ -2,9 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Loader2, Building, FileWarning } from 'lucide-react';
 import { useRouter } from 'next/router';
 import PreloaderSociety from '../../components/PreloaderSociety';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 export default function IncidentLogs() {
   const router = useRouter();
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_security") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

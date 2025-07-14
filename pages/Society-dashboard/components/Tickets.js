@@ -2,8 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Loader2, Building, Ticket } from 'lucide-react';
 import PreloaderSociety from '../../components/PreloaderSociety';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 export default function Tickets() {
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_maintenance") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
   // State for tickets and loading
   const [tickets, setTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

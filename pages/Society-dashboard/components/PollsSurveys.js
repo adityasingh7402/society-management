@@ -23,9 +23,16 @@ import {
   Building
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 export default function PollsSurveys() {
   const router = useRouter();
+  const permissions = usePermissions();
+
+  if (!permissions.includes("manage_notices") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
 
   // State variables
   const [societyId, setSocietyId] = useState('');

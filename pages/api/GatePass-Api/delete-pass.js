@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../../../lib/mongodb';
+import connectToDatabase from '../../../lib/mongodb';
 import GatePass from '../../../models/GatePass';
 import { verifyToken } from '../../../utils/auth';
 

@@ -72,7 +72,7 @@ export default async function handler(req, res) {
 
     // Calculate maintenance collection stats
     const maintenanceStats = utilityBills.reduce((acc, bill) => {
-      const totalAmount = bill.calculateTotalAmount();
+      const totalAmount = bill.totalAmount;
       acc.totalAmount += totalAmount;
       if (bill.status === 'Paid') {
         acc.paidAmount += totalAmount;

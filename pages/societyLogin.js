@@ -3,15 +3,23 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Building, Home, MessageSquare, ChevronRight, Check, AlertCircle, X } from 'lucide-react';
+import { Phone, Building, Home, MessageSquare, ChevronRight, Check, AlertCircle, X, MapPin, Edit } from 'lucide-react';
 
 export default function SocietyLogin() {
+  const [pinCode, setPinCode] = useState('');
+  const [societies, setSocieties] = useState([]);
+  const [filteredSocieties, setFilteredSocieties] = useState([]);
+  const [selectedSociety, setSelectedSociety] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [loadingOtp, setLoadingOtp] = useState(false);
+  const [loadingSocieties, setLoadingSocieties] = useState(false);
   const [verificationId, setVerificationId] = useState('');
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+  const [showSocietyList, setShowSocietyList] = useState(false);
+  const [isPincodeValid, setIsPincodeValid] = useState(false);
+  const [societySearchQuery, setSocietySearchQuery] = useState('');
 
   // Animation variants
   const containerVariants = {
@@ -82,8 +90,89 @@ export default function SocietyLogin() {
     }
   }, [notification]);
 
-  const showNotification = (type, message) => {
-    setNotification({ show: true, type, message });
+  // Show notification helper function
+  const showNotification = (type, message, duration = 5000) => {
+    setNotification({
+      show: true,
+      type,
+      message
+    });
+
+    setTimeout(() => {
+      setNotification(prev => ({ ...prev, show: false }));
+    }, duration);
+  };
+
+  const handlePincodeChange = async (e) => {
+    const { value } = e.target;
+    setPinCode(value.replace(/\D/g, '').slice(0, 6));
+
+    // Basic pincode validation
+    if (value.length === 6 && /^\d+$/.test(value)) {
+      setIsPincodeValid(true);
+      setLoadingSocieties(true);
+      try {
+        const response = await axios.get(`/api/societies-login?pinCode=${value}`);
+        if (response.data.success) {
+          setSocieties(response.data.societies || []);
+          setFilteredSocieties(response.data.societies || []);setShowSocietyList(true);
+        } else {
+          showNotification('error', 'Failed to fetch societies'
+          );
+        }
+      } catch (error) {
+        console.error("Failed to fetch societies", error);
+        showNotification('error', 'Failed to fetch societies for this pincode');
+      }
+      setLoadingSocieties(false);
+    } else {
+      setIsPincodeValid(false);
+      setShowSocietyList(false);
+      setSocieties([]);
+      setFilteredSocieties([]);
+    }
+  };
+
+  const handleSocietySearch = (e) => {
+    const { value } = e.target;
+    setSocietySearchQuery(value);
+    if (societies.length > 0) {
+      const filtered = societies.filter(society =>
+        society.societyName.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredSocieties(filtered);
+      setShowSocietyList(true);
+    }
+  };
+
+  const handleSocietySelect = (society) => {
+    setSelectedSociety(society);
+    setShowSocietyList(false);
+    setSocietySearchQuery('');
+  };
+
+  const fetchSocieties = async () => {
+    if (!pinCode || pinCode.length !== 6) {
+      showNotification('error', 'Please enter a valid 6-digit PIN code');
+      return;
+    }
+
+    setLoadingSocieties(true);
+    try {
+      const response = await axios.get(`/api/societies?pinCode=${pinCode}`);
+      if (response.data.success) {
+        setSocieties(response.data.societies);
+        if (response.data.societies.length === 0) {
+          showNotification('error', 'No societies found with this PIN code');
+        }
+      } else {
+        showNotification('error', 'Failed to fetch societies');
+      }
+    } catch (error) {
+      console.error('Error fetching societies:', error);
+      showNotification('error', 'Error fetching societies');
+    }
+    setLoadingSocieties(false);
   };
 
   const handleOtpSend = async () => {
@@ -92,14 +181,31 @@ export default function SocietyLogin() {
       return;
     }
 
+    if (!selectedSociety) {
+      showNotification('error', 'Please select a society first.');
+      return;
+    }
+
     const fullPhoneNumber = `+91${phoneNumber}`;
     setLoadingOtp(true);
 
     try {
+      // First verify if the phone number belongs to manager or member
+      const verifyResponse = await axios.post('/api/society/verify-phone', {
+        societyId: selectedSociety._id,
+        phoneNumber: fullPhoneNumber
+      });
+
+      if (!verifyResponse.data.success) {
+        showNotification('error', verifyResponse.data.message || 'You are not authorized to access this society');
+        setLoadingOtp(false);
+        return;
+      }
+
       const response = await axios.post('/api/send-otp', { phoneNumber: fullPhoneNumber });
 
       if (response.data.success) {
-        setVerificationId(response.data.sessionId); // Changed from verificationId to sessionId
+        setVerificationId(response.data.sessionId);
         setOtpSent(true);
         showNotification('success', 'OTP sent successfully! Please check your phone.');
       } else {
@@ -107,7 +213,7 @@ export default function SocietyLogin() {
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
-      showNotification('error', 'Error sending OTP. Please try again.');
+      showNotification('error', error.response?.data?.message || 'Error sending OTP. Please try again.');
     }
     setLoadingOtp(false);
   };
@@ -123,37 +229,33 @@ export default function SocietyLogin() {
       const response = await axios.post('/api/verify-otp', {
         otp,
         phoneNumber: `+91${phoneNumber}`,
-        sessionId: verificationId, // Changed from verificationId to sessionId
+        sessionId: verificationId,
       });
 
       if (response.data.success) {
-        // Step 2: Fetch Society Details
-        const societyResponse = await axios.post('/api/get-society', {
+        // Step 2: Login with society and phone
+        const loginResponse = await axios.post('/api/society/login', {
+          societyId: selectedSociety._id,
           phoneNumber: `+91${phoneNumber}`,
         });
 
-        if (societyResponse.data.success) {
-          const { society, token } = societyResponse.data;
-
-          // Step 3: Store JWT Token in LocalStorage
+        if (loginResponse.data.success) {
+          const { token } = loginResponse.data;
           localStorage.setItem('Society', token);
-
-          // Show success notification
           showNotification('success', 'Login successful! Redirecting to dashboard...');
-
-          // Redirect after a short delay to show the notification
+          
           setTimeout(() => {
             window.location.href = '/Society-dashboard';
           }, 1500);
         } else {
-          showNotification('error', 'Society details not found. Please try again.');
+          showNotification('error', 'Login failed. Please try again.');
         }
       } else {
         showNotification('error', 'Invalid OTP. Please try again.');
       }
     } catch (error) {
-      console.error('Error verifying OTP or fetching society details:', error);
-      showNotification('error', 'An error occurred. Please try again.');
+      console.error('Error during login:', error);
+      showNotification('error', error.response?.data?.message || 'An error occurred. Please try again.');
     }
   };
 
@@ -164,7 +266,6 @@ export default function SocietyLogin() {
         <meta name="description" content="Society login using mobile number and OTP." />
       </Head>
 
-      {/* Notification Popup */}
       {/* Notification Popup */}
       <AnimatePresence>
         {notification.show && (
@@ -271,12 +372,12 @@ export default function SocietyLogin() {
 
         <div className="container mx-auto px-6 relative z-10">
           <motion.div
-            className="max-w-lg mx-auto bg-white shadow-xl rounded-xl overflow-hidden"
+            className="max-w-lg mx-auto bg-white shadow-xl rounded-xl overflow-visible"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-4 px-6">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 py-4 px-6 rounded-t-xl">
               <h2 className="text-2xl font-bold text-center text-white">Society Login</h2>
             </div>
 
@@ -296,9 +397,130 @@ export default function SocietyLogin() {
                 </div>
               </motion.div>
 
-              {/* Phone Number Input */}
-              {!otpSent ? (
+              {/* Step 1: PIN Code Input */}
+              {!selectedSociety && (
+                <div className="space-y-6">
+                  {/* PIN Code Input */}
+                  <motion.div variants={itemVariants}>
+                    <label htmlFor="pinCode" className="block text-gray-700 font-medium mb-2">
+                      <MapPin className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                      PIN Code
+                    </label>
+                    <input
+                      type="text"
+                      id="pinCode"
+                      name="pinCode"
+                      value={pinCode}
+                      onChange={handlePincodeChange}
+                      maxLength={6}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      placeholder="Enter PIN code to find societies"
+                    />
+                    {loadingSocieties && (
+                      <div className="mt-2 text-sm text-blue-600 flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                        Searching for societies...
+                      </div>
+                    )}
+                  </motion.div>
+
+                  {/* Society Selection */}
+                  {isPincodeValid && (
+                    <motion.div variants={itemVariants} className="relative">
+                      <label htmlFor="societySearch" className="block text-gray-700 font-medium mb-2">
+                        <Building className="inline-block w-5 h-5 mr-2" />
+                        Society Name
+                      </label>
+                      <input
+                        type="text"
+                        id="societySearch"
+                        name="societySearch"
+                        value={societySearchQuery}
+                        onChange={handleSocietySearch}
+                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Search for your society"
+                      />
+
+                      {/* Society List Dropdown */}
+                      <AnimatePresence>
+                        {showSocietyList && filteredSocieties.length > 0 && (
+                          <motion.div
+                            className="absolute left-0 right-0 z-50 mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                          >
+                            {filteredSocieties.map((society) => (
+                              <motion.div
+                                key={society._id}
+                                onClick={() => handleSocietySelect(society)}
+                                className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                                whileHover={{ backgroundColor: "#f3f4f6" }}
+                              >
+                                <div className="font-medium text-gray-800">{society.societyName}</div>
+                                <div className="text-sm text-gray-600">{society.street}</div>
+                                <div className="text-xs text-gray-500">{society.city}, {society.state}</div>
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {showSocietyList && filteredSocieties.length === 0 && (
+                        <div className="mt-2 text-sm text-gray-600">
+                          No societies found for this PIN code
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </div>
+              )}
+
+              {/* Display Selected Society Details */}
+              {selectedSociety && !otpSent && (
+                <motion.div
+                  variants={itemVariants}
+                  className="bg-indigo-50 p-4 rounded-lg border border-indigo-200"
+                >
+                  <h3 className="font-medium text-indigo-800 mb-2">Selected Society</h3>
+                  <div className="space-y-1">
+                    <p className="text-indigo-700">{selectedSociety.societyName}</p>
+                    <p className="text-indigo-600 text-sm">{selectedSociety.street}</p>
+                    <p className="text-indigo-600 text-sm">{selectedSociety.city}, {selectedSociety.state} - {selectedSociety.pinCode}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowSocietyList(true);
+                      setSelectedSociety(null);
+                    }}
+                    className="mt-2 text-sm text-indigo-700 hover:text-indigo-800 flex items-center"
+                  >
+                    <Edit className="w-4 h-4 mr-1" />
+                    Change Society
+                  </button>
+                </motion.div>
+              )}
+
+              {/* Step 2: Phone Number & OTP */}
+              {selectedSociety && !otpSent && (
                 <>
+                  <motion.div 
+                    className="mb-6 p-4 bg-blue-50 rounded-lg"
+                    variants={itemVariants}
+                  >
+                    <h3 className="font-medium text-gray-900">{selectedSociety.name}</h3>
+                    <p className="text-sm text-gray-500">{selectedSociety.address}</p>
+                    <button 
+                      onClick={() => {
+                        setSelectedSociety(null);
+                        setShowSocietyList(true);
+                      }}
+                      className="text-blue-600 text-sm mt-2 hover:underline"
+                    >
+                      Change Society
+                    </button>
+                  </motion.div>
+
                   <motion.div variants={itemVariants}>
                     <label htmlFor="phoneNumber" className="block text-lg font-medium text-gray-700 mb-2 flex items-center">
                       <Phone size={20} className="mr-2 text-blue-600" />
@@ -310,7 +532,7 @@ export default function SocietyLogin() {
                         type="tel"
                         id="phoneNumber"
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                         className="flex-1 focus:outline-none"
                         placeholder="Enter your 10-digit number"
                       />
@@ -320,14 +542,13 @@ export default function SocietyLogin() {
                   <motion.button
                     type="button"
                     onClick={handleOtpSend}
-                    disabled={loadingOtp}
-                    className={`mt-6 w-full py-3 text-white rounded-lg flex items-center justify-center ${loadingOtp ? 'bg-gray-400' : 'bg-gradient-to-r from-blue-600 to-blue-700'}`}
+                    disabled={loadingOtp || phoneNumber.length !== 10}
+                    className={`mt-6 w-full py-3 text-white rounded-lg flex items-center justify-center ${
+                      loadingOtp || phoneNumber.length !== 10 ? 'bg-gray-400' : 'bg-gradient-to-r from-blue-600 to-blue-700'
+                    }`}
                     variants={buttonVariants}
-                    whileHover={!loadingOtp ? "hover" : "disabled"}
-                    whileTap={!loadingOtp ? "tap" : "disabled"}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.4 }}
+                    whileHover={!loadingOtp && phoneNumber.length === 10 ? "hover" : "disabled"}
+                    whileTap={!loadingOtp && phoneNumber.length === 10 ? "tap" : "disabled"}
                   >
                     {loadingOtp ? (
                       <>
@@ -346,9 +567,11 @@ export default function SocietyLogin() {
                     )}
                   </motion.button>
                 </>
-              ) : (
+              )}
+
+              {/* Step 3: OTP Verification */}
+              {selectedSociety && otpSent && (
                 <>
-                  {/* OTP Input */}
                   <motion.div variants={itemVariants}>
                     <label htmlFor="otp" className="block text-lg font-medium text-gray-700 mb-2">
                       Enter OTP
@@ -358,7 +581,7 @@ export default function SocietyLogin() {
                         type="text"
                         id="otp"
                         value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                         className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter the 6-digit OTP"
                       />

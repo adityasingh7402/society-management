@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { Building, Receipt } from 'lucide-react';
 import { useRouter } from 'next/router';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from '../widget/societyComponents/accessRestricted';
 
 export default function MaintenanceBills() {
   const router = useRouter();
@@ -59,6 +61,18 @@ export default function MaintenanceBills() {
   const [historyFlat, setHistoryFlat] = useState('');
   const [billHistory, setBillHistory] = useState([]);
   const [filteredHistory, setFilteredHistory] = useState([]);
+
+  // Add filters state
+  const [filters, setFilters] = useState({
+    status: '',
+    billHeadId: '',
+    fromDate: '',
+    toDate: '',
+    subCategory: '' // Add subCategory filter
+  });
+
+  // Add subcategories for Maintenance bills
+  const maintenanceSubCategories = ['Cleaning', 'Security', 'Gardening', 'Equipment', 'Repairs', 'Staff', 'Other'];
 
   // Fetch society details and residents on component mount
   useEffect(() => {
@@ -216,7 +230,9 @@ export default function MaintenanceBills() {
 
       if (response.ok) {
         const data = await response.json();
-        setBillHeads(data.data);
+        // Filter only maintenance bill heads
+        const maintenanceBillHeads = data.data.filter(bh => bh.category === 'Maintenance');
+        setBillHeads(maintenanceBillHeads);
       }
     } catch (error) {
       console.error('Error fetching bill heads:', error);
@@ -642,6 +658,11 @@ export default function MaintenanceBills() {
     return <PreloaderSociety />;
   }
 
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_maintenance") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-gray-800 shadow-lg border-b-4 border-blue-500">
@@ -823,9 +844,9 @@ export default function MaintenanceBills() {
                         required
                       >
                         <option value="">Select Bill Head</option>
-                        {billHeads.map(head => (
-                          <option key={head._id} value={head._id}>
-                            {head.code} - {head.name}
+                        {billHeads.map((bh) => (
+                          <option key={bh._id} value={bh._id}>
+                            {bh.code} - {bh.name} ({bh.subCategory})
                           </option>
                         ))}
                       </select>

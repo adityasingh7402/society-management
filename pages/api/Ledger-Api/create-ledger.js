@@ -1,5 +1,6 @@
 import connectToDatabase from "../../../lib/mongodb";
 import Ledger from '../../../models/Ledger';
+import { verifyToken } from '../../../utils/auth';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,6 +8,17 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Verify authentication
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = await verifyToken(token);
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+
     await connectToDatabase();
 
     const {
@@ -16,6 +28,7 @@ export default async function handler(req, res) {
       description,
       type,
       category,
+      billCategory,
       subCategory,
       openingBalance,
       balanceType,
@@ -24,12 +37,11 @@ export default async function handler(req, res) {
       tdsConfig,
       reconciliation,
       isControlled,
-      controlLimit,
-      adminId
+      controlLimit
     } = req.body;
 
     // Validate required fields
-    if (!societyId || !code || !name || !type || !category || !adminId) {
+    if (!societyId || !code || !name || !type || !category) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -41,6 +53,17 @@ export default async function handler(req, res) {
 
     if (existingLedger) {
       return res.status(400).json({ message: 'Ledger code already exists' });
+    }
+
+    // Validate bill category and subcategory
+    if (category === 'Operating Income' || (category === 'Receivable' && type === 'Asset')) {
+      if (!billCategory) {
+        return res.status(400).json({ message: 'Bill category is required for income and receivable ledgers' });
+      }
+
+      if ((billCategory === 'Utility' || billCategory === 'Maintenance') && !subCategory) {
+        return res.status(400).json({ message: 'Subcategory is required for utility and maintenance ledgers' });
+      }
     }
 
     // Validate bank details if provided
@@ -61,6 +84,7 @@ export default async function handler(req, res) {
       description,
       type,
       category,
+      billCategory,
       subCategory,
       openingBalance: openingBalance || 0,
       balanceType: balanceType || 'Debit',
@@ -72,7 +96,7 @@ export default async function handler(req, res) {
       isControlled: isControlled || false,
       controlLimit,
       status: 'Active',
-      createdBy: adminId
+      createdBy: decoded.id
     };
 
     // Create new ledger
@@ -88,6 +112,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error creating ledger:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 } 

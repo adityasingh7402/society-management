@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import DetailPopup from '../widget/ownerComponents/DetailPopup';
 import UpdatePopup from '../widget/ownerComponents/UpdatePopup';
 import Notification from '../widget/ownerComponents/Notification';
-import TagsPopup from '../widget/ownerComponents/TagsPopup';
+import TagsPopup from '../../../components/Society/widgets/TagsPopup';
 
 export default function OwnerProfile() {
   const [approvedResidents, setApprovedResidents] = useState([]);

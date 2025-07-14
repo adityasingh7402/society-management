@@ -2,6 +2,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { Building, Package } from 'lucide-react';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 // Camera component with permission handling
 const CameraCapture = ({ onCapture }) => {
@@ -136,7 +138,11 @@ const CameraCapture = ({ onCapture }) => {
   );
 };
 
-const DeliveryManagement = () => {
+export default function DeliveryManagement() {
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_security") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
   const [loading, setLoading] = useState(false);
   // State for new delivery
   const [deliveryPersonName, setDeliveryPersonName] = useState("");
@@ -453,5 +459,3 @@ const DeliveryManagement = () => {
     </div>
   );
 };
-
-export default DeliveryManagement;

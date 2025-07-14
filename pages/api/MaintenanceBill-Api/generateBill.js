@@ -2,6 +2,7 @@ import connectToDatabase from '../../../lib/mongodb';
 import MaintenanceBill from '../../../models/MaintenanceBill';
 import BillHead from '../../../models/BillHead';
 import JournalVoucher from '../../../models/JournalVoucher';
+import Ledger from '../../../models/Ledger';
 import { verifyToken } from '../../../utils/auth';
 
 export default async function handler(req, res) {
@@ -41,10 +42,30 @@ export default async function handler(req, res) {
       totalAmount
     } = req.body;
 
-    // Validate bill head exists
+    // Validate bill head exists and get category
     const billHead = await BillHead.findById(billHeadId);
     if (!billHead) {
       return res.status(400).json({ message: 'Invalid bill head' });
+    }
+
+    // Get category-specific ledgers
+    const incomeLedger = await Ledger.findOne({
+      societyId,
+      category: billHead.category,
+      type: 'Income'
+    });
+
+    const receivableLedger = await Ledger.findOne({
+      societyId,
+      category: billHead.category,
+      type: 'Asset',
+      subCategory: 'Receivable'
+    });
+
+    if (!incomeLedger || !receivableLedger) {
+      return res.status(400).json({ 
+        message: `Category-specific ledgers not found for ${billHead.category}. Please create them first.`
+      });
     }
 
     // Create maintenance bill
@@ -74,72 +95,110 @@ export default async function handler(req, res) {
       finePerDay,
       totalAmount,
       status: 'Pending',
-      generatedBy: decoded.userId,
+      generatedBy: decoded.Id,
       generatedAt: new Date()
     });
 
     // Create journal voucher entries
     const journalVoucher = await JournalVoucher.create({
       societyId,
-      date: new Date(),
-      type: 'Bill',
+      voucherNumber: 'JV/' + bill.billNumber,
+      voucherDate: new Date(),
+      voucherType: 'Journal',
+      referenceType: 'Bill',
       referenceId: bill._id,
       referenceNumber: bill.billNumber,
-      description: `Maintenance bill generated for ${flatNumber}`,
+      narration: `${billHead.category} bill generated for ${flatNumber}`,
       entries: [
-        // Debit entry for resident's account
+        // Debit entry (Receivable)
         {
-          account: 'Resident Receivables',
-          description: `Bill for ${billHeadDetails.name}`,
-          debit: totalAmount,
-          credit: 0
+          ledgerId: receivableLedger._id,
+          type: 'debit',
+          amount: totalAmount,
+          description: `Bill for ${billHeadDetails.name}`
         },
-        // Credit entry for income account
+        // Credit entry (Income)
         {
-          account: billHead.incomeAccount || 'Maintenance Income',
-          description: `Bill for ${billHeadDetails.name}`,
-          debit: 0,
-          credit: baseAmount
-        },
-        // GST entries if applicable
-        ...(gstDetails?.cgst ? [{
-          account: 'CGST Payable',
-          description: 'CGST on maintenance bill',
-          debit: 0,
-          credit: gstDetails.cgst
-        }] : []),
-        ...(gstDetails?.sgst ? [{
-          account: 'SGST Payable',
-          description: 'SGST on maintenance bill',
-          debit: 0,
-          credit: gstDetails.sgst
-        }] : []),
-        ...(gstDetails?.igst ? [{
-          account: 'IGST Payable',
-          description: 'IGST on maintenance bill',
-          debit: 0,
-          credit: gstDetails.igst
-        }] : []),
-        // Additional charges entries
-        ...additionalCharges.map(charge => ({
-          account: billHead.incomeAccount || 'Other Income',
-          description: charge.description,
-          debit: 0,
-          credit: charge.amount
-        }))
+          ledgerId: incomeLedger._id,
+          type: 'credit',
+          amount: baseAmount,
+          description: `Bill for ${billHeadDetails.name}`
+        }
       ],
       status: 'Posted',
-      postedBy: decoded.userId,
-      postedAt: new Date()
+      createdBy: decoded.Id
     });
+
+    // Add GST entries if applicable
+    if (gstDetails?.totalGst > 0) {
+      // Find GST ledger
+      const gstLedger = await Ledger.findOne({
+        societyId,
+        type: 'Liability',
+        subCategory: 'GST'
+      });
+
+      if (!gstLedger) {
+        return res.status(400).json({ message: 'GST ledger not found. Please create it first.' });
+      }
+
+      if (gstDetails.cgst > 0) {
+        journalVoucher.entries.push({
+          ledgerId: gstLedger._id,
+          type: 'credit',
+          amount: gstDetails.cgst,
+          description: 'CGST on maintenance bill'
+        });
+      }
+      if (gstDetails.sgst > 0) {
+        journalVoucher.entries.push({
+          ledgerId: gstLedger._id,
+          type: 'credit',
+          amount: gstDetails.sgst,
+          description: 'SGST on maintenance bill'
+        });
+      }
+      if (gstDetails.igst > 0) {
+        journalVoucher.entries.push({
+          ledgerId: gstLedger._id,
+          type: 'credit',
+          amount: gstDetails.igst,
+          description: 'IGST on maintenance bill'
+        });
+      }
+    }
+
+    // Add additional charges entries
+    if (additionalCharges?.length > 0) {
+      for (const charge of additionalCharges) {
+        journalVoucher.entries.push({
+          ledgerId: incomeLedger._id,
+          type: 'credit',
+          amount: charge.amount,
+          description: charge.description
+        });
+      }
+    }
+
+    await journalVoucher.save();
+
+    // Add journal entry reference to bill
+    bill.journalEntries.push({
+      voucherId: journalVoucher._id,
+      type: 'Bill',
+      amount: totalAmount,
+      date: new Date()
+    });
+    await bill.save();
 
     res.status(201).json({ 
       message: 'Bill generated successfully',
       bill,
       journalVoucher
     });
+
   } catch (error) {
     console.error('Error generating bill:', error);
-    res.status(500).json({ message: 'Error generating bill', error: error.message });
+    res.status(500).json({ message: 'Failed to generate bill', error: error.message });
   }
 }

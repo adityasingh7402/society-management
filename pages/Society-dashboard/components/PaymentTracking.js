@@ -2,9 +2,15 @@ import React, { useState, useEffect } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { Building, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/router';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 export default function PaymentTracking() {
   const router = useRouter();
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_bills") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterUtilityType, setFilterUtilityType] = useState("all");

@@ -22,17 +22,26 @@ export default async function handler(req, res) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);  // Decode the token
         // console.log("Decoded Token:", decoded);
 
-        const phoneNumber = decoded.managerPhone;
+        const phoneNumber = decoded.phone;
 
         await connectToDatabase();
-        const society = await Society.findOne({ managerPhone: phoneNumber });
+        const society = await Society.findOne({
+          $or: [
+            { managerPhone: phoneNumber },
+            { "members.phone": phoneNumber }
+          ]
+        });
 
         if (!society) {
             return res.status(404).json({ message: "Society not found" });
         }
 
-        // console.log(society)
-        res.status(200).json(society);  // Return the society data
+        // Extract permissions from decoded JWT
+        const permissions = decoded.permissions;
+        res.status(200).json({
+            ...society.toObject(),
+            permissions
+        });
     } catch (error) {
         console.error("Error fetching society details:", error);
         res.status(500).json({ message: "Internal Server Error" });

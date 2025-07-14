@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import PreloaderSociety from '../../components/PreloaderSociety';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 export default function SocietyChat() {
   const [messages, setMessages] = useState([]);
@@ -203,6 +205,11 @@ export default function SocietyChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_notices") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
 
   if (loading) {
     return (

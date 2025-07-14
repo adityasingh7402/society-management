@@ -8,8 +8,15 @@ import {
 } from 'lucide-react';
 import { FaArrowLeft } from "react-icons/fa";
 import PreloaderSociety from '../../components/PreloaderSociety';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
-const VisitorEntry = () => {
+export default function VisitorEntry() {
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_security") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
+
   const router = useRouter();
   const [visitorName, setVisitorName] = useState('');
   const [visitorImage, setVisitorImage] = useState(null);
@@ -847,5 +854,3 @@ const VisitorEntry = () => {
     </div>
   );
 };
-
-export default VisitorEntry;

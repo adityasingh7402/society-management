@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     // Find all residents in the same society
     const residents = await Resident.find({ 
       societyCode: societyId
-    }).select('_id name flatDetails.flatNumber userImage lastSeen online');
+    })
     
     return res.status(200).json({ 
       success: true, 

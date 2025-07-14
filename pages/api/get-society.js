@@ -22,7 +22,7 @@ export default async function handler(req, res) {
         {
           id: society._id,
           societyId: society.societyId,
-          managerPhone: society.managerPhone,
+          phone: society.managerPhone,
         },
         process.env.JWT_SECRET
       );

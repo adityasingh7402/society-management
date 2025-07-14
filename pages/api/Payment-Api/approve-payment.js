@@ -40,13 +40,13 @@ export default async function handler(req, res) {
     }
 
     // Validate maker-checker rule (maker cannot be checker)
-    if (payment.maker.userId.toString() === decoded.userId) {
+    if (payment.maker.userId.toString() === decoded.Id) {
       return res.status(400).json({ message: 'Maker cannot approve their own payment' });
     }
 
     try {
       // Process approval/rejection
-      await payment.processApproval(decoded.userId, action, remarks);
+      await payment.processApproval(decoded.Id, action, remarks);
 
       return res.status(200).json({
         message: `Payment ${action.toLowerCase()} successfully`,

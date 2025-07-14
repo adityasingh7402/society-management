@@ -2,8 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Plus, Filter, Calendar, AlertCircle, Check, X, Edit, Pause, Play, RefreshCw } from 'lucide-react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { useRouter } from 'next/router';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 export default function ScheduledBills() {
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_bills") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
+
   const [loading, setLoading] = useState(true);
   const [bills, setBills] = useState([]);
   const [summary, setSummary] = useState(null);

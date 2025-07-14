@@ -1,14 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { FileText, Plus, Edit2, Archive, Check, X, AlertCircle } from 'lucide-react';
+import { debounce } from 'lodash';
+import { usePermissions } from "../../../components/PermissionsContext";
+import AccessDenied from "../widget/societyComponents/accessRestricted";
 
 export default function BillHeads() {
   const router = useRouter();
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_bills") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
   const [loading, setLoading] = useState(true);
   const [billHeads, setBillHeads] = useState([]);
-  const [filteredBillHeads, setFilteredBillHeads] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [filters, setFilters] = useState({
+    category: '',
+    subCategory: '',
+    calculationType: ''
+  });
   const [ledgers, setLedgers] = useState([]);
   const [summary, setSummary] = useState({
     total: 0,
@@ -27,15 +39,20 @@ export default function BillHeads() {
   // Form states
   const [showForm, setShowForm] = useState(false);
   const [editingBillHead, setEditingBillHead] = useState(null);
+  // Update the initial form state
   const [formData, setFormData] = useState({
     code: '',
     name: '',
     category: 'Maintenance',
+    subCategory: '',
     description: '',
     calculationType: 'Fixed',
     fixedAmount: 0,
     perUnitRate: 0,
     formula: '',
+    billNumberPrefix: '',
+    billNumberSequence: 1,
+    frequency: 'Monthly',
     gstConfig: {
       isGSTApplicable: false,
       cgstPercentage: 0,
@@ -49,15 +66,477 @@ export default function BillHeads() {
       chargeValue: 0,
       compoundingFrequency: 'Monthly'
     },
+    notificationConfig: {
+      sendReminders: true,
+      reminderDays: [-7, -3, -1, 1, 3, 7],
+      reminderTemplate: 'Your {billTitle} of ₹{amount} is {status}. Due date: {dueDate}'
+    },
     accountingConfig: {
       incomeLedgerId: '',
-      receivableLedgerId: ''
+      receivableLedgerId: '',
+      gstLedgerId: '',
+      lateFeeIncomeLedgerId: ''
     },
     status: 'Active'
   });
 
+  // Add these constants at the top with other constants
+  const FREQUENCIES = ['OneTime', 'Monthly', 'Quarterly', 'HalfYearly', 'Yearly'];
+  const CHARGE_TYPES = ['Fixed', 'Percentage'];
+  const COMPOUNDING_FREQUENCIES = ['Daily', 'Weekly', 'Monthly'];
+
+  // Add subcategories mapping
+  const subCategories = {
+    Utility: ['Water', 'Electricity', 'Gas', 'Internet', 'Cable', 'Telephone', 'Other'],
+    Maintenance: ['Cleaning', 'Security', 'Gardening', 'Equipment', 'Repairs', 'Staff', 'Other'],
+    Amenity: ['Gym', 'Swimming Pool', 'Club House', 'Sports', 'Park', 'Community Hall', 'Other'],
+    Service: ['Pest Control', 'Plumbing', 'Electrical', 'Carpentry', 'Housekeeping', 'Other'],
+    Other: [
+      'Society Charges',
+      'Platform Charges',
+      'Transfer Charges',
+      'NOC Charges',
+      'Processing Fees',
+      'Late Payment Charges',
+      'Legal Charges',
+      'Documentation Charges',
+      'Administrative Charges',
+      'Event Charges',
+      'Miscellaneous'
+    ]
+  };
+
+  // Handle category change
+  const handleCategoryChange = (e) => {
+    const newCategory = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      category: newCategory,
+      subCategory: '', // Reset subcategory when category changes
+      accountingConfig: {
+        ...prev.accountingConfig,
+        incomeLedgerId: '', // Reset ledger IDs when category changes
+        receivableLedgerId: ''
+      }
+    }));
+  };
+
+  // Individual field handlers
+  const handleCodeChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, code: value }));
+    if (isSubmitted) { // Only validate if form has been submitted
+      const error = validateField('code', value);
+      setFormErrors(prev => ({ ...prev, code: error }));
+    }
+  };
+
+  const handleNameChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, name: value }));
+    if (isSubmitted) {
+      const error = validateField('name', value);
+      setFormErrors(prev => ({ ...prev, name: error }));
+    }
+  };
+
+  const handleDescriptionChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, description: value }));
+  };
+
+  const handleSubCategoryChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, subCategory: value }));
+    const error = validateField('subCategory', value);
+    setFormErrors(prev => ({ ...prev, subCategory: error }));
+  };
+
+  const handleCalculationTypeChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, calculationType: value }));
+    const error = validateField('calculationType', value);
+    setFormErrors(prev => ({ ...prev, calculationType: error }));
+  };
+
+  const handleFixedAmountChange = (e) => {
+    const value = parseFloat(e.target.value) || 0;
+    setFormData(prev => ({ ...prev, fixedAmount: value }));
+    if (isSubmitted) {
+      const error = validateField('fixedAmount', value);
+      setFormErrors(prev => ({ ...prev, fixedAmount: error }));
+    }
+  };
+
+  const handlePerUnitRateChange = (e) => {
+    const value = parseFloat(e.target.value) || 0;
+    setFormData(prev => ({ ...prev, perUnitRate: value }));
+    if (isSubmitted) {
+      const error = validateField('perUnitRate', value);
+      setFormErrors(prev => ({ ...prev, perUnitRate: error }));
+    }
+  };
+
+  const handleFormulaChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, formula: value }));
+  };
+
+  const handleStatusChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, status: value }));
+  };
+
+  // Add new handlers
+  const handleFrequencyChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, frequency: value }));
+  };
+
+  const handleBillNumberPrefixChange = (e) => {
+    const value = e.target.value;
+    if (value.length <= 5) {
+      setFormData(prev => ({ ...prev, billNumberPrefix: value }));
+    }
+  };
+
+  const handleBillNumberSequenceChange = (e) => {
+    const value = parseInt(e.target.value) || 1;
+    if (value >= 1) {
+      setFormData(prev => ({ ...prev, billNumberSequence: value }));
+    }
+  };
+
+  const handleReminderDaysChange = (e) => {
+    const value = e.target.value;
+    try {
+      const days = value.split(',').map(d => parseInt(d.trim()));
+      if (days.every(d => !isNaN(d))) {
+        setFormData(prev => ({
+          ...prev,
+          notificationConfig: {
+            ...prev.notificationConfig,
+            reminderDays: days
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Invalid reminder days format');
+    }
+  };
+
+  const handleReminderTemplateChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      notificationConfig: {
+        ...prev.notificationConfig,
+        reminderTemplate: value
+      }
+    }));
+  };
+
+  const handleSendRemindersChange = (e) => {
+    const checked = e.target.checked;
+    setFormData(prev => ({
+      ...prev,
+      notificationConfig: {
+        ...prev.notificationConfig,
+        sendReminders: checked
+      }
+    }));
+  };
+
   // Notification state
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+
+  // Add form validation schema
+  const validationSchema = {
+    code: {
+      required: true,
+      pattern: /^[A-Z0-9-_]{3,10}$/,
+      message: 'Code must be 3-10 characters (A-Z, 0-9, -, _)'
+    },
+    name: {
+      required: true,
+      minLength: 3,
+      maxLength: 50,
+      message: 'Name must be between 3 and 50 characters'
+    },
+    category: {
+      required: true,
+      message: 'Category is required'
+    },
+    subCategory: {
+      required: true,
+      message: 'Sub-category is required'
+    },
+    calculationType: {
+      required: true,
+      message: 'Calculation type is required'
+    },
+    fixedAmount: {
+      min: 0,
+      message: 'Amount must be greater than 0'
+    },
+    perUnitRate: {
+      min: 0,
+      message: 'Rate must be greater than 0'
+    }
+  };
+
+  // Add form error state
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false); // Add this state
+
+  // Validate single field
+  const validateField = (name, value) => {
+    const validation = validationSchema[name];
+    if (!validation) return '';
+
+    if (validation.required && !value) {
+      return validation.message;
+    }
+
+    if (validation.pattern && !validation.pattern.test(value)) {
+      return validation.message;
+    }
+
+    if (validation.minLength && value.length < validation.minLength) {
+      return validation.message;
+    }
+
+    if (validation.maxLength && value.length > validation.maxLength) {
+      return validation.message;
+    }
+
+    if (validation.min !== undefined && Number(value) < validation.min) {
+      return validation.message;
+    }
+
+    return '';
+  };
+
+  // Fixed handleFieldChange function
+  const handleFieldChange = (name, value) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Debounce validation to avoid constant re-renders
+    const debouncedValidate = debounce(() => {
+      const error = validateField(name, value);
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: error
+      }));
+    }, 300);
+    
+    debouncedValidate();
+  };
+
+  // Generic input change handler
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    handleFieldChange(name, value);
+  };
+
+  // Validate all fields
+  const validateForm = () => {
+    const errors = {};
+    Object.keys(validationSchema).forEach(field => {
+      const value = formData[field];
+      const error = validateField(field, value);
+      if (error) {
+        errors[field] = error;
+      }
+    });
+
+    // Additional validation for calculation type specific fields
+    if (formData.calculationType === 'Fixed' && (!formData.fixedAmount || formData.fixedAmount <= 0)) {
+      errors.fixedAmount = 'Fixed amount is required and must be greater than 0';
+    }
+
+    if (formData.calculationType === 'PerUnit' && (!formData.perUnitRate || formData.perUnitRate <= 0)) {
+      errors.perUnitRate = 'Per unit rate is required and must be greater than 0';
+    }
+
+    // GST validation
+    if (formData.gstConfig.isGSTApplicable) {
+      const { cgstPercentage, sgstPercentage, igstPercentage } = formData.gstConfig;
+      if (cgstPercentage < 0 || cgstPercentage > 14) {
+        errors.cgstPercentage = 'CGST must be between 0 and 14%';
+      }
+      if (sgstPercentage < 0 || sgstPercentage > 14) {
+        errors.sgstPercentage = 'SGST must be between 0 and 14%';
+      }
+      if (igstPercentage < 0 || igstPercentage > 28) {
+        errors.igstPercentage = 'IGST must be between 0 and 28%';
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // GST Configuration handlers
+  const handleGSTApplicableChange = (e) => {
+    const checked = e.target.checked;
+    setFormData(prev => ({
+      ...prev,
+      gstConfig: { ...prev.gstConfig, isGSTApplicable: checked }
+    }));
+  };
+
+  const handleCGSTChange = (e) => {
+    const value = parseFloat(e.target.value) || 0;
+    if (value >= 0 && value <= 14) {
+      setFormData(prev => ({
+        ...prev,
+        gstConfig: { ...prev.gstConfig, cgstPercentage: value }
+      }));
+    }
+  };
+
+  const handleSGSTChange = (e) => {
+    const value = parseFloat(e.target.value) || 0;
+    if (value >= 0 && value <= 14) {
+      setFormData(prev => ({
+        ...prev,
+        gstConfig: { ...prev.gstConfig, sgstPercentage: value }
+      }));
+    }
+  };
+
+  const handleIGSTChange = (e) => {
+    const value = parseFloat(e.target.value) || 0;
+    if (value >= 0 && value <= 28) {
+      setFormData(prev => ({
+        ...prev,
+        gstConfig: { ...prev.gstConfig, igstPercentage: value }
+      }));
+    }
+  };
+
+  // Late Payment Configuration handlers
+  const handleLatePaymentApplicableChange = (e) => {
+    const checked = e.target.checked;
+    setFormData(prev => ({
+      ...prev,
+      latePaymentConfig: { ...prev.latePaymentConfig, isLatePaymentChargeApplicable: checked }
+    }));
+  };
+
+  const handleGracePeriodChange = (e) => {
+    const value = parseInt(e.target.value) || 0;
+    setFormData(prev => ({
+      ...prev,
+      latePaymentConfig: { ...prev.latePaymentConfig, gracePeriodDays: value }
+    }));
+  };
+
+  const handleChargeTypeChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      latePaymentConfig: { ...prev.latePaymentConfig, chargeType: value }
+    }));
+  };
+
+  const handleChargeValueChange = (e) => {
+    const value = parseFloat(e.target.value) || 0;
+    setFormData(prev => ({
+      ...prev,
+      latePaymentConfig: { ...prev.latePaymentConfig, chargeValue: value }
+    }));
+  };
+
+  const handleCompoundingFrequencyChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      latePaymentConfig: { ...prev.latePaymentConfig, compoundingFrequency: value }
+    }));
+  };
+
+  // Accounting Configuration handlers
+  const handleIncomeLedgerChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      accountingConfig: { ...prev.accountingConfig, incomeLedgerId: value }
+    }));
+  };
+
+  const handleReceivableLedgerChange = (e) => {
+    const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      accountingConfig: { ...prev.accountingConfig, receivableLedgerId: value }
+    }));
+  };
+
+  // Add loading states for API calls
+  const [isFetchingBillHeads, setIsFetchingBillHeads] = useState(true);
+  const [isFetchingLedgers, setIsFetchingLedgers] = useState(true);
+
+  // Add debounced search
+  const debouncedSearch = useCallback(
+    debounce((term) => {
+      const filtered = billHeads.filter(bh => 
+        bh.name.toLowerCase().includes(term.toLowerCase()) ||
+        bh.code.toLowerCase().includes(term.toLowerCase()) ||
+        bh.category.toLowerCase().includes(term.toLowerCase()) ||
+        bh.subCategory.toLowerCase().includes(term.toLowerCase())
+      );
+      // setFilteredBillHeads(filtered); // This line is removed as per the edit hint
+    }, 300),
+    [billHeads]
+  );
+
+  // Handle search
+  const handleSearch = (e) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+  };
+
+  // Handle filter click for status filters
+  const handleFilterClick = (filter) => {
+    setActiveFilter(filter);
+  };
+
+  // Handle filter change for category/subcategory/calculation type
+  const handleFilterChange = (field, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value,
+      // Reset subCategory when category changes
+      ...(field === 'category' ? { subCategory: '' } : {})
+    }));
+  };
+
+  // Combine search and filters
+  const filteredBillHeads = billHeads.filter(bill => {
+    // Search filter
+    const matchesSearch = !searchTerm || 
+      bill.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bill.code.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Category, subcategory, and calculation type filters
+    const matchesFilters = (
+      (!filters.category || bill.category === filters.category) &&
+      (!filters.subCategory || bill.subCategory === filters.subCategory) &&
+      (!filters.calculationType || bill.calculationType === filters.calculationType)
+    );
+
+    // Status and taxable filters
+    const matchesStatusFilter = 
+      activeFilter === 'all' ||
+      (activeFilter === 'active' && bill.status === 'Active') ||
+      (activeFilter === 'inactive' && bill.status === 'Inactive') ||
+      (activeFilter === 'taxable' && bill.gstConfig?.isGSTApplicable);
+
+    return matchesSearch && matchesFilters && matchesStatusFilter;
+  });
 
   // Fetch bill heads and ledgers on component mount
   useEffect(() => {
@@ -67,32 +546,32 @@ export default function BillHeads() {
 
   // Update filtered data when billHeads or filter changes
   useEffect(() => {
-    filterBillHeads(activeFilter);
+    // The filtering logic is now handled by the computed filteredBillHeads
   }, [billHeads, activeFilter]);
 
-  const filterBillHeads = (filter) => {
-    let filtered;
-    switch (filter) {
-      case 'active':
-        filtered = billHeads.filter(bh => bh.status === 'Active');
-        break;
-      case 'inactive':
-        filtered = billHeads.filter(bh => bh.status === 'Inactive');
-        break;
-      case 'taxable':
-        filtered = billHeads.filter(bh => bh.gstConfig?.isGSTApplicable);
-        break;
-      default:
-        filtered = billHeads;
+  // Update summary when billHeads changes
+  useEffect(() => {
+    if (billHeads.length > 0) {
+      const newSummary = {
+        total: billHeads.length,
+        active: billHeads.filter(b => b.status === 'Active').length,
+        inactive: billHeads.filter(b => b.status === 'Inactive').length,
+        gstApplicable: billHeads.filter(b => b.gstConfig.isGSTApplicable).length,
+        byCategory: {
+          Maintenance: billHeads.filter(b => b.category === 'Maintenance').length,
+          Utility: billHeads.filter(b => b.category === 'Utility').length,
+          Amenity: billHeads.filter(b => b.category === 'Amenity').length,
+          Service: billHeads.filter(b => b.category === 'Service').length,
+          Other: billHeads.filter(b => b.category === 'Other').length
+        }
+      };
+      setSummary(newSummary);
     }
-    setFilteredBillHeads(filtered);
-  };
+  }, [billHeads]);
 
-  const handleFilterClick = (filter) => {
-    setActiveFilter(filter);
-  };
-
+  // Improved fetchBillHeads with loading state
   const fetchBillHeads = async () => {
+    setIsFetchingBillHeads(true);
     try {
       const token = localStorage.getItem('Society');
       if (!token) {
@@ -125,11 +604,13 @@ export default function BillHeads() {
       console.error('Error fetching bill heads:', error);
       showNotification('Failed to fetch bill heads', 'error');
     } finally {
-      setLoading(false);
+      setIsFetchingBillHeads(false);
     }
   };
 
+  // Improved fetchLedgers with loading state
   const fetchLedgers = async () => {
+    setIsFetchingLedgers(true);
     try {
       const token = localStorage.getItem('Society');
       if (!token) {
@@ -163,56 +644,22 @@ export default function BillHeads() {
     } catch (error) {
       console.error('Error fetching ledgers:', error);
       showNotification('Failed to fetch ledgers', 'error');
+    } finally {
+      setIsFetchingLedgers(false);
     }
   };
 
+  // Improved handleSubmit with validation and loading state
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitted(true); // Set submitted state to true
     
-    // Validate GST percentages
-    if (formData.gstConfig.isGSTApplicable) {
-      if (formData.gstConfig.cgstPercentage < 0 || formData.gstConfig.cgstPercentage > 14) {
-        showNotification('CGST percentage must be between 0 and 14', 'error');
-        return;
-      }
-      if (formData.gstConfig.sgstPercentage < 0 || formData.gstConfig.sgstPercentage > 14) {
-        showNotification('SGST percentage must be between 0 and 14', 'error');
-        return;
-      }
-      if (formData.gstConfig.igstPercentage < 0 || formData.gstConfig.igstPercentage > 28) {
-        showNotification('IGST percentage must be between 0 and 28', 'error');
-        return;
-      }
-    }
-
-    // Validate calculation type specific fields
-    if (formData.calculationType === 'Fixed' && !formData.fixedAmount) {
-      showNotification('Fixed amount is required for Fixed calculation type', 'error');
-      return;
-    }
-    if (formData.calculationType === 'PerUnit' && !formData.perUnitRate) {
-      showNotification('Per unit rate is required for PerUnit calculation type', 'error');
-      return;
-    }
-    if (formData.calculationType === 'Formula' && !formData.formula) {
-      showNotification('Formula is required for Formula calculation type', 'error');
+    if (!validateForm()) {
+      showNotification('Please fix the form errors before submitting', 'error');
       return;
     }
 
-    // Validate late payment config
-    if (formData.latePaymentConfig.isLatePaymentChargeApplicable) {
-      if (formData.latePaymentConfig.gracePeriodDays < 0) {
-        showNotification('Grace period days cannot be negative', 'error');
-        return;
-      }
-      if (formData.latePaymentConfig.chargeValue < 0) {
-        showNotification('Charge value cannot be negative', 'error');
-        return;
-      }
-    }
-
-    setLoading(true);
-
+    setIsSubmitting(true);
     try {
       const token = localStorage.getItem('Society');
       if (!token) {
@@ -234,12 +681,13 @@ export default function BillHeads() {
       
       const payload = {
         ...formData,
-        societyId: societyData.societyId,
+        societyId: societyData._id,
         accountingConfig: {
           incomeLedgerId: formData.accountingConfig.incomeLedgerId || null,
           receivableLedgerId: formData.accountingConfig.receivableLedgerId || null
         }
       };
+      console.log(payload);
 
       const url = editingBillHead 
         ? `/api/BillHead-Api/update-bill-head?billHeadId=${editingBillHead._id}`
@@ -272,7 +720,7 @@ export default function BillHeads() {
       console.error('Error saving bill head:', error);
       showNotification(error.message, 'error');
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -282,11 +730,15 @@ export default function BillHeads() {
       code: billHead.code,
       name: billHead.name,
       category: billHead.category,
+      subCategory: billHead.subCategory || '',
       description: billHead.description || '',
       calculationType: billHead.calculationType,
       fixedAmount: billHead.fixedAmount || 0,
       perUnitRate: billHead.perUnitRate || 0,
       formula: billHead.formula || '',
+      billNumberPrefix: billHead.billNumberPrefix || '',
+      billNumberSequence: billHead.billNumberSequence || 1,
+      frequency: billHead.frequency || 'Monthly',
       gstConfig: {
         isGSTApplicable: billHead.gstConfig?.isGSTApplicable || false,
         cgstPercentage: billHead.gstConfig?.cgstPercentage || 0,
@@ -300,9 +752,16 @@ export default function BillHeads() {
         chargeValue: billHead.latePaymentConfig?.chargeValue || 0,
         compoundingFrequency: billHead.latePaymentConfig?.compoundingFrequency || 'Monthly'
       },
+      notificationConfig: {
+        sendReminders: billHead.notificationConfig?.sendReminders || true,
+        reminderDays: billHead.notificationConfig?.reminderDays || [-7, -3, -1, 1, 3, 7],
+        reminderTemplate: billHead.notificationConfig?.reminderTemplate || 'Your {billTitle} of ₹{amount} is {status}. Due date: {dueDate}'
+      },
       accountingConfig: {
         incomeLedgerId: billHead.accountingConfig?.incomeLedgerId || '',
-        receivableLedgerId: billHead.accountingConfig?.receivableLedgerId || ''
+        receivableLedgerId: billHead.accountingConfig?.receivableLedgerId || '',
+        gstLedgerId: billHead.accountingConfig?.gstLedgerId || '',
+        lateFeeIncomeLedgerId: billHead.accountingConfig?.lateFeeIncomeLedgerId || ''
       },
       status: billHead.status || 'Active'
     });
@@ -315,11 +774,15 @@ export default function BillHeads() {
       code: '',
       name: '',
       category: 'Maintenance',
+      subCategory: '',
       description: '',
       calculationType: 'Fixed',
       fixedAmount: 0,
       perUnitRate: 0,
       formula: '',
+      billNumberPrefix: '',
+      billNumberSequence: 1,
+      frequency: 'Monthly',
       gstConfig: {
         isGSTApplicable: false,
         cgstPercentage: 0,
@@ -333,12 +796,21 @@ export default function BillHeads() {
         chargeValue: 0,
         compoundingFrequency: 'Monthly'
       },
+      notificationConfig: {
+        sendReminders: true,
+        reminderDays: [-7, -3, -1, 1, 3, 7],
+        reminderTemplate: 'Your {billTitle} of ₹{amount} is {status}. Due date: {dueDate}'
+      },
       accountingConfig: {
         incomeLedgerId: '',
-        receivableLedgerId: ''
+        receivableLedgerId: '',
+        gstLedgerId: '',
+        lateFeeIncomeLedgerId: ''
       },
       status: 'Active'
     });
+    setFormErrors({});
+    setIsSubmitted(false); // Reset submitted state
     setShowForm(false);
   };
 
@@ -349,35 +821,46 @@ export default function BillHeads() {
     }, 3000);
   };
 
-  // Add input validation for GST percentages
-  const handleGSTChange = (field, value) => {
-    const numValue = parseFloat(value);
-    let maxLimit;
-    
-    switch(field) {
-      case 'cgstPercentage':
-      case 'sgstPercentage':
-        maxLimit = 14;
-        break;
-      case 'igstPercentage':
-        maxLimit = 28;
-        break;
-      default:
-        maxLimit = 100;
-    }
+  // Fixed FormField component
+  const FormField = ({ label, name, type = 'text', value, onChange, error, ...props }) => (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+          error ? 'border-red-500' : 'border-gray-300'
+        }`}
+        {...props}
+      />
+      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+    </div>
+  );
 
-    if (numValue >= 0 && numValue <= maxLimit) {
-      setFormData({
-        ...formData,
-        gstConfig: {
-          ...formData.gstConfig,
-          [field]: numValue
-        }
-      });
+  // Add this function after the other handlers
+  const getFilteredLedgers = (category, type = 'Income') => {
+    return ledgers.filter(l => {
+      const isCorrectType = l.category === type;
+      const matchesCategory = l.subCategory === category || !l.subCategory;
+      return isCorrectType && matchesCategory;
+    });
+  };
+
+  const formatAmount = (amount, balanceType) => {
+    if (!amount) return '₹0.00';
+    const formattedAmount = parseFloat(amount).toFixed(2);
+    if (balanceType === 'Debit') {
+      return `₹${formattedAmount} Dr`;
+    } else if (balanceType === 'Credit') {
+      return `₹${formattedAmount} Cr`;
+    } else {
+      return `₹${formattedAmount}`;
     }
   };
 
-  if (loading) {
+  if (isFetchingBillHeads || isFetchingLedgers) {
     return <PreloaderSociety />;
   }
 
@@ -417,6 +900,65 @@ export default function BillHeads() {
           </p>
         </div>
       )}
+
+      {/* Add search bar */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Search bill heads..."
+            value={searchTerm}
+            onChange={handleSearch}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+      </div>
+
+      {/* Add filter section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Category</label>
+            <select
+              value={filters.category}
+              onChange={(e) => handleFilterChange('category', e.target.value)}
+              className="w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300"
+            >
+              <option value="">All Categories</option>
+              {Object.keys(subCategories).map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Subcategory</label>
+            <select
+              value={filters.subCategory}
+              onChange={(e) => handleFilterChange('subCategory', e.target.value)}
+              className="w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300"
+              disabled={!filters.category}
+            >
+              <option value="">All Subcategories</option>
+              {filters.category && subCategories[filters.category]?.map((subCategory) => (
+                <option key={subCategory} value={subCategory}>{subCategory}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Calculation Type</label>
+            <select
+              value={filters.calculationType}
+              onChange={(e) => handleFilterChange('calculationType', e.target.value)}
+              className="w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300"
+            >
+              <option value="">All Types</option>
+              <option value="Fixed">Fixed Amount</option>
+              <option value="PerUnit">Per Unit Rate</option>
+              <option value="Formula">Formula Based</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
       {/* Summary Cards */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -463,499 +1005,593 @@ export default function BillHeads() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         {/* Bill Heads Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calculation</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredBillHeads.map((billHead) => (
-                <tr key={billHead._id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {billHead.code}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {billHead.name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {billHead.category}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {billHead.calculationType}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {billHead.calculationType === 'Fixed' && `₹${billHead.fixedAmount}`}
-                    {billHead.calculationType === 'PerUnit' && `₹${billHead.perUnitRate}/unit`}
-                    {billHead.calculationType === 'Formula' && 'Custom Formula'}
-                    {billHead.calculationType === 'Custom' && 'Custom'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {billHead.gstConfig?.isGSTApplicable ? (
-                      <div>
-                        {billHead.gstConfig.cgstPercentage > 0 && `CGST: ${billHead.gstConfig.cgstPercentage}%`}
-                        {billHead.gstConfig.sgstPercentage > 0 && ` SGST: ${billHead.gstConfig.sgstPercentage}%`}
-                        {billHead.gstConfig.igstPercentage > 0 && ` IGST: ${billHead.gstConfig.igstPercentage}%`}
-                      </div>
-                    ) : (
-                      'N/A'
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      billHead.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {billHead.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleEdit(billHead)}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
-                    >
-                      Edit
-                    </button>
-                  </td>
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subcategory</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calculation Type</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredBillHeads.map((billHead) => (
+                  <tr key={billHead._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{billHead.code}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{billHead.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{billHead.category}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{billHead.subCategory}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{billHead.calculationType}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {billHead.calculationType === 'Fixed' && `₹${billHead.fixedAmount}`}
+                      {billHead.calculationType === 'PerUnit' && `₹${billHead.perUnitRate}/unit`}
+                      {billHead.calculationType === 'Formula' && 'Custom Formula'}
+                      {billHead.calculationType === 'Custom' && 'Custom'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {billHead.gstConfig?.isGSTApplicable ? (
+                        <div>
+                          {billHead.gstConfig.cgstPercentage > 0 && `CGST: ${billHead.gstConfig.cgstPercentage}%`}
+                          {billHead.gstConfig.sgstPercentage > 0 && ` SGST: ${billHead.gstConfig.sgstPercentage}%`}
+                          {billHead.gstConfig.igstPercentage > 0 && ` IGST: ${billHead.gstConfig.igstPercentage}%`}
+                        </div>
+                      ) : (
+                        'N/A'
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        billHead.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {billHead.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleEdit(billHead)}
+                        className="text-blue-600 hover:text-blue-900 mr-4"
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
 
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-5 shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {editingBillHead ? 'Edit Bill Head' : 'Add New Bill Head'}
-                </h2>
-                <button
-                  onClick={resetForm}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <X size={24} />
-                </button>
-              </div>
+          <div className="bg-white rounded-lg p-6 shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {editingBillHead ? 'Edit Bill Head' : 'Add New Bill Head'}
+              </h2>
+              <button
+                onClick={resetForm}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X size={24} />
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Code *</label>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bill Head Code</label>
                   <input
                     type="text"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    name="code"
                     value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                    onChange={handleCodeChange}
+                    placeholder="Enter code (e.g., WTR-001)"
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                      isSubmitted && formErrors.code ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     required
                   />
+                  {isSubmitted && formErrors.code && <p className="mt-1 text-sm text-red-500">{formErrors.code}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Name *</label>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                   <input
                     type="text"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    name="name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={handleNameChange}
+                    placeholder="Enter name"
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                      isSubmitted && formErrors.name ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     required
                   />
+                  {isSubmitted && formErrors.name && <p className="mt-1 text-sm text-red-500">{formErrors.name}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Category *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                   <select
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    name="category"
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    onChange={handleCategoryChange}
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                      isSubmitted && formErrors.category ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     required
                   >
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Utility">Utility</option>
-                    <option value="Amenity">Amenity</option>
-                    <option value="Service">Service</option>
-                    <option value="Other">Other</option>
+                    <option value="">Select Category</option>
+                    {Object.keys(subCategories).map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
+                  {isSubmitted && formErrors.category && <p className="mt-1 text-sm text-red-500">{formErrors.category}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Calculation Type *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
                   <select
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    name="subCategory"
+                    value={formData.subCategory}
+                    onChange={handleSubCategoryChange}
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                      isSubmitted && formErrors.subCategory ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    required
+                  >
+                    <option value="">Select Sub Category</option>
+                    {formData.category && subCategories[formData.category]?.map(subCat => (
+                      <option key={subCat} value={subCat}>{subCat}</option>
+                    ))}
+                  </select>
+                  {isSubmitted && formErrors.subCategory && <p className="mt-1 text-sm text-red-500">{formErrors.subCategory}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Calculation Type</label>
+                  <select
+                    name="calculationType"
                     value={formData.calculationType}
-                    onChange={(e) => setFormData({ ...formData, calculationType: e.target.value })}
+                    onChange={handleCalculationTypeChange}
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                      isSubmitted && formErrors.calculationType ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     required
                   >
                     <option value="Fixed">Fixed Amount</option>
-                    <option value="PerUnit">Per Unit Rate</option>
+                    <option value="PerUnit">Per Unit</option>
                     <option value="Formula">Formula Based</option>
                     <option value="Custom">Custom</option>
                   </select>
+                  {isSubmitted && formErrors.calculationType && <p className="mt-1 text-sm text-red-500">{formErrors.calculationType}</p>}
                 </div>
 
                 {formData.calculationType === 'Fixed' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Fixed Amount *</label>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fixed Amount (₹)</label>
                     <input
                       type="number"
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                      name="fixedAmount"
                       value={formData.fixedAmount}
-                      onChange={(e) => setFormData({ ...formData, fixedAmount: parseFloat(e.target.value) })}
+                      onChange={handleFixedAmountChange}
+                      placeholder="Enter fixed amount"
+                      className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                        isSubmitted && formErrors.fixedAmount ? 'border-red-500' : 'border-gray-300'
+                      }`}
                       min="0"
                       step="0.01"
-                      required
                     />
+                    {isSubmitted && formErrors.fixedAmount && <p className="mt-1 text-sm text-red-500">{formErrors.fixedAmount}</p>}
                   </div>
                 )}
 
                 {formData.calculationType === 'PerUnit' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Rate Per Unit *</label>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Per Unit Rate (₹)</label>
                     <input
                       type="number"
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                      name="perUnitRate"
                       value={formData.perUnitRate}
-                      onChange={(e) => setFormData({ ...formData, perUnitRate: parseFloat(e.target.value) })}
+                      onChange={handlePerUnitRateChange}
+                      placeholder="Enter per unit rate"
+                      className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                        isSubmitted && formErrors.perUnitRate ? 'border-red-500' : 'border-gray-300'
+                      }`}
                       min="0"
                       step="0.01"
-                      required
                     />
+                    {isSubmitted && formErrors.perUnitRate && <p className="mt-1 text-sm text-red-500">{formErrors.perUnitRate}</p>}
                   </div>
                 )}
 
                 {formData.calculationType === 'Formula' && (
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Formula *</label>
-                    <textarea
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Formula</label>
+                    <input
+                      type="text"
+                      name="formula"
                       value={formData.formula}
-                      onChange={(e) => setFormData({ ...formData, formula: e.target.value })}
-                      rows="3"
-                      placeholder="Enter calculation formula"
-                      required
+                      onChange={handleFormulaChange}
+                      placeholder="Enter formula (e.g., area * rate)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                     />
+                    <p className="mt-1 text-sm text-gray-500">
+                      Available variables: area, rate, units<br/>
+                      Operators: + - * / ( )<br/>
+                      Example: (area * rate) + (units * 100)
+                    </p>
                   </div>
                 )}
+              </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">Description</label>
-                  <textarea
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows="3"
-                  />
-                </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleDescriptionChange}
+                  placeholder="Enter description"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
 
-                <div className="md:col-span-2">
-                  <div className="flex items-center">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleStatusChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+
+              {/* GST Configuration */}
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">GST Configuration</h3>
+                <div className="mb-4">
+                  <label className="flex items-center">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
                       checked={formData.gstConfig.isGSTApplicable}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        gstConfig: {
-                          ...formData.gstConfig,
-                          isGSTApplicable: e.target.checked
-                        }
-                      })}
+                      onChange={handleGSTApplicableChange}
+                      className="mr-2"
                     />
-                    <label className="ml-2 block text-sm text-gray-900">GST Applicable</label>
-                  </div>
+                    <span className="text-sm font-medium text-gray-700">GST Applicable</span>
+                  </label>
                 </div>
 
                 {formData.gstConfig.isGSTApplicable && (
-                  <div className="space-y-4 mt-4">
-                    <div className="flex items-center">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">CGST (%)</label>
                       <input
-                        type="checkbox"
-                        id="isGSTApplicable"
-                        className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                        checked={formData.gstConfig.isGSTApplicable}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          gstConfig: {
-                            ...formData.gstConfig,
-                            isGSTApplicable: e.target.checked
-                          }
-                        })}
+                        type="number"
+                        name="cgstPercentage"
+                        value={formData.gstConfig.cgstPercentage}
+                        onChange={handleCGSTChange}
+                        min="0"
+                        max="14"
+                        step="0.01"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                          isSubmitted && formErrors.cgstPercentage ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       />
-                      <label htmlFor="isGSTApplicable" className="ml-2 text-sm text-gray-700">
-                        GST Applicable
-                      </label>
+                      {isSubmitted && formErrors.cgstPercentage && <p className="mt-1 text-sm text-red-500">{formErrors.cgstPercentage}</p>}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">CGST %</label>
-                        <input
-                          type="number"
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                          value={formData.gstConfig.cgstPercentage}
-                          onChange={(e) => handleGSTChange('cgstPercentage', e.target.value)}
-                          min="0"
-                          max="14"
-                          step="0.01"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">SGST %</label>
-                        <input
-                          type="number"
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                          value={formData.gstConfig.sgstPercentage}
-                          onChange={(e) => handleGSTChange('sgstPercentage', e.target.value)}
-                          min="0"
-                          max="14"
-                          step="0.01"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">IGST %</label>
-                        <input
-                          type="number"
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                          value={formData.gstConfig.igstPercentage}
-                          onChange={(e) => handleGSTChange('igstPercentage', e.target.value)}
-                          min="0"
-                          max="28"
-                          step="0.01"
-                        />
-                      </div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">SGST (%)</label>
+                      <input
+                        type="number"
+                        name="sgstPercentage"
+                        value={formData.gstConfig.sgstPercentage}
+                        onChange={handleSGSTChange}
+                        min="0"
+                        max="14"
+                        step="0.01"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                          isSubmitted && formErrors.sgstPercentage ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {isSubmitted && formErrors.sgstPercentage && <p className="mt-1 text-sm text-red-500">{formErrors.sgstPercentage}</p>}
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">IGST (%)</label>
+                      <input
+                        type="number"
+                        name="igstPercentage"
+                        value={formData.gstConfig.igstPercentage}
+                        onChange={handleIGSTChange}
+                        min="0"
+                        max="28"
+                        step="0.01"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
+                          isSubmitted && formErrors.igstPercentage ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {isSubmitted && formErrors.igstPercentage && <p className="mt-1 text-sm text-red-500">{formErrors.igstPercentage}</p>}
                     </div>
                   </div>
                 )}
+              </div>
 
-                <div className="md:col-span-2">
-                  <div className="flex items-center">
+              {/* Late Payment Configuration */}
+              <div className="border rounded-lg p-4 bg-gray-50 mb-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Late Payment Configuration</h3>
+                <div className="mb-4">
+                  <label className="flex items-center">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
                       checked={formData.latePaymentConfig.isLatePaymentChargeApplicable}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        latePaymentConfig: {
-                          ...formData.latePaymentConfig,
-                          isLatePaymentChargeApplicable: e.target.checked
-                        }
-                      })}
+                      onChange={handleLatePaymentApplicableChange}
+                      className="mr-2"
                     />
-                    <label className="ml-2 block text-sm text-gray-900">Late Payment Charges Applicable</label>
-                  </div>
+                    <span className="text-sm font-medium text-gray-700">Late Payment Charge Applicable</span>
+                  </label>
                 </div>
 
                 {formData.latePaymentConfig.isLatePaymentChargeApplicable && (
-                  <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Grace Period (Days)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Grace Period (Days)</label>
                       <input
-                        type="number"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                        value={formData.latePaymentConfig.gracePeriodDays}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          latePaymentConfig: {
-                            ...formData.latePaymentConfig,
-                            gracePeriodDays: parseInt(e.target.value)
-                          }
-                        })}
-                        min="0"
-                      />
+                      type="number"
+                      value={formData.latePaymentConfig.gracePeriodDays}
+                        onChange={handleGracePeriodChange}
+                      min="0"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Charge Type</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Charge Type</label>
                       <select
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                         value={formData.latePaymentConfig.chargeType}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          latePaymentConfig: {
-                            ...formData.latePaymentConfig,
-                            chargeType: e.target.value
-                          }
-                        })}
+                        onChange={handleChargeTypeChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
                       >
-                        <option value="Fixed">Fixed Amount</option>
-                        <option value="Percentage">Percentage</option>
+                        {CHARGE_TYPES.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
                       </select>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        {formData.latePaymentConfig.chargeType === 'Fixed' ? 'Amount' : 'Percentage'}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Charge Value {formData.latePaymentConfig.chargeType === 'Percentage' ? '(%)' : '(₹)'}
                       </label>
                       <input
-                        type="number"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                        value={formData.latePaymentConfig.chargeValue}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          latePaymentConfig: {
-                            ...formData.latePaymentConfig,
-                            chargeValue: parseFloat(e.target.value)
-                          }
-                        })}
-                        min="0"
-                        step={formData.latePaymentConfig.chargeType === 'Fixed' ? "1" : "0.01"}
-                      />
+                      type="number"
+                      value={formData.latePaymentConfig.chargeValue}
+                        onChange={handleChargeValueChange}
+                      min="0"
+                        step={formData.latePaymentConfig.chargeType === 'Percentage' ? '0.01' : '1'}
+                        max={formData.latePaymentConfig.chargeType === 'Percentage' ? '100' : undefined}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Compounding Frequency</label>
+                      <select
+                        value={formData.latePaymentConfig.compoundingFrequency}
+                        onChange={handleCompoundingFrequencyChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      >
+                        {COMPOUNDING_FREQUENCIES.map(freq => (
+                          <option key={freq} value={freq}>{freq}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Notification Configuration */}
+              <div className="border rounded-lg p-4 bg-gray-50 mb-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Configuration</h3>
+                <div className="mb-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.notificationConfig.sendReminders}
+                      onChange={handleSendRemindersChange}
+                      className="mr-2"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Send Reminders</span>
+                  </label>
+                </div>
+
+                {formData.notificationConfig.sendReminders && (
+                  <>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Reminder Days</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={formData.notificationConfig.reminderDays.join(', ')}
+                          onChange={handleReminderDaysChange}
+                          placeholder="Enter days (comma separated, e.g., -7, -3, -1, 1, 3, 7)"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({
+                            ...prev,
+                            notificationConfig: {
+                              ...prev.notificationConfig,
+                              reminderDays: [-7, -3, -1, 1, 3, 7]
+                            }
+                          }))}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                        >
+                          Default
+                        </button>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500">Negative numbers for days before due date, positive for after</p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Compounding Frequency</label>
-                      <select
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                        value={formData.latePaymentConfig.compoundingFrequency}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          latePaymentConfig: {
-                            ...formData.latePaymentConfig,
-                            compoundingFrequency: e.target.value
-                          }
-                        })}
-                      >
-                        <option value="Daily">Daily</option>
-                        <option value="Weekly">Weekly</option>
-                        <option value="Monthly">Monthly</option>
-                      </select>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Reminder Template</label>
+                      <div className="space-y-2">
+                        <textarea
+                          value={formData.notificationConfig.reminderTemplate}
+                          onChange={handleReminderTemplateChange}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          placeholder="Use {billTitle}, {amount}, {status}, and {dueDate} placeholders"
+                        />
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({
+                              ...prev,
+                              notificationConfig: {
+                                ...prev.notificationConfig,
+                                reminderTemplate: 'Your {billTitle} of ₹{amount} is {status}. Due date: {dueDate}'
+                              }
+                            }))}
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                          >
+                            Insert Default Template
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const template = formData.notificationConfig.reminderTemplate;
+                              const placeholder = '{billTitle}';
+                              setFormData(prev => ({
+                                ...prev,
+                                notificationConfig: {
+                                  ...prev.notificationConfig,
+                                  reminderTemplate: template + placeholder
+                                }
+                              }));
+                            }}
+                            className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200 cursor-pointer"
+                          >
+                            {'{billTitle}'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const template = formData.notificationConfig.reminderTemplate;
+                              const placeholder = '{amount}';
+                              setFormData(prev => ({
+                                ...prev,
+                                notificationConfig: {
+                                  ...prev.notificationConfig,
+                                  reminderTemplate: template + placeholder
+                                }
+                              }));
+                            }}
+                            className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200 cursor-pointer"
+                          >
+                            {'{amount}'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const template = formData.notificationConfig.reminderTemplate;
+                              const placeholder = '{status}';
+                              setFormData(prev => ({
+                                ...prev,
+                                notificationConfig: {
+                                  ...prev.notificationConfig,
+                                  reminderTemplate: template + placeholder
+                                }
+                              }));
+                            }}
+                            className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200 cursor-pointer"
+                          >
+                            {'{status}'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const template = formData.notificationConfig.reminderTemplate;
+                              const placeholder = '{dueDate}';
+                              setFormData(prev => ({
+                                ...prev,
+                                notificationConfig: {
+                                  ...prev.notificationConfig,
+                                  reminderTemplate: template + placeholder
+                                }
+                              }));
+                            }}
+                            className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded hover:bg-blue-200 cursor-pointer"
+                          >
+                            {'{dueDate}'}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}
+              </div>
 
-                <div className="md:col-span-2">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-                      checked={Boolean(formData.accountingConfig.incomeLedgerId)}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        accountingConfig: {
-                          ...formData.accountingConfig,
-                          incomeLedgerId: e.target.checked ? (ledgers[0]?._id || '') : ''
-                        }
-                      })}
-                    />
-                    <label className="ml-2 block text-sm text-gray-900">Income Ledger</label>
+              {/* Accounting Configuration */}
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Accounting Configuration</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Income Ledger</label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100">
+                      {formData.category && formData.subCategory ? 
+                        `${formData.category} - ${formData.subCategory} Income` : 
+                        'Select category and subcategory first'
+                      }
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Auto-generated income ledger name based on category and subcategory
+                    </p>
                   </div>
-                  {Boolean(formData.accountingConfig.incomeLedgerId) && (
-                    <select
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
-                      value={formData.accountingConfig.incomeLedgerId}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        accountingConfig: {
-                          ...formData.accountingConfig,
-                          incomeLedgerId: e.target.value
-                        }
-                      })}
-                    >
-                      <option value="">Select Income Ledger</option>
-                      {ledgers.filter(ledger => ledger.category === 'Operating Income').map((ledger) => (
-                        <option key={ledger._id} value={ledger._id}>
-                          {ledger.code} - {ledger.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-                      checked={Boolean(formData.accountingConfig.receivableLedgerId)}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        accountingConfig: {
-                          ...formData.accountingConfig,
-                          receivableLedgerId: e.target.checked ? (ledgers[0]?._id || '') : ''
-                        }
-                      })}
-                    />
-                    <label className="ml-2 block text-sm text-gray-900">Receivable Ledger</label>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Receivable Ledger</label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100">
+                      {formData.category && formData.subCategory ? 
+                        `${formData.category} - ${formData.subCategory} Receivable` : 
+                        'Select category and subcategory first'
+                      }
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Auto-generated receivable ledger name based on category and subcategory
+                    </p>
                   </div>
-                  {Boolean(formData.accountingConfig.receivableLedgerId) && (
-                    <select
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
-                      value={formData.accountingConfig.receivableLedgerId}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        accountingConfig: {
-                          ...formData.accountingConfig,
-                          receivableLedgerId: e.target.value
-                        }
-                      })}
-                    >
-                      <option value="">Select Receivable Ledger</option>
-                      {ledgers.filter(ledger => ledger.category === 'Receivable').map((ledger) => (
-                        <option key={ledger._id} value={ledger._id}>
-                          {ledger.code} - {ledger.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
-                  <select
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ledger Account</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={formData.ledgerId}
-                    onChange={(e) => setFormData({ ...formData, ledgerId: e.target.value })}
-                  >
-                    <option value="">Select Ledger</option>
-                    {ledgers.map((ledger) => (
-                      <option key={ledger._id} value={ledger._id}>
-                        {ledger.code} - {ledger.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Optional. Link this bill head to a ledger account for automatic accounting entries.
-                  </p>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3">
+              {/* Form Actions */}
+              <div className="flex justify-end space-x-4 pt-4">
                 <button
                   type="button"
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   onClick={resetForm}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                  disabled={loading}
+                  disabled={isSubmitting}
+                  className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  {loading ? 'Saving...' : (editingBillHead ? 'Update' : 'Create')}
+                  {isSubmitting ? 'Saving...' : editingBillHead ? 'Update Bill Head' : 'Create Bill Head'}
                 </button>
               </div>
             </form>
@@ -964,4 +1600,4 @@ export default function BillHeads() {
       )}
     </div>
   );
-} 
+}
