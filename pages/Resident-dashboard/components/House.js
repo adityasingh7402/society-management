@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Download, FileText } from 'lucide-react';
 import { FaArrowLeft } from "react-icons/fa";
-import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 export default function House() {
-    const router = useRouter();
 
     // Sample house data
     const houseDetails = {
@@ -57,10 +56,10 @@ export default function House() {
         <div className="min-h-screen bg-gray-100">
             {/* Header with Back Button */}
             <div className="classss">
-                <button onClick={() => router.back()} className="flex items-center p-4 md:p-6 space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors">
+                <Link href="/Resident-dashboard" className="flex items-center p-4 md:p-6 space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors">
                     <FaArrowLeft size={18} />
                     <span className="text-base">Back</span>
-                </button>
+                </Link>
             </div>
             <h1 className="text-2xl md:text-4xl font-bold text-blue-600 mb-4 md:mb-8 text-center">House Details</h1>
 

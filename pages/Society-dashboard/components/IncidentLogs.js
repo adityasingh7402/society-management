@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Building, FileWarning } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { usePermissions } from "../../../components/PermissionsContext";
@@ -28,7 +29,9 @@ export default function IncidentLogs() {
       try {
         const token = localStorage.getItem('Society');
         if (!token) {
-          router.push('/societyLogin');
+          if (typeof window !== 'undefined') {
+            router.push('/societyLogin');
+          }
           return;
         }
 
@@ -56,7 +59,9 @@ export default function IncidentLogs() {
       } catch (error) {
         console.error('Error fetching profile:', error);
         if (error.message === 'Failed to fetch profile') {
-          router.push('/societyLogin');
+          if (typeof window !== 'undefined') {
+            router.push('/societyLogin');
+          }
         }
       } finally {
         setLoading(false);
