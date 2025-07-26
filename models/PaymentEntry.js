@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import './AmenityBill';  // Import AmenityBill model first to ensure it's registered
 
 const PaymentEntrySchema = new mongoose.Schema({
   societyId: {
@@ -13,8 +14,13 @@ const PaymentEntrySchema = new mongoose.Schema({
   },
   billId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'ResidentBill',
+    refPath: 'billType', // Use refPath to dynamically determine the model
     required: true
+  },
+  billType: {
+    type: String,
+    required: true,
+    enum: ['UtilityBill', 'MaintenanceBill', 'AmenityBill']
   },
   amount: {
     type: Number,
@@ -28,7 +34,7 @@ const PaymentEntrySchema = new mongoose.Schema({
   },
   paymentMode: {
     type: String,
-    enum: ['UPI', 'Card', 'NetBanking', 'Cash', 'Cheque', 'NEFT', 'RTGS', 'Other'],
+    enum: ['Cash', 'Cheque', 'Bank Transfer', 'UPI', 'NEFT', 'RTGS', 'Card', 'Other'],
     required: true
   },
   transactionId: String,
@@ -110,24 +116,25 @@ PaymentEntrySchema.index({ societyId: 1, billId: 1 });
 PaymentEntrySchema.index({ societyId: 1, paymentDate: -1 });
 PaymentEntrySchema.index({ transactionId: 1 }, { sparse: true });
 
-// Pre-save middleware to validate amount
+// Pre-save middleware to update bill status and paid amount
 PaymentEntrySchema.pre('save', async function(next) {
   if (this.isNew || this.isModified('amount')) {
     try {
-      const ResidentBill = mongoose.model('ResidentBill');
-      const bill = await ResidentBill.findById(this.billId);
-      
+      // Get the correct bill model based on billType
+      const BillModel = mongoose.model(this.billType);
+      const bill = await BillModel.findById(this.billId);
+
       if (!bill) {
         throw new Error('Bill not found');
       }
+
+      // Update bill's paid amount and status
+      bill.paidAmount = (bill.paidAmount || 0) + this.amount;
+      bill.status = bill.paidAmount >= bill.totalAmount ? 'Paid' : 'Partially Paid';
       
-      const totalDue = bill.amount + (bill.penaltyAmount || 0) - (bill.paidAmount || 0);
-      if (this.amount > totalDue) {
-        throw new Error('Payment amount cannot exceed pending amount');
-      }
+      await bill.save();
     } catch (error) {
       next(error);
-      return;
     }
   }
   next();
@@ -151,8 +158,8 @@ PaymentEntrySchema.methods.processApproval = async function(userId, action, rema
     
     if (action === 'Approved') {
       // Update bill status
-      const ResidentBill = mongoose.model('ResidentBill');
-      const bill = await ResidentBill.findById(this.billId).session(session);
+      const BillModel = mongoose.model(this.billType);
+      const bill = await BillModel.findById(this.billId).session(session);
       
       if (!bill) {
         throw new Error('Bill not found');

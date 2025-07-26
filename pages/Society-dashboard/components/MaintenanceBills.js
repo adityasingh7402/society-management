@@ -1,16 +1,90 @@
 // pages/maintenance-bills.js
 import React, { useState, useEffect } from 'react';
-import PreloaderSociety from '../../components/PreloaderSociety';
-import { Building, Receipt } from 'lucide-react';
 import { useRouter } from 'next/router';
+import PreloaderSociety from '../../components/PreloaderSociety';
+import { FileText, Plus, Edit2, Archive, Check, X, AlertCircle, Users, Home, Building, User, Receipt } from 'lucide-react';
 import { usePermissions } from "../../../components/PermissionsContext";
-import AccessDenied from '../widget/societyComponents/accessRestricted';
+import AccessDenied from "../widget/societyComponents/accessRestricted";
+
+// Import reusable components
+import {
+  SelectionPopup,
+  BlockSelector,
+  FloorSelector,
+  BillDetailsPopup,
+  PaymentEntryPopup
+} from '../../../components/Society/widgets';
 
 export default function MaintenanceBills() {
   const router = useRouter();
-  // States for UI
-  const [activeTab, setActiveTab] = useState('generate');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [bills, setBills] = useState([]);
+  const [billHeads, setBillHeads] = useState([]);
+  const [residents, setResidents] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedBillHead, setSelectedBillHead] = useState(null);
+  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [structuredResidents, setStructuredResidents] = useState({});
+  const [openBlocks, setOpenBlocks] = useState({});
+  const [openFloors, setOpenFloors] = useState({});
+  const [openFlats, setOpenFlats] = useState({});
+  const [selectedResident, setSelectedResident] = useState(null);
+  const [selectedBlock, setSelectedBlock] = useState('');
+  const [selectedFloor, setSelectedFloor] = useState('');
+  const [selectedFlat, setSelectedFlat] = useState('');
+  const [structureType, setStructureType] = useState('Block');
+  const [billCalculation, setBillCalculation] = useState({
+    baseAmount: 0,
+    gstDetails: {
+      cgst: 0,
+      sgst: 0,
+      igst: 0,
+      total: 0
+    },
+    lateFees: 0,
+    totalAmount: 0
+  });
+  const [filters, setFilters] = useState({
+    status: '',
+    billHeadId: '',
+    fromDate: '',
+    toDate: '',
+    subCategory: ''
+  });
+  const [showCalculation, setShowCalculation] = useState(false);
+
+  // Bill generation options state
+  const [showBillOptions, setShowBillOptions] = useState(false);
+  const [billGenerationType, setBillGenerationType] = useState('individual');
+  const [selectedBlockForBulk, setSelectedBlockForBulk] = useState('');
+  const [selectedFloorForBulk, setSelectedFloorForBulk] = useState('');
+  const [bulkResidents, setBulkResidents] = useState([]);
+  const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+
+  // Bill details and payment modal state
+  const [selectedBillForView, setSelectedBillForView] = useState(null);
+  const [showBillDetailsModal, setShowBillDetailsModal] = useState(false);
+  const [selectedBillForPayment, setSelectedBillForPayment] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+  // Additional states for bulk generation
+  const [selectedResidents, setSelectedResidents] = useState([]);
+  const [filteredResidents, setFilteredResidents] = useState([]);
+  const [bulkFilter, setBulkFilter] = useState({ block: '', floor: '' });
+  const [bulkBillType, setBulkBillType] = useState('');
+  const [bulkDescription, setBulkDescription] = useState('');
+  const [bulkAmount, setBulkAmount] = useState('');
+  const [bulkIssueDate, setBulkIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [bulkDueDate, setBulkDueDate] = useState('');
+  const [bulkFinePerDay, setBulkFinePerDay] = useState('50');
+
+  // History filter states
+  const [billHistory, setBillHistory] = useState([]);
+  const [filteredHistory, setFilteredHistory] = useState([]);
+  const [historyBlock, setHistoryBlock] = useState('');
+  const [historyFloor, setHistoryFloor] = useState('');
+  const [historyFlat, setHistoryFlat] = useState('');
   const [billTypeFilter, setBillTypeFilter] = useState('');
   const [summaryData, setSummaryData] = useState({
     totalBills: 0,
@@ -20,201 +94,950 @@ export default function MaintenanceBills() {
     totalPenalty: 0
   });
 
-  // Add states for bulk bill generation
-  const [bulkBillType, setBulkBillType] = useState('');
-  const [bulkDescription, setBulkDescription] = useState('');
-  const [bulkAmount, setBulkAmount] = useState('');
-  const [bulkIssueDate, setBulkIssueDate] = useState(new Date().toISOString().split('T')[0]);
-  const [bulkDueDate, setBulkDueDate] = useState('');
-  const [bulkFinePerDay, setBulkFinePerDay] = useState('50');
-  const [selectedResidents, setSelectedResidents] = useState([]);
-  const [bulkFilter, setBulkFilter] = useState({ block: '', floor: '' });
-  const [filteredResidents, setFilteredResidents] = useState([]);
-
-  // States for structure selection
-  const [structuredResidents, setStructuredResidents] = useState({});
-  const [openBlocks, setOpenBlocks] = useState({});
-  const [openFloors, setOpenFloors] = useState({});
-  const [openFlats, setOpenFlats] = useState({});
-  const [residentList, setResidentList] = useState([]);
-
-  // States for bill generation
-  const [selectedBlock, setSelectedBlock] = useState('');
-  const [selectedFloor, setSelectedFloor] = useState('');
-  const [selectedFlat, setSelectedFlat] = useState('');
-  const [selectedResident, setSelectedResident] = useState(null);
-  const [billHeadId, setBillHeadId] = useState('');
-  const [billHeads, setBillHeads] = useState([]);
-  const [description, setDescription] = useState('');
-  const [structureType, setStructureType] = useState('Block');
-  const [amount, setAmount] = useState('');
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState('');
-  const [finePerDay, setFinePerDay] = useState('50');
-  const [additionalCharges, setAdditionalCharges] = useState([]);
-  const [newCharge, setNewCharge] = useState({ description: '', amount: '' });
-  const [selectedBillHead, setSelectedBillHead] = useState(null);
-
-  // States for bill history
-  const [historyBlock, setHistoryBlock] = useState('');
-  const [historyFloor, setHistoryFloor] = useState('');
-  const [historyFlat, setHistoryFlat] = useState('');
-  const [billHistory, setBillHistory] = useState([]);
-  const [filteredHistory, setFilteredHistory] = useState([]);
-
-  // Add filters state
-  const [filters, setFilters] = useState({
-    status: '',
+  // Form state
+  const [formData, setFormData] = useState({
+    flatNumber: '',
+    blockName: '',
+    floorNumber: '',
+    residentId: '',
+    ownerName: '',
+    ownerMobile: '',
+    ownerEmail: '',
     billHeadId: '',
-    fromDate: '',
-    toDate: '',
-    subCategory: '' // Add subCategory filter
+    unitUsage: '',
+    periodType: 'Monthly',  // Add period type with default value
+    issueDate: new Date().toISOString().split('T')[0],
+    dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
+
+  // Summary state
+  const [summary, setSummary] = useState({
+    totalBills: 0,
+    pendingAmount: 0,
+    paidAmount: 0,
+    overdueAmount: 0,
+    totalGstCollected: 0
+  });
+
+  // Additional charges state
+  const [additionalCharges, setAdditionalCharges] = useState([]);
+  const [availableCharges, setAvailableCharges] = useState([]);
+  const [selectedAdditionalCharge, setSelectedAdditionalCharge] = useState(null);
 
   // Add subcategories for Maintenance bills
   const maintenanceSubCategories = ['Cleaning', 'Security', 'Gardening', 'Equipment', 'Repairs', 'Staff', 'Other'];
 
-  // Fetch society details and residents on component mount
+  // Function to structure residents data
+  function structureResidentsData(residentsArray) {
+    console.log('Structuring residents:', residentsArray);
+    const structured = {};
+    const newBlockOpenState = {};
+    const newFloorOpenState = {};
+    const newFlatOpenState = {};
+
+    // Filter out residents without flatDetails
+    const residentsWithFlats = residentsArray.filter(resident =>
+      resident.flatDetails && resident.flatDetails.blockName && resident.flatDetails.flatNumber
+    );
+
+    residentsWithFlats.forEach(resident => {
+      // Add null checks and handle both floorNumber and floorIndex
+      const flatDetails = resident.flatDetails || {};
+      const blockName = flatDetails.blockName || 'Unassigned';
+      const floorNumber = flatDetails.floorIndex?.toString() || flatDetails.floorNumber?.toString() || 'Ground';
+      const flatNumber = flatDetails.flatNumber || 'Unassigned';
+
+      console.log('Processing resident:', resident.name, { blockName, floorNumber, flatNumber });
+
+      // Create the structure if it doesn't exist
+      if (!structured[blockName]) {
+        structured[blockName] = {};
+        newBlockOpenState[blockName] = false; // Default closed
+      }
+      if (!structured[blockName][floorNumber]) {
+        structured[blockName][floorNumber] = {};
+        newFloorOpenState[`${blockName}-${floorNumber}`] = false; // Default closed
+      }
+      if (!structured[blockName][floorNumber][flatNumber]) {
+        structured[blockName][floorNumber][flatNumber] = [];
+        newFlatOpenState[`${blockName}-${flatNumber}`] = false; // Default closed
+      }
+
+      // Add the resident to the structure
+      structured[blockName][floorNumber][flatNumber].push({
+        _id: resident._id,
+        name: resident.name,
+        phone: resident.phone,
+        email: resident.email,
+        flatDetails: resident.flatDetails
+      });
+    });
+
+    // Set first block open
+    const blocks = Object.keys(structured).sort();
+    if (blocks.length > 0) {
+      const firstBlock = blocks[0];
+      newBlockOpenState[firstBlock] = true;
+
+      // Set first floor of first block open
+      const floors = Object.keys(structured[firstBlock]).sort();
+      if (floors.length > 0) {
+        const firstFloor = floors[0];
+        newFloorOpenState[`${firstBlock}-${firstFloor}`] = true;
+
+        // Set all flats in the first floor closed
+        Object.keys(structured[firstBlock][firstFloor]).forEach(flatNumber => {
+          newFlatOpenState[`${firstBlock}-${flatNumber}`] = false;
+        });
+      }
+    }
+
+    console.log('Structured data:', structured);
+    setStructuredResidents(structured);
+    setOpenBlocks(newBlockOpenState);
+    setOpenFloors(newFloorOpenState);
+    setOpenFlats(newFlatOpenState);
+  }
+
+  // Remove duplicate useEffect for fetching available charges
   useEffect(() => {
-    const fetchSocietyAndResidents = async () => {
-      setLoading(true);
+    console.log('Component mounted, fetching data...');
+    const fetchData = async () => {
       try {
+        setLoading(true);
         const token = localStorage.getItem('Society');
         if (!token) {
           router.push('/societyLogin');
           return;
         }
 
-        // First get society details
-        const societyResponse = await fetch('/api/Society-Api/get-society-details', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!societyResponse.ok) {
-          throw new Error('Failed to fetch society details');
-        }
-
-        const societyData = await societyResponse.json();
-        console.log('Society Data:', societyData); // Add this log
-        const societyCode = societyData.societyId;  // Add this line
-        const societyId = societyData._id; // Change this line to use _id instead of societyId
-
-        // Fetch both residents and bill heads in parallel
+        // Fetch all data in parallel
         await Promise.all([
-          (async () => {
-            const residentsResponse = await fetch(`/api/Resident-Api/getAllResidents?societyId=${societyId}`);
-            if (residentsResponse.ok) {
-              const data = await residentsResponse.json();
-              setResidentList(data);
-              organizeResidentsByStructure(data);
-            }
-          })(),
-          fetchBillHeads(societyId)
+          fetchBillHeads(),
+          fetchResidents(),
+          fetchBills(),
+          fetchAvailableCharges()
         ]);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching initial data:', error);
+        setNotification({
+          show: true,
+          message: 'Failed to load data',
+          type: 'error'
+        });
       } finally {
         setLoading(false);
       }
     };
-
-    fetchSocietyAndResidents();
+    fetchData();
   }, [router]);
 
-  // Fetch bill summary
-  useEffect(() => {
-    const fetchBillSummary = async () => {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem('Society');
-        console.log('Token from localStorage:', token ? 'Present' : 'Missing');
-        
-        if (!token) {
-          router.push('/societyLogin');
+  // Add notification helper
+  const setNotificationWithTimeout = (message, type) => {
+    setNotification({
+      show: true,
+      message,
+      type
+    });
+
+    setTimeout(() => {
+      setNotification({
+        show: false,
+        message: '',
+        type: ''
+      });
+    }, 5000);
+  };
+
+  // Add period type change handler
+  const handlePeriodTypeChange = (e) => {
+    const value = e.target.value;
+    console.log('Changing period type to:', value);
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        periodType: value
+      };
+      console.log('Updated form data:', newFormData);
+      return newFormData;
+    });
+  };
+
+  // Add handleBillHeadChange function
+  const handleBillHeadChange = (e) => {
+    const billHeadId = e.target.value;
+    const billHead = billHeads.find(bh => bh._id === billHeadId);
+
+    if (!billHead) {
+      setSelectedBillHead(null);
+      return;
+    }
+
+    console.log('Selected bill head:', billHead);
+    setSelectedBillHead(billHead);
+
+    // Reset calculation
+    setShowCalculation(false);
+
+    // Update form data with bill head info
+    setFormData(prev => ({
+      ...prev,
+      billHeadId,
+      unitUsage: billHead.calculationType === 'Fixed' ? '1' : '',
+      baseAmount: billHead.calculationType === 'Fixed' ? billHead.fixedAmount : 0
+    }));
+
+    // If it's a fixed amount bill head, automatically calculate the amount
+    if (billHead.calculationType === 'Fixed') {
+      setTimeout(() => calculateAmount(), 100);
+    }
+  };
+
+  // Add calculateAmount function
+  const calculateAmount = () => {
+    if (!selectedBillHead) {
+      setNotification({
+        show: true,
+        message: 'Please select bill head',
+        type: 'error'
+      });
+      return;
+    }
+
+    if (selectedBillHead.calculationType !== 'Fixed' && !formData.unitUsage) {
+      setNotification({
+        show: true,
+        message: 'Please enter units used',
+        type: 'error'
+      });
+      return;
+    }
+
+    let baseAmount = 0;
+    switch (selectedBillHead.calculationType) {
+      case 'Fixed':
+        baseAmount = selectedBillHead.fixedAmount;
+        break;
+      case 'PerUnit':
+        baseAmount = parseFloat(formData.unitUsage) * selectedBillHead.perUnitRate;
+        break;
+      case 'Formula':
+        try {
+          const formula = selectedBillHead.formula
+            .replace(/\$\{unitUsage\}/g, formData.unitUsage)
+            .replace(/\$\{rate\}/g, selectedBillHead.perUnitRate);
+          baseAmount = eval(formula);
+        } catch (error) {
+          console.error('Formula evaluation error:', error);
+          setNotification({
+            show: true,
+            message: 'Error calculating formula: ' + error.message,
+            type: 'error'
+          });
           return;
         }
+        break;
+      default:
+        baseAmount = 0;
+    }
 
-        // Get society details first
-        console.log('Fetching society details...');
-        const societyResponse = await fetch('/api/Society-Api/get-society-details', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+    // Calculate GST
+    let gstDetails = {
+      isGSTApplicable: selectedBillHead.gstConfig?.isGSTApplicable || false,
+      cgstPercentage: selectedBillHead.gstConfig?.cgstPercentage || 0,
+      sgstPercentage: selectedBillHead.gstConfig?.sgstPercentage || 0,
+      igstPercentage: selectedBillHead.gstConfig?.igstPercentage || 0,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      total: 0
+    };
 
-        if (!societyResponse.ok) {
-          const errorData = await societyResponse.json();
-          console.error('Society API error:', errorData);
-          throw new Error('Failed to fetch society details');
-        }
+    if (gstDetails.isGSTApplicable) {
+      gstDetails.cgstAmount = (baseAmount * gstDetails.cgstPercentage) / 100;
+      gstDetails.sgstAmount = (baseAmount * gstDetails.sgstPercentage) / 100;
+      gstDetails.igstAmount = (baseAmount * gstDetails.igstPercentage) / 100;
+      gstDetails.total = gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
+    }
 
-        const societyData = await societyResponse.json();
-        console.log('Society Data:', societyData);
-        const societyCode = societyData.societyId;  // Add this line
-        const societyId = societyData._id;
+    // Calculate total amount including additional charges
+    const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+    const totalAmount = baseAmount + gstDetails.total + additionalChargesTotal;
 
-        // Then fetch bills for this society
-        const billsUrl = `/api/MaintenanceBill-Api/getBills?societyId=${societyId}`;
-        console.log('Fetching bills from:', billsUrl);
-        
-        const response = await fetch(billsUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+    console.log('Calculation details:', {
+      baseAmount,
+      gstDetails,
+      additionalCharges,
+      additionalChargesTotal,
+      totalAmount
+    });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Bills API error:', errorData);
-          throw new Error(`Failed to fetch bills: ${errorData.message || 'Unknown error'}`);
-        }
+    setBillCalculation({
+      baseAmount,
+      gstDetails,
+      additionalChargesTotal,
+      totalAmount
+    });
 
-        const data = await response.json();
-        console.log('Bills API Response:', data);
+    setShowCalculation(true);
+  };
 
-        if (!data || !Array.isArray(data.bills)) {
-          console.error('Invalid bills data:', data);
-          throw new Error('Invalid bills data received');
-        }
+  // Add renderUnitsInput function
+  const renderUnitsInput = () => {
+    if (!selectedBillHead) return null;
 
-        // Calculate correct totals using the correct property names
-        const summary = {
-          totalBills: data.bills.length,
-          totalAmount: data.bills.reduce((sum, bill) => sum + 
-            (bill.baseAmount || 0) + 
-            (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
-            (bill.penaltyAmount || 0), 0),
-          totalPaidAmount: data.bills.filter(bill => bill.status === 'Paid')
-            .reduce((sum, bill) => sum + 
-              (bill.baseAmount || 0) + 
-              (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
-              (bill.penaltyAmount || 0), 0),
-          totalDueAmount: data.bills.filter(bill => bill.status !== 'Paid')
-            .reduce((sum, bill) => sum + 
-              (bill.baseAmount || 0) + 
-              (bill.additionalCharges?.reduce((acc, charge) => acc + charge.amount, 0) || 0) +
-              (bill.penaltyAmount || 0), 0),
-          totalPenalty: data.bills.reduce((sum, bill) => sum + (bill.penaltyAmount || 0), 0)
-        };
-        console.log('Calculated summary:', summary);
+    return (
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700">
+          {selectedBillHead.calculationType === 'Fixed' ? 'Fixed Amount' :
+            selectedBillHead.calculationType === 'PerUnit' ? 'Units Used' :
+              'Units Used (for formula calculation)'}
+        </label>
+        <div className="mt-1">
+          {selectedBillHead.calculationType === 'Fixed' ? (
+            <input
+              type="text"
+              className="block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              value={selectedBillHead.fixedAmount}
+              disabled
+            />
+          ) : (
+            <input
+              type="number"
+              className="block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              value={formData.unitUsage}
+              onChange={(e) => {
+                setFormData(prev => ({
+                  ...prev,
+                  unitUsage: e.target.value
+                }));
+                setShowCalculation(false);
+              }}
+              required
+            />
+          )}
+        </div>
+        {selectedBillHead.calculationType === 'PerUnit' && (
+          <p className="mt-1 text-sm text-gray-500">
+            Rate per unit: ₹{selectedBillHead.perUnitRate}
+          </p>
+        )}
+        {selectedBillHead.calculationType === 'Formula' && (
+          <p className="mt-1 text-sm text-gray-500">
+            Formula: {selectedBillHead.formula}
+          </p>
+        )}
+      </div>
+    );
+  };
 
-        setSummaryData(summary);
-        setBillHistory(data.bills);
-        setFilteredHistory(data.bills);
-      } catch (error) {
-        console.error('Error fetching bill summary:', error);
-      } finally {
-        setLoading(false);
+  // Add renderCalculateButton function
+  const renderCalculateButton = () => {
+    const shouldShowButton = selectedBillHead && (
+      selectedBillHead.calculationType === 'Fixed' ||
+      (formData.unitUsage && formData.unitUsage > 0)
+    );
+
+    const hasAdditionalChargeToCalculate = selectedAdditionalCharge && (
+      selectedAdditionalCharge.calculationType === 'Fixed' ||
+      (document.getElementById('additionalChargeUnits')?.value > 0)
+    );
+
+    if (!shouldShowButton && !hasAdditionalChargeToCalculate) return null;
+
+    const handleCalculateClick = () => {
+      // Calculate main bill amount first
+      if (shouldShowButton) {
+        calculateAmount();
+      }
+
+      // Only calculate additional charge if one is selected and hasn't been added yet
+      if (hasAdditionalChargeToCalculate) {
+        calculateAdditionalCharge();
       }
     };
 
-    fetchBillSummary();
-  }, [router]);
+    return (
+      <div className="flex justify-end mb-4">
+        <button
+          type="button"
+          className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
+          onClick={handleCalculateClick}
+        >
+          Calculate
+        </button>
+      </div>
+    );
+  };
 
-  // Add fetchBillHeads function after fetchSocietyAndResidents
-  const fetchBillHeads = async (societyId) => {
+  // Add renderBillDetails function
+  const renderBillDetails = () => {
+    if (!selectedBillHead || !showCalculation) return null;
+
+    return (
+      <div className="space-y-4 mt-4 border border-gray-200 rounded-md p-4 bg-gray-50">
+        {/* Base Amount */}
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Base Amount:</span>
+          <span className="font-medium">₹{billCalculation.baseAmount.toFixed(2)}</span>
+        </div>
+
+        {/* GST Details */}
+        {selectedBillHead.gstConfig?.isGSTApplicable && (
+          <div className="space-y-2 border-t pt-3">
+            <div className="text-sm font-medium text-gray-700">GST Details:</div>
+            {selectedBillHead.gstConfig.cgstPercentage > 0 && (
+              <div className="flex justify-between items-center pl-4">
+                <span className="text-gray-600">CGST ({selectedBillHead.gstConfig.cgstPercentage}%):</span>
+                <span>₹{billCalculation.gstDetails.cgstAmount.toFixed(2)}</span>
+              </div>
+            )}
+            {selectedBillHead.gstConfig.sgstPercentage > 0 && (
+              <div className="flex justify-between items-center pl-4">
+                <span className="text-gray-600">SGST ({selectedBillHead.gstConfig.sgstPercentage}%):</span>
+                <span>₹{billCalculation.gstDetails.sgstAmount.toFixed(2)}</span>
+              </div>
+            )}
+            {selectedBillHead.gstConfig.igstPercentage > 0 && (
+              <div className="flex justify-between items-center pl-4">
+                <span className="text-gray-600">IGST ({selectedBillHead.gstConfig.igstPercentage}%):</span>
+                <span>₹{billCalculation.gstDetails.igstAmount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center font-medium border-t pt-2">
+              <span>Total GST:</span>
+              <span>₹{billCalculation.gstDetails.total.toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Additional Charges */}
+        {additionalCharges.length > 0 && (
+          <div className="space-y-2 border-t pt-3">
+            <div className="text-sm font-medium text-gray-700">Additional Charges:</div>
+            {additionalCharges.map((charge, index) => (
+              <div key={index} className="flex justify-between items-center pl-4">
+                <span className="text-gray-600">{charge.chargeType}:</span>
+                <span>₹{charge.amount.toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between items-center font-medium border-t pt-2">
+              <span>Total Additional Charges:</span>
+              <span>₹{billCalculation.additionalChargesTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Total Amount */}
+        <div className="flex justify-between items-center text-lg font-bold border-t pt-3">
+          <span>Total Amount:</span>
+          <span>₹{billCalculation.totalAmount.toFixed(2)}</span>
+        </div>
+      </div>
+    );
+  };
+
+  // Update renderAdditionalCharges function
+  const renderAdditionalCharges = () => {
+    if (!selectedBillHead) return null;
+
+    return (
+      <div className="mb-4">
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Additional Charges</label>
+          <select
+            id="additionalChargeSelect"
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            value={selectedAdditionalCharge?._id || ''}
+            onChange={handleAdditionalChargeSelect}
+          >
+            <option value="">Select Additional Charge</option>
+            {availableCharges.map((bh) => (
+              <option key={bh._id} value={bh._id}>
+                {bh.name} ({bh.code}) - {bh.calculationType}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedAdditionalCharge && selectedAdditionalCharge.calculationType !== 'Fixed' && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700">
+              {selectedAdditionalCharge.calculationType === 'PerUnit' ? 'Units Used' : 'Units (for formula calculation)'}
+            </label>
+            <div className="mt-1">
+              <input
+                id="additionalChargeUnits"
+                type="number"
+                className="block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+            {selectedAdditionalCharge.calculationType === 'PerUnit' && (
+              <p className="mt-1 text-sm text-gray-500">
+                Rate per unit: ₹{selectedAdditionalCharge.perUnitRate}
+              </p>
+            )}
+            {selectedAdditionalCharge.calculationType === 'Formula' && (
+              <p className="mt-1 text-sm text-gray-500">
+                Formula: {selectedAdditionalCharge.formula}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Display added charges */}
+        {additionalCharges.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <h4 className="font-medium text-gray-900">Added Charges:</h4>
+            {additionalCharges.map((charge, index) => (
+              <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                <div>
+                  <span className="font-medium">{charge.chargeType}</span>
+                  {charge.unitUsage && charge.calculationType !== 'Fixed' && (
+                    <span className="text-sm text-gray-500 ml-2">
+                      ({charge.unitUsage} units)
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center space-x-3">
+                  <span className="font-medium">₹{charge.amount.toFixed(2)}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newCharges = [...additionalCharges];
+                      newCharges.splice(index, 1);
+                      setAdditionalCharges(newCharges);
+                      setShowCalculation(false);
+                    }}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Add renderBillGenerationForm function
+  const renderBillGenerationForm = () => {
+    if (!showForm) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center overflow-y-auto z-40">
+        <div className="bg-white rounded-lg p-6 w-full max-w-6xl m-4 mt-24 max-h-[90vh] overflow-y-auto my-auto mx-auto">
+          <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pt-2 pb-4 border-b z-10">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {billGenerationType === 'individual' && 'Generate Bill for Individual Resident'}
+              {billGenerationType === 'block' && 'Generate Bills for Block'}
+              {billGenerationType === 'floor' && 'Generate Bills for Floor'}
+              {billGenerationType === 'bulk' && 'Bulk Bill Generation'}
+            </h2>
+            <button
+              onClick={() => setShowForm(false)}
+              className="text-gray-400 hover:text-gray-500"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Left Panel - Different based on bill generation type */}
+            <div className="bg-white rounded-lg shadow p-6 md:max-h-[70vh] md:overflow-y-auto">
+              {billGenerationType === 'individual' && (
+                <>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Resident</h2>
+                  {loading ? (
+                    <div className="flex justify-center p-4">
+                      <p>Loading residents...</p>
+                    </div>
+                  ) : Object.keys(structuredResidents).length > 0 ? (
+                    <div className="space-y-4">
+                      {Object.keys(structuredResidents).sort().map((blockName) => (
+                        <div key={blockName} className="border rounded-md overflow-hidden">
+                          <div
+                            className="flex justify-between items-center p-3 bg-gray-50 cursor-pointer"
+                            onClick={() => toggleBlock(blockName)}
+                          >
+                            <div className="font-medium capitalize">{structureType} {blockName}</div>
+                            <div>{openBlocks[blockName] ? '−' : '+'}</div>
+                          </div>
+
+                          {openBlocks[blockName] && (
+                            <div className="p-3 space-y-3">
+                              {Object.keys(structuredResidents[blockName]).sort().map((floorNumber) => (
+                                <div key={`${blockName}-${floorNumber}`} className="border rounded-md overflow-hidden ml-3">
+                                  <div
+                                    className="flex justify-between items-center p-2 bg-gray-50 cursor-pointer"
+                                    onClick={() => toggleFloor(`${blockName}-${floorNumber}`)}
+                                  >
+                                    <div className="font-medium">Floor {floorNumber}</div>
+                                    <div>{openFloors[`${blockName}-${floorNumber}`] ? '−' : '+'}</div>
+                                  </div>
+
+                                  {openFloors[`${blockName}-${floorNumber}`] && (
+                                    <div className="p-2 space-y-2">
+                                      {Object.keys(structuredResidents[blockName][floorNumber]).sort().map((flatNumber) => (
+                                        <div key={`${blockName}-${flatNumber}`} className="border rounded-md overflow-hidden ml-3">
+                                          <div
+                                            className="flex justify-between items-center p-2 bg-gray-50 cursor-pointer"
+                                            onClick={() => toggleFlat(`${blockName}-${flatNumber}`)}
+                                          >
+                                            <div className="font-medium">Flat {flatNumber}</div>
+                                            <div>{openFlats[`${blockName}-${flatNumber}`] ? '−' : '+'}</div>
+                                          </div>
+
+                                          {openFlats[`${blockName}-${flatNumber}`] && (
+                                            <div className="p-2">
+                                              {structuredResidents[blockName][floorNumber][flatNumber].map((resident) => (
+                                                <div
+                                                  key={resident._id}
+                                                  className={`p-2 rounded-md cursor-pointer ${selectedResident?._id === resident._id
+                                                    ? 'bg-blue-50 border border-blue-200'
+                                                    : 'hover:bg-gray-50'
+                                                    }`}
+                                                  onClick={() => selectResident(resident, blockName, floorNumber, flatNumber)}
+                                                >
+                                                  <div className="font-medium">{resident.name}</div>
+                                                  <div className="text-sm text-gray-500">
+                                                    {resident.phone} | {resident.email}
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                      <p className="text-yellow-800">No residents found. Please make sure residents are added to the society.</p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {billGenerationType === 'block' && (
+                <>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Block</h2>
+                  <BlockSelector
+                    structuredResidents={structuredResidents}
+                    selectedBlock={selectedBlockForBulk}
+                    onSelectBlock={(blockName) => {
+                      setSelectedBlockForBulk(blockName);
+                      const blockResidents = residents.filter(r =>
+                        r.flatDetails &&
+                        r.flatDetails.blockName &&
+                        r.flatDetails.flatNumber &&
+                        r.flatDetails.blockName === blockName
+                      );
+                      setBulkResidents(blockResidents);
+                    }}
+                  />
+                </>
+              )}
+
+              {billGenerationType === 'floor' && (
+                <>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Block & Floor</h2>
+                  <FloorSelector
+                    structuredResidents={structuredResidents}
+                    selectedBlock={selectedBlockForBulk}
+                    selectedFloor={selectedFloorForBulk}
+                    onSelectBlock={(blockName) => {
+                      setSelectedBlockForBulk(blockName);
+                      setSelectedFloorForBulk('');
+                      setBulkResidents([]);
+                    }}
+                    onSelectFloor={(floorNumber) => {
+                      setSelectedFloorForBulk(floorNumber);
+                      const floorResidents = residents.filter(r =>
+                        r.flatDetails &&
+                        r.flatDetails.blockName &&
+                        r.flatDetails.flatNumber &&
+                        r.flatDetails.blockName === selectedBlockForBulk &&
+                        (r.flatDetails.floorIndex?.toString() === floorNumber ||
+                          r.flatDetails.floorNumber?.toString() === floorNumber)
+                      );
+                      setBulkResidents(floorResidents);
+                    }}
+                  />
+
+                  {selectedBlockForBulk && selectedFloorForBulk && bulkResidents.length > 0 && (
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-blue-800">
+                        <span className="font-medium">{bulkResidents.length}</span> residents selected
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedBlockForBulk && selectedFloorForBulk && bulkResidents.length === 0 && (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                      <p className="text-yellow-800">
+                        No residents found on this floor with assigned flats.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {billGenerationType === 'bulk' && (
+                <>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Bulk Generation</h2>
+                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-md">
+                    <p className="text-orange-800 mb-2 font-medium">Warning</p>
+                    <p className="text-orange-700 text-sm">
+                      This will generate bills for all residents in the society. This operation might take some time.
+                    </p>
+                    <p className="mt-4 font-medium text-gray-700">
+                      Total residents: <span className="text-orange-700">{residents.length}</span>
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Right Panel - Bill Generation Form */}
+            <div className="md:col-span-2 md:max-h-[70vh] md:overflow-y-auto pr-2">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Bill Details</h2>
+
+              {/* Different content based on bill generation type */}
+              {billGenerationType === 'individual' && (
+                <div className="mb-6">
+                  {selectedResident ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                      <h3 className="font-medium text-blue-800 mb-2">Selected Resident</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                          <p className="text-sm text-gray-600">Name</p>
+                          <p className="font-medium">{selectedResident.name}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Flat</p>
+                          <p className="font-medium">{`${selectedBlock}-${selectedFlat}`}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Phone</p>
+                          <p className="font-medium">{selectedResident.phone}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Email</p>
+                          <p className="font-medium">{selectedResident.email}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                      <p className="text-yellow-800">Please select a resident from the left panel to generate a bill.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bill Head Selection - Common for all types */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Bill Head</label>
+                <select
+                  className="mt-1 block w-full p-2 border rounded-md border-gray-300 shadow-sm"
+                  value={formData.billHeadId}
+                  onChange={handleBillHeadChange}
+                  required
+                >
+                  <option value="">Select Bill Head</option>
+                  {billHeads.map((bh) => (
+                    <option key={bh._id} value={bh._id}>
+                      {bh.code} - {bh.name} ({bh.subCategory})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Period Type Selection */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Period Type</label>
+                <select
+                  className="mt-1 block w-full p-2 border rounded-md border-gray-300 shadow-sm"
+                  value={formData.periodType}
+                  onChange={handlePeriodTypeChange}
+                  required
+                >
+                  <option value="Daily">Daily</option>
+                  <option value="Weekly">Weekly</option>
+                  <option value="Monthly">Monthly</option>
+                  <option value="Quarterly">Quarterly</option>
+                  <option value="HalfYearly">Half Yearly</option>
+                  <option value="Yearly">Yearly</option>
+                </select>
+              </div>
+
+              {/* Units Input - Common for all types but with different handling */}
+              {selectedBillHead && renderUnitsInput()}
+
+              {/* Additional Charges */}
+              {selectedBillHead && renderAdditionalCharges()}
+
+              {/* Calculate Button */}
+              {renderCalculateButton()}
+
+              {/* Bill Details - Show calculation results */}
+              {renderBillDetails()}
+
+              {/* Dates - Common for all types */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Issue Date</label>
+                  <input
+                    type="date"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    value={formData.issueDate}
+                    onChange={(e) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        issueDate: e.target.value
+                      }));
+                      setShowCalculation(false);
+                    }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Due Date</label>
+                  <input
+                    type="date"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    value={formData.dueDate}
+                    onChange={(e) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        dueDate: e.target.value
+                      }));
+                      setShowCalculation(false);
+                    }}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Different content based on bill generation type */}
+
+              {(billGenerationType === 'block' || billGenerationType === 'floor') && (
+                <div>
+                  {bulkResidents.length > 0 ? (
+                    <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
+                      <h3 className="font-medium text-green-800 mb-2">Selected Residents</h3>
+                      <p className="text-green-700">
+                        {bulkResidents.length} residents will be billed with these details.
+                      </p>
+                      <div className="mt-4 max-h-40 overflow-y-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Name</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Flat</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {bulkResidents.map((resident) => (
+                              <tr key={resident._id}>
+                                <td className="px-3 py-2 whitespace-nowrap text-sm">{resident.name}</td>
+                                <td className="px-3 py-2 whitespace-nowrap text-sm">
+                                  {resident.flatDetails?.flatNumber}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
+                      <p className="text-yellow-800">
+                        {billGenerationType === 'block' ? 'Please select a block from the left panel.' : 'Please select a block and floor from the left panel.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {billGenerationType === 'bulk' && (
+                <div className="bg-orange-50 border border-orange-200 rounded-md p-4 mb-6">
+                  <h3 className="font-medium text-orange-800 mb-2">Bulk Generation</h3>
+                  <p className="text-orange-700">
+                    This will generate bills for all residents with assigned flats in the society.
+                  </p>
+                  <p className="mt-4 font-medium text-gray-700">
+                    Total eligible residents: <span className="text-orange-700">
+                      {residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber).length}
+                    </span>
+                  </p>
+                  {isGeneratingBulk && (
+                    <div className="mt-4">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div
+                          className="bg-orange-600 h-2.5 rounded-full"
+                          style={{ width: `${bulkProgress}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-sm mt-2 text-gray-600">
+                        Processing: {bulkProgress}% complete
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Form Actions */}
+              <div className="flex justify-end space-x-4 mt-6">
+                <button
+                  type="button"
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg"
+                  onClick={() => setShowForm(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+                  disabled={
+                    !showCalculation ||
+                    (billGenerationType === 'individual' && !selectedResident) ||
+                    ((billGenerationType === 'block' || billGenerationType === 'floor') && bulkResidents.length === 0) ||
+                    isGeneratingBulk
+                  }
+                  onClick={
+                    billGenerationType === 'individual'
+                      ? handleSubmit
+                      : () => handleBulkGeneration()
+                  }
+                >
+                  {isGeneratingBulk ? 'Generating...' : 'Generate Bill'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+
+
+  // Fix fetchBillHeads function
+  const fetchBillHeads = async () => {
     try {
       const token = localStorage.getItem('Society');
       if (!token) {
@@ -222,7 +1045,21 @@ export default function MaintenanceBills() {
         return;
       }
 
-      const response = await fetch(`/api/BillHead-Api/get-bill-heads?societyId=${societyId}`, {
+      // Get society details first
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+      const societyCode = societyData.societyId; // Use societyId (code) instead of _id
+
+      const response = await fetch(`/api/BillHead-Api/get-bill-heads?societyId=${societyCode}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -233,10 +1070,238 @@ export default function MaintenanceBills() {
         // Filter only maintenance bill heads
         const maintenanceBillHeads = data.data.filter(bh => bh.category === 'Maintenance');
         setBillHeads(maintenanceBillHeads);
+      } else {
+        throw new Error('Failed to fetch bill heads');
       }
     } catch (error) {
       console.error('Error fetching bill heads:', error);
+      setNotification({
+        show: true,
+        message: 'Failed to fetch bill heads',
+        type: 'error'
+      });
     }
+  };
+
+  // Update fetchResidents function to use structureResidentsData
+  const fetchResidents = async () => {
+    try {
+      const token = localStorage.getItem('Society');
+      console.log('Token:', token ? 'Found' : 'Not found');
+
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      // First get society details
+      console.log('Fetching society details...');
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error(`Failed to fetch society details: ${societyResponse.status}`);
+      }
+
+      const societyData = await societyResponse.json();
+      console.log('Society Data:', societyData);
+
+      if (!societyData.societyId) {
+        throw new Error('Society ID not found in response');
+      }
+
+      // Then fetch residents with society ID
+      console.log('Fetching residents with societyId:', societyData.societyId);
+      const response = await fetch(`/api/Resident-Api/get-society-residents?societyId=${societyData.societyId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch residents: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Residents API Response:', result);
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to fetch residents');
+      }
+
+      // API returns { success: true, residents: [...] }
+      const residentsArray = result.residents || [];
+      console.log('Residents Array:', residentsArray);
+
+      if (!Array.isArray(residentsArray)) {
+        throw new Error('Residents data is not an array');
+      }
+
+      // Structure the residents data
+      structureResidentsData(residentsArray);
+      setResidents(residentsArray);
+    } catch (error) {
+      console.error('Error in fetchResidents:', error);
+      setNotification({
+        show: true,
+        message: error.message || 'Failed to fetch residents',
+        type: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update fetchBills function
+  const fetchBills = async () => {
+    try {
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      // Get society details first
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+      const societyId = societyData.societyId; // Use societyId (code) instead of _id
+
+      // Build query string from filters
+      const queryParams = new URLSearchParams({
+        societyId: societyId,
+        ...(filters.status && { status: filters.status }),
+        ...(filters.billHeadId && { billHeadId: filters.billHeadId }),
+        ...(filters.fromDate && { fromDate: filters.fromDate }),
+        ...(filters.toDate && { toDate: filters.toDate }),
+        ...(filters.subCategory && { subCategory: filters.subCategory })
+      }).toString();
+
+      // Fetch bills with filters
+      const response = await fetch(`/api/MaintenanceBill-Api/getBills?${queryParams}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch bills');
+      }
+
+      const data = await response.json();
+      setBills(data.bills || []);
+      setSummary(data.summary || {
+        totalBills: 0,
+        pendingAmount: 0,
+        paidAmount: 0,
+        overdueAmount: 0,
+        totalGstCollected: 0
+      });
+    } catch (error) {
+      console.error('Error fetching bills:', error);
+      setNotification({
+        show: true,
+        message: 'Failed to fetch bills',
+        type: 'error'
+      });
+      // Set default values for bills and summary on error
+      setBills([]);
+      setSummary({
+        totalBills: 0,
+        pendingAmount: 0,
+        paidAmount: 0,
+        overdueAmount: 0,
+        totalGstCollected: 0
+      });
+    }
+  };
+
+  // Fix fetchAvailableCharges function
+  const fetchAvailableCharges = async () => {
+    try {
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      // Get society details first
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+      const societyId = societyData.societyId; // Use societyId (code) instead of _id
+
+      // Fetch bill heads of category 'Other'
+      const response = await fetch(`/api/BillHead-Api/get-bill-heads?societyId=${societyId}&category=Other`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch available charges');
+      }
+
+      const data = await response.json();
+      setAvailableCharges(data.data || []);
+    } catch (error) {
+      console.error('Error fetching available charges:', error);
+      setNotification({
+        show: true,
+        message: 'Failed to fetch available charges',
+        type: 'error'
+      });
+    }
+  };
+
+  // Toggle functions for expanding/collapsing sections
+  const toggleBlock = (blockName) => {
+    setOpenBlocks(prev => ({ ...prev, [blockName]: !prev[blockName] }));
+  };
+
+  const toggleFloor = (floorKey) => {
+    setOpenFloors(prev => ({ ...prev, [floorKey]: !prev[floorKey] }));
+  };
+
+  const toggleFlat = (flatKey) => {
+    setOpenFlats(prev => ({ ...prev, [flatKey]: !prev[flatKey] }));
+  };
+
+  // Select resident function
+  const selectResident = (resident, block, floor, flat) => {
+    setSelectedResident(resident);
+    setSelectedBlock(block);
+    setSelectedFloor(floor);
+    setSelectedFlat(flat);
+    setFormData(prev => ({
+      ...prev,
+      residentId: resident._id,
+      flatNumber: flat,
+      blockName: block,
+      floorNumber: floor,
+      ownerName: resident.name,
+      ownerMobile: resident.phone,
+      ownerEmail: resident.email
+    }));
   };
 
   // Toggle resident selection for bulk generation
@@ -247,7 +1312,7 @@ export default function MaintenanceBills() {
       setSelectedResidents([...selectedResidents, residentId]);
     }
   };
-  
+
   // Select or deselect all residents
   const toggleAllResidents = () => {
     if (selectedResidents.length === filteredResidents.length) {
@@ -256,412 +1321,747 @@ export default function MaintenanceBills() {
       setSelectedResidents(filteredResidents.map(r => r._id));
     }
   };
-  
-  // Handle bulk bill generation
-  const handleBulkBillGeneration = async (e) => {
-    e.preventDefault();
-    
-    if (selectedResidents.length === 0) {
-      alert('Please select at least one resident');
-      return;
-    }
-    
-    if (!bulkBillType || !bulkAmount || !bulkDueDate) {
-      alert('Please fill all required fields');
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      const selectedResidentsData = residentList.filter(r => selectedResidents.includes(r._id));
-      
-      // Create a single request with all selected residents
-      const bulkBillData = {
-        societyId: selectedResidentsData[0]?.societyId,
-        residents: selectedResidentsData,
-        billType: bulkBillType,
-        description: bulkDescription,
-        amount: parseFloat(bulkAmount),
-        issueDate: bulkIssueDate,
-        dueDate: bulkDueDate,
-        finePerDay: parseFloat(bulkFinePerDay)
-      };
-      
-      const response = await fetch('/api/MaintenanceBill-Api/generateBillBulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('Society')}`,
-        },
-        body: JSON.stringify(bulkBillData),
+
+  // Add handleSubmit function for individual bill generation
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+
+    if (!selectedBillHead || !showCalculation) {
+      setNotification({
+        show: true,
+        message: 'Please select bill head and calculate amount first',
+        type: 'error'
       });
-      
-      if (response.ok) {
-        const result = await response.json();
-        alert(`Successfully generated ${result.totalCreated} bills out of ${selectedResidents.length} selected residents`);
-        
-        // Reset form
-        setBulkBillType('');
-        setBulkDescription('');
-        setBulkAmount('');
-        setBulkIssueDate(new Date().toISOString().split('T')[0]);
-        setBulkDueDate('');
-        
-        // Refresh bill history
-        const historyResponse = await fetch('/api/MaintenanceBill-Api/getBills', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('Society')}`,
-          },
-        });
-        if (historyResponse.ok) {
-          const data = await historyResponse.json();
-          setBillHistory(data.bills);
-          setFilteredHistory(data.bills);
-          setSummaryData(data.summary);
-        }
-      } else {
-        const errorData = await response.json();
-        console.error('Error response:', errorData);
-        alert(`Error generating bulk bills: ${errorData.message || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Error generating bulk bills:', error);
-      alert('Error generating bulk bills');
-    } finally {
-      setLoading(false);
-    }
-  };
-  // Filter residents for bulk generation
-  useEffect(() => {
-    if (residentList.length > 0) {
-      let filtered = [...residentList];
-      
-      if (bulkFilter.block) {
-        filtered = filtered.filter(resident => 
-          resident.flatDetails?.flatNumber?.startsWith(bulkFilter.block + '-')
-        );
-      }
-      
-      if (bulkFilter.floor) {
-        filtered = filtered.filter(resident => {
-          const flatNumber = resident.flatDetails?.flatNumber?.split('-')[1];
-          return flatNumber && flatNumber.startsWith(bulkFilter.floor);
-        });
-      }
-      
-      
-      setFilteredResidents(filtered);
-      
-      // Initialize selected residents if empty
-      if (selectedResidents.length === 0) {
-        setSelectedResidents(filtered.map(r => r._id));
-      }
-    }
-  }, [residentList, bulkFilter]);
-  // Filter history when history block/floor/flat changes
-  useEffect(() => {
-    if (billHistory.length > 0) {
-      let filtered = [...billHistory];
-
-      if (historyBlock) {
-        filtered = filtered.filter(bill => bill.blockName === historyBlock);
-      }
-
-      if (historyFloor) {
-        filtered = filtered.filter(bill => bill.floorNumber === historyFloor);
-      }
-
-      if (historyFlat) {
-        filtered = filtered.filter(bill => bill.flatNumber === `${historyBlock}-${historyFlat}`);
-      }
-
-      if (billTypeFilter) {
-        filtered = filtered.filter(bill => bill.billType === billTypeFilter);
-      }
-
-      setFilteredHistory(filtered);
-    }
-  }, [historyBlock, historyFloor, historyFlat, billTypeFilter, billHistory]);
-
-  // Organize residents by block, floor and flat
-  const organizeResidentsByStructure = (residents) => {
-    const structure = {};
-    const blockOpenState = {};
-    const floorOpenState = {};
-    const flatOpenState = {};
-
-    if (residents.length > 0) {
-      // Look for the first resident with flatDetails
-      const residentWithFlatDetails = residents.find(r => r.flatDetails && r.flatDetails.structureType);
-      if (residentWithFlatDetails && residentWithFlatDetails.flatDetails.structureType) {
-        setStructureType(residentWithFlatDetails.flatDetails.structureType);
-      }
-      // If none found, keep the default 'Block'
-    }
-
-    residents.forEach(resident => {
-      if (!resident.flatDetails || !resident.flatDetails.flatNumber) return;
-
-      // Parse flat number format (e.g., "A-101" where A is block and 101 is flat number) 
-      const flatNumberParts = resident.flatDetails.flatNumber.split('-');
-      if (flatNumberParts.length !== 2) return;
-
-      const blockName = flatNumberParts[0];
-      const flatNumber = flatNumberParts[1];
-      const floorNumber = flatNumber.substring(0, 1); // Assuming first digit of flat number is floor
-
-      // Initialize block if it doesn't exist 
-      if (!structure[blockName]) {
-        structure[blockName] = {};
-        blockOpenState[blockName] = false; // Default closed 
-      }
-
-      // Initialize floor if it doesn't exist 
-      if (!structure[blockName][floorNumber]) {
-        structure[blockName][floorNumber] = {};
-        floorOpenState[`${blockName}-${floorNumber}`] = false; // Default closed 
-      }
-
-      // Initialize flat if it doesn't exist 
-      if (!structure[blockName][floorNumber][flatNumber]) {
-        structure[blockName][floorNumber][flatNumber] = [];
-        flatOpenState[`${blockName}-${flatNumber}`] = false; // Default closed 
-      }
-
-      // Add resident to the flat 
-      structure[blockName][floorNumber][flatNumber].push(resident);
-    });
-
-    // Set first block open 
-    const blocks = Object.keys(structure).sort();
-    if (blocks.length > 0) {
-      const firstBlock = blocks[0];
-      blockOpenState[firstBlock] = true;
-
-      // Set first floor of first block open 
-      const floors = Object.keys(structure[firstBlock]).sort();
-      if (floors.length > 0) {
-        const firstFloor = floors[0];
-        floorOpenState[`${firstBlock}-${firstFloor}`] = true;
-
-        // Set all flats in the first floor closed 
-        Object.keys(structure[firstBlock][firstFloor]).forEach(flatNumber => {
-          flatOpenState[`${firstBlock}-${flatNumber}`] = false;
-        });
-      }
-    }
-
-    setStructuredResidents(structure);
-    setOpenBlocks(blockOpenState);
-    setOpenFloors(floorOpenState);
-    setOpenFlats(flatOpenState);
-  };
-
-  // Toggle functions for dropdowns 
-  const toggleBlock = (blockName) => {
-    setOpenBlocks(prev => ({ ...prev, [blockName]: !prev[blockName] }));
-  };
-
-  const toggleFloor = (blockFloorKey) => {
-    setOpenFloors(prev => ({ ...prev, [blockFloorKey]: !prev[blockFloorKey] }));
-  };
-
-  const toggleFlat = (flatKey) => {
-    setOpenFlats(prev => ({ ...prev, [flatKey]: !prev[flatKey] }));
-  };
-
-  // Handle resident selection
-  const selectResident = (resident, block, floor, flat) => {
-    setSelectedBlock(block);
-    setSelectedFloor(floor);
-    setSelectedFlat(flat);
-    setSelectedResident(resident);
-  };
-
-  // Handle history selection
-  const selectHistoryStructure = (block, floor, flat) => {
-    setHistoryBlock(block);
-    setHistoryFloor(floor);
-    setHistoryFlat(flat);
-  };
-
-  // Handle bill generation form submission
-  const handleBillGeneration = async (e) => {
-    e.preventDefault();
-
-    if (!selectedResident) {
-      alert('Please select a resident first');
       return;
     }
-
-    if (!billHeadId || !amount || !dueDate) {
-      alert('Please fill all required fields');
-      return;
-    }
-
-    setLoading(true);
 
     try {
-      let baseAmount = parseFloat(amount);
-      let gstDetails = {};
-
-      // Calculate GST if applicable
-      if (selectedBillHead?.gstApplicable) {
-        const cgst = (baseAmount * (selectedBillHead.cgstPercentage || 0)) / 100;
-        const sgst = (baseAmount * (selectedBillHead.sgstPercentage || 0)) / 100;
-        const igst = (baseAmount * (selectedBillHead.igstPercentage || 0)) / 100;
-
-        gstDetails = {
-          cgst,
-          sgst,
-          igst,
-          totalGst: cgst + sgst + igst
-        };
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
       }
 
-      const newBill = {
-        societyId: selectedResident.societyId,
-        flatId: selectedResident.flatDetails?.flatId,
-        flatNumber: `${selectedBlock}-${selectedFlat}`,
-        blockName: selectedBlock,
-        floorNumber: selectedFloor,
-        residentId: selectedResident._id,
-        ownerName: selectedResident.name,
-        ownerMobile: selectedResident.phone,
-        ownerEmail: selectedResident.email,
-        billHeadId,
-        billHeadDetails: {
-          code: selectedBillHead.code,
-          name: selectedBillHead.name,
-          category: selectedBillHead.category,
-          calculationType: selectedBillHead.calculationType
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-        description,
-        baseAmount,
-        additionalCharges,
-        gstDetails,
-        issueDate,
-        dueDate,
-        finePerDay: parseFloat(finePerDay),
-        penaltyAmount: 0,
-        totalAmount: baseAmount + (gstDetails.totalGst || 0) + 
-          additionalCharges.reduce((sum, charge) => sum + parseFloat(charge.amount), 0)
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+
+      // Calculate total amount including additional charges
+      const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+      const totalWithAdditional = billCalculation.totalAmount + additionalChargesTotal;
+
+      // Add society _id and bill calculation details to form data
+      const billData = {
+        ...formData,
+        societyId: societyData.societyId,
+        baseAmount: billCalculation.baseAmount,
+        periodType: formData.periodType,  // Explicitly include period type
+        gstDetails: {
+          isGSTApplicable: selectedBillHead.gstConfig?.isGSTApplicable || false,
+          cgstAmount: billCalculation.gstDetails.cgstAmount,
+          sgstAmount: billCalculation.gstDetails.sgstAmount,
+          igstAmount: billCalculation.gstDetails.igstAmount,
+          cgstPercentage: selectedBillHead.gstConfig?.cgstPercentage || 0,
+          sgstPercentage: selectedBillHead.gstConfig?.sgstPercentage || 0,
+          igstPercentage: selectedBillHead.gstConfig?.igstPercentage || 0
+        },
+        totalAmount: totalWithAdditional,
+        additionalCharges: additionalCharges.map(charge => ({
+          billHeadId: charge.billHeadId,
+          chargeType: normalizeChargeType(charge.chargeType),
+          amount: charge.amount,
+          ledgerId: charge.ledgerId,
+          unitUsage: charge.unitUsage,
+          calculationType: charge.calculationType
+        }))
       };
+
+      console.log('Sending bill data:', billData);
 
       const response = await fetch('/api/MaintenanceBill-Api/generateBill', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('Society')}`,
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(newBill),
+        body: JSON.stringify(billData)
       });
 
-      if (response.ok) {
-        alert('Bill generated successfully');
-        resetForm();
+      const data = await response.json();
 
-        // Refresh bill history
-        const historyResponse = await fetch('/api/MaintenanceBill-Api/getBills', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('Society')}`,
-          },
+      if (response.ok) {
+        setNotification({
+          show: true,
+          message: 'Bill generated successfully',
+          type: 'success'
         });
-        if (historyResponse.ok) {
-          const data = await historyResponse.json();
-          setBillHistory(data.bills);
-          setFilteredHistory(data.bills);
-          setSummaryData(data.summary);
-        }
+        setShowForm(false);
+        fetchBills();
       } else {
-        alert('Failed to generate bill');
+        throw new Error(data.message || 'Failed to generate bill');
       }
     } catch (error) {
       console.error('Error generating bill:', error);
-      alert('Error generating bill');
-    } finally {
-      setLoading(false);
+      setNotification({
+        show: true,
+        message: error.message || 'Failed to generate bill',
+        type: 'error'
+      });
     }
   };
 
-  // Add an additional charge
-  const addAdditionalCharge = () => {
-    if (newCharge.description && newCharge.amount) {
-      setAdditionalCharges([
-        ...additionalCharges,
-        {
-          description: newCharge.description,
-          amount: parseFloat(newCharge.amount)
+  // Update handleBulkGeneration function
+  const handleBulkGeneration = async () => {
+    if (!selectedBillHead || !showCalculation) {
+      setNotificationWithTimeout('Please select bill head and calculate amount first', 'error');
+      return;
+    }
+
+    try {
+      setIsGeneratingBulk(true);
+      setBulkProgress(0);
+
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      // Get society details
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+
+      // Filter residents to only include those with flatDetails
+      const residentsWithFlats = residents.filter(resident =>
+        resident.flatDetails && resident.flatDetails.blockName && resident.flatDetails.flatNumber
+      );
+
+      // Get residents to process based on generation type
+      let residentsToProcess = [];
+
+      if (billGenerationType === 'bulk') {
+        residentsToProcess = residentsWithFlats;
+      } else if (billGenerationType === 'block') {
+        residentsToProcess = residentsWithFlats.filter(r =>
+          r.flatDetails?.blockName === selectedBlockForBulk
+        );
+      } else if (billGenerationType === 'floor') {
+        residentsToProcess = residentsWithFlats.filter(r =>
+          r.flatDetails?.blockName === selectedBlockForBulk &&
+          (r.flatDetails?.floorIndex?.toString() === selectedFloorForBulk ||
+            r.flatDetails?.floorNumber?.toString() === selectedFloorForBulk)
+        );
+      }
+
+      if (residentsToProcess.length === 0) {
+        throw new Error('No residents found to process');
+      }
+
+      // Prepare bills data for bulk generation
+      // Log the form data before preparing bills
+      console.log('Form data before bulk generation:', formData);
+
+      const billsData = residentsToProcess.map(resident => ({
+        societyId: societyData.societyId,
+        billHeadId: formData.billHeadId,
+        residentId: resident._id,
+        flatNumber: resident.flatDetails?.flatNumber || '',
+        blockName: resident.flatDetails?.blockName || '',
+        floorNumber: resident.flatDetails?.floorIndex || resident.flatDetails?.floorNumber || 0,
+        ownerName: resident.name || '',
+        ownerMobile: resident.phone || '',
+        ownerEmail: resident.email || '',
+        unitUsage: formData.unitUsage,
+        periodType: formData.periodType,  // Add period type
+        baseAmount: billCalculation.baseAmount,
+        gstDetails: {
+          isGSTApplicable: selectedBillHead.gstConfig?.isGSTApplicable || false,
+          cgstAmount: billCalculation.gstDetails.cgstAmount,
+          sgstAmount: billCalculation.gstDetails.sgstAmount,
+          igstAmount: billCalculation.gstDetails.igstAmount,
+          cgstPercentage: selectedBillHead.gstConfig?.cgstPercentage || 0,
+          sgstPercentage: selectedBillHead.gstConfig?.sgstPercentage || 0,
+          igstPercentage: selectedBillHead.gstConfig?.igstPercentage || 0
+        },
+        totalAmount: billCalculation.totalAmount,
+        additionalCharges: additionalCharges.map(charge => ({
+          billHeadId: charge.billHeadId,
+          chargeType: normalizeChargeType(charge.chargeType),
+          amount: charge.amount,
+          ledgerId: charge.ledgerId,
+          unitUsage: charge.unitUsage,
+          calculationType: charge.calculationType
+        })),
+        issueDate: formData.issueDate,
+        dueDate: formData.dueDate
+      }));
+
+      // Process in batches of 20 bills at a time to avoid overwhelming the server
+      const batchSize = 20;
+      const totalBatches = Math.ceil(billsData.length / batchSize);
+      let successCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < billsData.length; i += batchSize) {
+        // Update progress
+        const currentBatch = Math.floor(i / batchSize);
+        const progress = Math.round((currentBatch / totalBatches) * 100);
+        setBulkProgress(progress);
+
+        // Get current batch
+        const batchBills = billsData.slice(i, i + batchSize);
+
+        // Call bulk generation API
+        const response = await fetch('/api/MaintenanceBill-Api/generateBulkBills', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ bills: batchBills })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to generate bills');
         }
-      ]);
-      setNewCharge({ description: '', amount: '' });
+
+        const result = await response.json();
+        successCount += result.results.success.length;
+        failedCount += result.results.failed.length;
+      }
+
+      // Final progress update
+      setBulkProgress(100);
+
+      // Show completion notification
+      setNotification({
+        show: true,
+        message: `Generated ${successCount} bills successfully${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
+        type: failedCount > 0 ? 'warning' : 'success'
+      });
+
+      // Refresh bills list
+      fetchBills();
+
+      // Close form after short delay
+      setTimeout(() => {
+        setShowForm(false);
+        setIsGeneratingBulk(false);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error in bulk generation:', error);
+      setNotification({
+        show: true,
+        message: error.message || 'Failed to generate bills',
+        type: 'error'
+      });
+      setIsGeneratingBulk(false);
     }
   };
 
-  // Remove an additional charge
-  const removeAdditionalCharge = (index) => {
-    setAdditionalCharges(additionalCharges.filter((_, i) => i !== index));
+  // Handle bill actions (view/pay)
+  const handleBillAction = (action, bill) => {
+    switch (action) {
+      case 'view':
+        setSelectedBillForView(bill);
+        setShowBillDetailsModal(true);
+        break;
+      case 'pay':
+        setSelectedBillForPayment(bill);
+        setShowPaymentModal(true);
+        break;
+      default:
+        break;
+    }
   };
 
-  // Reset form
-  const resetForm = () => {
+  // Payment Modal component
+  const PaymentModal = ({ bill, onClose }) => {
+    if (!bill) return null;
+
+    return (
+      <PaymentEntryPopup
+        bill={bill}
+        onClose={onClose}
+        onPaymentComplete={(data) => {
+          setNotificationWithTimeout('Payment recorded successfully', 'success');
+          fetchBills();
+          onClose();
+        }}
+      />
+    );
+  };
+
+  // Handle bill generation type selection
+  const handleBillGenerationTypeSelect = (type) => {
+    setBillGenerationType(type);
+    setShowBillOptions(false);
+    setShowForm(true);
+
+    // Reset selections
+    setSelectedResident(null);
     setSelectedBlock('');
     setSelectedFloor('');
     setSelectedFlat('');
-    setSelectedResident(null);
-    setBillHeadId('');
-    setSelectedBillHead(null);
-    setDescription('');
-    setAmount('');
-    setIssueDate(new Date().toISOString().split('T')[0]);
-    setDueDate('');
-    setFinePerDay('50');
-    setAdditionalCharges([]);
-    setNewCharge({ description: '', amount: '' });
+    setSelectedBlockForBulk('');
+    setSelectedFloorForBulk('');
+    setBulkResidents([]);
+
+    // Reset form data
+    setFormData({
+      flatNumber: '',
+      blockName: '',
+      floorNumber: '',
+      residentId: '',
+      ownerName: '',
+      ownerMobile: '',
+      ownerEmail: '',
+      billHeadId: '',
+      unitUsage: '',
+      periodType: formData.periodType, // Preserve the selected period type
+      issueDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    });
   };
 
-  // Calculate total amount
-  const calculateTotal = () => {
-    const baseAmount = parseFloat(amount) || 0;
-    const additionalTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
-    return baseAmount + additionalTotal;
-  };
+  // Render functions
+  const renderSummaryCards = () => (
+    <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-semibold">Total Bills</h3>
+        <p className="text-2xl">{summary?.totalBills || 0}</p>
+      </div>
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-semibold">Total Amount</h3>
+        <p className="text-2xl text-gray-600">₹{(summary?.totalAmount || 0).toFixed(2)}</p>
+      </div>
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-semibold">Pending Amount</h3>
+        <p className="text-2xl text-yellow-600">₹{(summary?.pendingAmount || 0).toFixed(2)}</p>
+      </div>
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-semibold">Paid Amount</h3>
+        <p className="text-2xl text-green-600">₹{(summary?.paidAmount || 0).toFixed(2)}</p>
+      </div>
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-semibold">Overdue Amount</h3>
+        <p className="text-2xl text-red-600">₹{(summary?.overdueAmount || 0).toFixed(2)}</p>
+      </div>
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-semibold">Total GST</h3>
+        <p className="text-2xl text-blue-600">₹{(summary?.totalGstCollected || 0).toFixed(2)}</p>
+      </div>
+    </div>
+  );
 
-  const handleBillHeadChange = (e) => {
-    const selectedId = e.target.value;
-    setBillHeadId(selectedId);
-    
-    if (selectedId) {
-      const billHead = billHeads.find(head => head._id === selectedId);
-      setSelectedBillHead(billHead);
-      
-      // Pre-fill amount if fixed amount is set
-      if (billHead.calculationType === 'Fixed') {
-        setAmount(billHead.fixedAmount.toString());
-      } else {
-        setAmount(''); // Clear amount for other calculation types
-      }
-      
-      // Pre-fill description if available
-      if (billHead.description) {
-        setDescription(billHead.description);
-      }
-    } else {
-      setSelectedBillHead(null);
-      setAmount('');
-      setDescription('');
-    }
-  };
+  const renderFilters = () => (
+    <div className="bg-white rounded-lg shadow p-4 mb-6">
+      <h3 className="text-lg font-semibold mb-4">Filters</h3>
+      <div className="flex flex-wrap gap-4">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-sm font-medium text-gray-700">Status</label>
+          <select
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            value={filters.status}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+          >
+            <option value="">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Paid">Paid</option>
+            <option value="Overdue">Overdue</option>
+          </select>
+        </div>
+
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-sm font-medium text-gray-700">Bill Head</label>
+          <select
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            value={filters.billHeadId}
+            onChange={(e) => setFilters(prev => ({ ...prev, billHeadId: e.target.value }))}
+          >
+            <option value="">All Bill Heads</option>
+            {billHeads.map(bh => (
+              <option key={bh._id} value={bh._id}>
+                {bh.code} - {bh.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-sm font-medium text-gray-700">Sub Category</label>
+          <select
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            value={filters.subCategory}
+            onChange={(e) => setFilters(prev => ({ ...prev, subCategory: e.target.value }))}
+          >
+            <option value="">All Sub Categories</option>
+            {maintenanceSubCategories.map((sub) => (
+              <option key={sub} value={sub}>{sub}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-sm font-medium text-gray-700">From Date</label>
+          <input
+            type="date"
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            value={filters.fromDate}
+            onChange={(e) => setFilters(prev => ({ ...prev, fromDate: e.target.value }))}
+          />
+        </div>
+
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-sm font-medium text-gray-700">To Date</label>
+          <input
+            type="date"
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            value={filters.toDate}
+            onChange={(e) => setFilters(prev => ({ ...prev, toDate: e.target.value }))}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 flex justify-end space-x-4">
+        <button
+          type="button"
+          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          onClick={() => {
+            setFilters({
+              status: '',
+              billHeadId: '',
+              fromDate: '',
+              toDate: '',
+              subCategory: ''
+            });
+            fetchBills();
+          }}
+        >
+          Reset
+        </button>
+        <button
+          type="button"
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+          onClick={fetchBills}
+        >
+          Apply Filters
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderBillsList = () => (
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      <table className="min-w-full">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Number</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resident</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Head</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Amount</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Late Fee</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {bills.map((bill) => (
+            <tr key={bill._id}>
+              <td className="px-6 py-4 whitespace-nowrap">{bill.billNumber}</td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <div>
+                  <div className="font-medium">{bill.ownerName}</div>
+                  <div className="text-sm text-gray-500">{bill.flatNumber}</div>
+                </div>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">{bill.billHeadId.name}</td>
+              <td className="px-6 py-4 whitespace-nowrap">₹{bill.baseAmount.toFixed(2)}</td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                {bill.gstDetails && bill.gstDetails.isGSTApplicable ? (
+                  <div className="text-sm">
+                    <div>CGST: ₹{bill.gstDetails.cgstAmount.toFixed(2)}</div>
+                    <div>SGST: ₹{bill.gstDetails.sgstAmount.toFixed(2)}</div>
+                    <div>IGST: ₹{bill.gstDetails.igstAmount.toFixed(2)}</div>
+                    <div className="font-medium text-blue-600 mt-1">
+                      Total: ₹{(
+                        (bill.gstDetails.cgstAmount || 0) +
+                        (bill.gstDetails.sgstAmount || 0) +
+                        (bill.gstDetails.igstAmount || 0)
+                      ).toFixed(2)}
+                    </div>
+                  </div>
+                ) : (
+                  'N/A'
+                )}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                {bill.latePaymentDetails && bill.latePaymentDetails.lateFeeAmount > 0 ?
+                  <div className="text-red-600 font-medium">₹{bill.latePaymentDetails.lateFeeAmount.toFixed(2)}</div> :
+                  'N/A'
+                }
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap font-medium">₹{bill.totalAmount.toFixed(2)}</td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                {new Date(bill.dueDate).toLocaleDateString()}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                ${bill.status === 'Paid' ? 'bg-green-100 text-green-800' :
+                    bill.status === 'Overdue' ? 'bg-red-100 text-red-800' :
+                      bill.status === 'Partially Paid' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'}`}>
+                  {bill.status}
+                </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button
+                  className="text-indigo-600 hover:text-indigo-900 mr-4"
+                  onClick={() => handleBillAction('view', bill)}
+                >
+                  View
+                </button>
+                {bill.status !== 'Paid' && (
+                  <button
+                    className="text-green-600 hover:text-green-900"
+                    onClick={() => handleBillAction('pay', bill)}
+                  >
+                    Pay
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  // Main render
+  const permissions = usePermissions();
+  if (!permissions.includes("manage_maintenance") && !permissions.includes("full_access")) {
+    return <AccessDenied />;
+  }
 
   if (loading) {
     return <PreloaderSociety />;
   }
 
-  const permissions = usePermissions();
-  if (!permissions.includes("manage_maintenance") && !permissions.includes("full_access")) {
-    return <AccessDenied />;
-  }
+  // Update handleAdditionalChargeSelect function
+  const handleAdditionalChargeSelect = (e) => {
+    const billHeadId = e.target.value;
+    const billHead = availableCharges.find(bh => bh._id === billHeadId);
+
+    // Clear selection if no bill head found
+    if (!billHead) {
+      setSelectedAdditionalCharge(null);
+      return;
+    }
+
+    // Check if this charge is already added
+    const isChargeAlreadyAdded = additionalCharges.some(
+      charge => charge.billHeadId === billHead._id
+    );
+
+    if (isChargeAlreadyAdded) {
+      setNotification({
+        show: true,
+        message: 'This charge has already been added',
+        type: 'warning'
+      });
+      e.target.value = ''; // Reset dropdown
+      return;
+    }
+
+    setSelectedAdditionalCharge(billHead);
+
+    // If it's a fixed amount bill head, automatically add the charge
+    if (billHead.calculationType === 'Fixed') {
+      const normalizedChargeType = normalizeChargeType(billHead.name);
+      const newCharge = {
+        billHeadId: billHead._id,
+        chargeType: normalizedChargeType,
+        amount: billHead.fixedAmount,
+        ledgerId: billHead.accountingConfig.incomeLedgerId,
+        unitUsage: 1,
+        calculationType: billHead.calculationType
+      };
+
+      console.log('Adding additional charge:', newCharge);
+
+      const newCharges = [...additionalCharges, newCharge];
+      setAdditionalCharges(newCharges);
+
+      // Recalculate total amount
+      const additionalChargesTotal = newCharges.reduce((sum, charge) => sum + charge.amount, 0);
+      const totalAmount = billCalculation.baseAmount + billCalculation.gstDetails.total + additionalChargesTotal;
+
+      setBillCalculation(prev => ({
+        ...prev,
+        additionalChargesTotal,
+        totalAmount
+      }));
+
+      setSelectedAdditionalCharge(null); // Clear selection after adding
+      e.target.value = ''; // Reset dropdown
+    }
+  };
+
+  // Update calculateAdditionalCharge function
+  const calculateAdditionalCharge = () => {
+    if (!selectedAdditionalCharge) {
+      return;
+    }
+
+    // Check if this charge is already added
+    const isChargeAlreadyAdded = additionalCharges.some(
+      charge => charge.billHeadId === selectedAdditionalCharge._id
+    );
+
+    if (isChargeAlreadyAdded) {
+      setSelectedAdditionalCharge(null);
+      if (document.getElementById('additionalChargeSelect')) {
+        document.getElementById('additionalChargeSelect').value = '';
+      }
+      return;
+    }
+
+    let amount = 0;
+    let unitUsage = 1;
+
+    // For fixed amount, no need to check for input
+    if (selectedAdditionalCharge.calculationType === 'Fixed') {
+      amount = selectedAdditionalCharge.fixedAmount;
+    } else {
+      // For PerUnit and Formula, check input element and value
+      const inputElement = document.getElementById('additionalChargeUnits');
+      if (!inputElement) {
+        setNotification({
+          show: true,
+          message: 'Units input not found',
+          type: 'error'
+        });
+        return;
+      }
+
+      unitUsage = parseFloat(inputElement.value);
+      if (!unitUsage || isNaN(unitUsage)) {
+        setNotification({
+          show: true,
+          message: 'Please enter valid units',
+          type: 'error'
+        });
+        return;
+      }
+
+      switch (selectedAdditionalCharge.calculationType) {
+        case 'PerUnit':
+          amount = unitUsage * selectedAdditionalCharge.perUnitRate;
+          break;
+        case 'Formula':
+          try {
+            const formula = selectedAdditionalCharge.formula
+              .replace(/\$\{unitUsage\}/g, unitUsage)
+              .replace(/\$\{rate\}/g, selectedAdditionalCharge.perUnitRate);
+            amount = eval(formula);
+          } catch (error) {
+            console.error('Formula evaluation error:', error);
+            setNotification({
+              show: true,
+              message: 'Error calculating formula: ' + error.message,
+              type: 'error'
+            });
+            return;
+          }
+          break;
+      }
+    }
+
+    const normalizedChargeType = normalizeChargeType(selectedAdditionalCharge.name);
+    const newCharge = {
+      billHeadId: selectedAdditionalCharge._id,
+      chargeType: normalizedChargeType,
+      amount,
+      ledgerId: selectedAdditionalCharge.accountingConfig.incomeLedgerId,
+      unitUsage,
+      calculationType: selectedAdditionalCharge.calculationType
+    };
+
+    console.log('Adding additional charge:', newCharge);
+
+    const newCharges = [...additionalCharges, newCharge];
+    setAdditionalCharges(newCharges);
+
+    // Recalculate total amount
+    const additionalChargesTotal = newCharges.reduce((sum, charge) => sum + charge.amount, 0);
+    const totalAmount = billCalculation.baseAmount + billCalculation.gstDetails.total + additionalChargesTotal;
+
+    setBillCalculation(prev => ({
+      ...prev,
+      additionalChargesTotal,
+      totalAmount
+    }));
+
+    // Reset selection
+    setSelectedAdditionalCharge(null);
+    if (document.getElementById('additionalChargeSelect')) {
+      document.getElementById('additionalChargeSelect').value = '';
+    }
+    if (document.getElementById('additionalChargeUnits')) {
+      document.getElementById('additionalChargeUnits').value = '';
+    }
+  };
+
+  // Update normalizeChargeType function to handle all cases
+  const normalizeChargeType = (name) => {
+    // Convert to lowercase and trim for consistent comparison
+    const normalizedName = name.toLowerCase().trim();
+
+    // Map of common variations to correct enum values
+    const chargeTypeMap = {
+      'soceity charges': 'Society Charges',
+      'society charges': 'Society Charges',
+      'societycharges': 'Society Charges',
+      'society': 'Society Charges',
+      'maintenance': 'Maintenance',
+      'maintenance charges': 'Maintenance',
+      'maintenancecharges': 'Maintenance',
+      'repair': 'Repair',
+      'repair charges': 'Repair',
+      'repaircharges': 'Repair',
+      'utility': 'Utility',
+      'utility charges': 'Utility',
+      'utilitycharges': 'Utility',
+      'other': 'Other',
+      'other charges': 'Other',
+      'othercharges': 'Other'
+    };
+
+    // Return the mapped value or 'Other' if not found
+    return chargeTypeMap[normalizedName] || 'Other';
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -676,718 +2076,75 @@ export default function MaintenanceBills() {
         </div>
       </header>
 
-      {/* Summary Cards */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500">Total Bills</p>
-            <p className="text-2xl font-bold text-gray-900">{summaryData.totalBills}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500">Total Amount</p>
-            <p className="text-2xl font-bold text-blue-600">₹{summaryData.totalAmount?.toLocaleString() || 0}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500">Paid Amount</p>
-            <p className="text-2xl font-bold text-green-600">₹{summaryData.totalPaidAmount?.toLocaleString() || 0}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500">Due Amount</p>
-            <p className="text-2xl font-bold text-amber-600">₹{summaryData.totalDueAmount?.toLocaleString() || 0}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500">Penalty Amount</p>
-            <p className="text-2xl font-bold text-red-600">₹{summaryData.totalPenalty?.toLocaleString() || 0}</p>
-          </div>
+      <div className="mx-auto px-4 py-6">
+        {renderSummaryCards()}
+
+        {/* Action Buttons */}
+        <div className="flex justify-between mb-6">
+          <button
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center"
+            onClick={() => setShowBillOptions(true)}
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Generate New Bill
+          </button>
         </div>
+
+        {renderFilters()}
+        {renderBillsList()}
+
+        {/* Bill Generation Options Modal */}
+        {showBillOptions && (
+          <SelectionPopup
+            isOpen={showBillOptions}
+            onClose={() => setShowBillOptions(false)}
+            onSelectType={handleBillGenerationTypeSelect}
+            title="Generate Maintenance Bill For"
+          />
+        )}
+
+        {/* Bill Generation Form */}
+        {showForm && renderBillGenerationForm()}
+
+        {/* Bill Details Modal */}
+        {showBillDetailsModal && (
+          <BillDetailsPopup
+            bill={selectedBillForView}
+            onClose={() => {
+              setShowBillDetailsModal(false);
+              setSelectedBillForView(null);
+            }}
+          />
+        )}
+
+        {/* Payment Modal */}
+        {showPaymentModal && selectedBillForPayment && (
+          <PaymentModal
+            bill={{
+              ...selectedBillForPayment,
+              _modelName: 'MaintenanceBill',
+              billHeadId: {
+                ...selectedBillForPayment.billHeadId,
+                category: 'Maintenance'
+              }
+            }}
+            onClose={() => {
+              setShowPaymentModal(false);
+              setSelectedBillForPayment(null);
+            }}
+          />
+        )}
+
+        {/* Notification */}
+        {notification.show && (
+          <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg
+            ${notification.type === 'success' ? 'bg-green-500' :
+              notification.type === 'error' ? 'bg-red-500' : 'bg-blue-500'}
+            text-white`}>
+            {notification.message}
+          </div>
+        )}
       </div>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 mb-6">
-          <button
-            className={`px-4 py-2 text-sm font-medium ${activeTab === 'generate' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('generate')}
-          >
-            Generate Bill
-          </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium ${activeTab === 'bulk' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('bulk')}
-          >
-            Bulk Generation
-          </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium ${activeTab === 'history' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('history')}
-          >
-            Bill History
-          </button>
-        </div>
-
-        {/* Generate Bill Tab */}
-        {activeTab === 'generate' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Resident Selector */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Resident</h2>
-
-              {loading ? (
-                <div className="flex justify-center p-4">
-                  <p>Loading residents...</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {Object.keys(structuredResidents).sort().map((blockName) => (
-                    <div key={blockName} className="border rounded-md overflow-hidden">
-                      <div
-                        className="flex justify-between items-center p-3 bg-gray-50 cursor-pointer"
-                        onClick={() => toggleBlock(blockName)}
-                      >
-                        <div className="font-medium capitalize">{structureType} {blockName}</div>
-                        <div>{openBlocks[blockName] ? '−' : '+'}</div>
-                      </div>
-
-                      {openBlocks[blockName] && (
-                        <div className="p-3 space-y-3">
-                          {Object.keys(structuredResidents[blockName]).sort().map((floorNumber) => (
-                            <div key={`${blockName}-${floorNumber}`} className="border rounded-md overflow-hidden ml-3">
-                              <div
-                                className="flex justify-between items-center p-2 bg-gray-50 cursor-pointer"
-                                onClick={() => toggleFloor(`${blockName}-${floorNumber}`)}
-                              >
-                                <div className="font-medium">Floor {floorNumber}</div>
-                                <div>{openFloors[`${blockName}-${floorNumber}`] ? '−' : '+'}</div>
-                              </div>
-
-                              {openFloors[`${blockName}-${floorNumber}`] && (
-                                <div className="p-2 space-y-2">
-                                  {Object.keys(structuredResidents[blockName][floorNumber]).sort().map((flatNumber) => (
-                                    <div key={`${blockName}-${flatNumber}`} className="border rounded-md overflow-hidden ml-3">
-                                      <div
-                                        className="flex justify-between items-center p-2 bg-gray-50 cursor-pointer"
-                                        onClick={() => toggleFlat(`${blockName}-${flatNumber}`)}
-                                      >
-                                        <div className="font-medium">Flat {flatNumber}</div>
-                                        <div>{openFlats[`${blockName}-${flatNumber}`] ? '−' : '+'}</div>
-                                      </div>
-
-                                      {openFlats[`${blockName}-${flatNumber}`] && (
-                                        <div className="p-2">
-                                          {structuredResidents[blockName][floorNumber][flatNumber].map((resident) => (
-                                            <div
-                                              key={resident._id}
-                                              className={`p-2 rounded-md cursor-pointer ${selectedResident?._id === resident._id
-                                                ? 'bg-blue-50 border border-blue-200'
-                                                : 'hover:bg-gray-50'
-                                                }`}
-                                              onClick={() => selectResident(resident, blockName, floorNumber, flatNumber)}
-                                            >
-                                              <div className="font-medium">{resident.name}</div>
-                                              <div className="text-sm text-gray-500">
-                                                {resident.phone} | {resident.email}
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Bill Generation Form */}
-            <div className="bg-white rounded-lg shadow p-6 md:col-span-2">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Generate New Bill</h2>
-
-              {selectedResident ? (
-                <form onSubmit={handleBillGeneration}>
-                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
-                    <h3 className="font-medium text-blue-800 mb-2">Selected Resident</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <div>
-                        <p className="text-sm text-gray-600">Name</p>
-                        <p className="font-medium">{selectedResident.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Flat</p>
-                        <p className="font-medium">{`${selectedBlock}-${selectedFlat}`}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Phone</p>
-                        <p className="font-medium">{selectedResident.phone}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Email</p>
-                        <p className="font-medium">{selectedResident.email}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bill Head *</label>
-                      <select
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
-                        value={billHeadId}
-                        onChange={handleBillHeadChange}
-                        required
-                      >
-                        <option value="">Select Bill Head</option>
-                        {billHeads.map((bh) => (
-                          <option key={bh._id} value={bh._id}>
-                            {bh.code} - {bh.name} ({bh.subCategory})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {selectedBillHead && (
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Bill Head Details</h4>
-                        <div className="space-y-2">
-                          <p className="text-sm text-gray-600">
-                            <span className="font-medium">Category:</span> {selectedBillHead.category}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            <span className="font-medium">Calculation Type:</span> {selectedBillHead.calculationType}
-                          </p>
-                          {selectedBillHead.calculationType === 'Fixed' && (
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">Fixed Amount:</span> ₹{selectedBillHead.fixedAmount}
-                            </p>
-                          )}
-                          {selectedBillHead.calculationType === 'Formula' && (
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">Formula:</span> {selectedBillHead.formula}
-                            </p>
-                          )}
-                          {selectedBillHead.gstApplicable && (
-                            <div className="text-sm text-gray-600">
-                              <span className="font-medium">GST:</span>
-                              <ul className="list-disc list-inside pl-4">
-                                {selectedBillHead.cgstPercentage > 0 && (
-                                  <li>CGST: {selectedBillHead.cgstPercentage}%</li>
-                                )}
-                                {selectedBillHead.sgstPercentage > 0 && (
-                                  <li>SGST: {selectedBillHead.sgstPercentage}%</li>
-                                )}
-                                {selectedBillHead.igstPercentage > 0 && (
-                                  <li>IGST: {selectedBillHead.igstPercentage}%</li>
-                                )}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹) *</label>
-                      <input
-                        type="number"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        min="0"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Issue Date</label>
-                      <input
-                        type="date"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
-                        value={issueDate}
-                        onChange={(e) => setIssueDate(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Due Date *</label>
-                      <input
-                        type="date"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Fine Per Day (₹)</label>
-                      <input
-                        type="number"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
-                        value={finePerDay}
-                        onChange={(e) => setFinePerDay(e.target.value)}
-                        min="0"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                      <textarea
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        rows="3"
-                      ></textarea>
-                    </div>
-                  </div>
-
-                  <div className="mb-6">
-                    <h3 className="text-md font-medium text-gray-900 mb-2">Additional Charges</h3>
-                    <div className="bg-gray-50 p-4 rounded-md">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                        <div className="md:col-span-2">
-                          <input
-                            type="text"
-                            placeholder="Description"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            value={newCharge.description}
-                            onChange={(e) => setNewCharge({ ...newCharge, description: e.target.value })}
-                          />
-                        </div>
-                        <div className="flex space-x-2">
-                          <input
-                            type="number"
-                            placeholder="Amount"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            value={newCharge.amount}
-                            onChange={(e) => setNewCharge({ ...newCharge, amount: e.target.value })}
-                            min="0"
-                          />
-                          <button
-                            type="button"
-                            className="bg-blue-500 text-white px-3 py-2 rounded-md"
-                            onClick={addAdditionalCharge}
-                          >
-                            Add
-                          </button>
-                        </div>
-                      </div>
-
-                      {additionalCharges.length > 0 && (
-                        <div className="border rounded-md overflow-hidden">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {additionalCharges.map((charge, index) => (
-                                <tr key={index}>
-                                  <td className="px-3 py-2 text-sm text-gray-900">{charge.description}</td>
-                                  <td className="px-3 py-2 text-sm text-gray-900 text-right">₹{charge.amount}</td>
-                                  <td className="px-3 py-2 text-right">
-                                    <button
-                                      type="button"
-                                      className="text-red-500 hover:text-red-700"
-                                      onClick={() => removeAdditionalCharge(index)}
-                                    >
-                                      Remove
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                              <tr className="bg-gray-50">
-                                <td className="px-3 py-2 text-sm font-medium">Total</td>
-                                <td className="px-3 py-2 text-sm font-medium text-right" colSpan="2">
-                                  ₹{calculateTotal().toFixed(2)}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700"
-                      onClick={resetForm}
-                    >
-                      Reset
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
-                      disabled={loading}
-                    >
-                      {loading ? 'Generating...' : 'Generate Bill'}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                  <p className="text-yellow-800">Please select a resident from the left panel to generate a bill.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Bulk Bill Generation Tab */}
-        {activeTab === 'bulk' && (
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Bulk Bill Generation</h2>
-              
-              <form onSubmit={handleBulkBillGeneration}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bill Type *</label>
-                    <select
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
-                      value={bulkBillType}
-                      onChange={(e) => setBulkBillType(e.target.value)}
-                      required
-                    >
-                      <option value="">Select Type</option>
-                      <option value="Security">Security</option>
-                      <option value="Cleaning">Cleaning</option>
-                      <option value="Parking">Parking</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹) *</label>
-                    <input
-                      type="number"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
-                      value={bulkAmount}
-                      onChange={(e) => setBulkAmount(e.target.value)}
-                      min="0"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fine Per Day (₹)</label>
-                    <input
-                      type="number"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
-                      value={bulkFinePerDay}
-                      onChange={(e) => setBulkFinePerDay(e.target.value)}
-                      min="0"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Issue Date</label>
-                    <input
-                      type="date"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
-                      value={bulkIssueDate}
-                      onChange={(e) => setBulkIssueDate(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Date *</label>
-                    <input
-                      type="date"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
-                      value={bulkDueDate}
-                      onChange={(e) => setBulkDueDate(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <textarea
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
-                      value={bulkDescription}
-                      onChange={(e) => setBulkDescription(e.target.value)}
-                      rows="2"
-                    ></textarea>
-                  </div>
-                </div>
-                
-                <div className="flex justify-end mb-6">
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
-                    disabled={loading}
-                  >
-                    {loading ? 'Generating...' : 'Generate Bills for Selected Residents'}
-                  </button>
-                </div>
-              </form>
-              
-              <div className="mb-6">
-                <h3 className="text-md font-medium text-gray-900 mb-2">Filter Residents</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block capitalize text-sm font-medium text-gray-700 mb-1">{structureType}</label>
-                    <select
-                      className="w-full border capitalize border-gray-300 rounded-md px-3 py-2"
-                      value={bulkFilter.block}
-                      onChange={(e) => setBulkFilter({...bulkFilter, block: e.target.value})}
-                    >
-                      <option value="">All {structureType}s</option>
-                      {Object.keys(structuredResidents).sort().map((block) => (
-                        <option key={block} value={block}>{structureType} {block}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
-                    <select
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
-                      value={bulkFilter.floor}
-                      onChange={(e) => setBulkFilter({...bulkFilter, floor: e.target.value})}
-                      disabled={!bulkFilter.block}
-                    >
-                      <option value="">All Floors</option>
-                      {bulkFilter.block && Object.keys(structuredResidents[bulkFilter.block] || {}).sort().map((floor) => (
-                        <option key={floor} value={floor}>Floor {floor}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mb-4 flex justify-between items-center">
-                <h3 className="text-md font-medium text-gray-900">Resident Selection</h3>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="selectAll"
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-                    checked={selectedResidents.length === filteredResidents.length && filteredResidents.length > 0}
-                    onChange={toggleAllResidents}
-                  />
-                  <label htmlFor="selectAll" className="ml-2 text-sm text-gray-700">
-                    {selectedResidents.length === filteredResidents.length && filteredResidents.length > 0
-                      ? 'Deselect All'
-                      : 'Select All'}
-                  </label>
-                </div>
-              </div>
-              
-              <div className="border rounded-md overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Select</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flat</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredResidents.length > 0 ? (
-                      filteredResidents.map((resident) => (
-                        <tr key={resident._id}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-                              checked={selectedResidents.includes(resident._id)}
-                              onChange={() => toggleResidentSelection(resident._id)}
-                            />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{resident.name}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {resident.flatDetails?.flatNumber || 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{resident.phone}</div>
-                            <div className="text-sm text-gray-500">{resident.email}</div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
-                          No residents found matching the selected filters.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              
-              <div className="mt-4 text-sm text-gray-500">
-                {selectedResidents.length} of {filteredResidents.length} residents selected
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Bill History Tab */}
-        {activeTab === 'history' && (
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Bill History</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block capitalize text-sm font-medium text-gray-700 mb-1">{structureType}</label>
-                  <select
-                    className="w-full border capitalize border-gray-300 rounded-md px-3 py-2"
-                    value={historyBlock}
-                    onChange={(e) => selectHistoryStructure(e.target.value, historyFloor, historyFlat)}
-                  >
-                    <option value="">All {structureType}s</option>
-                    {Object.keys(structuredResidents).sort().map((block) => (
-                      <option key={block} value={block}>{structureType} {block}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={historyFloor}
-                    onChange={(e) => selectHistoryStructure(historyBlock, e.target.value, historyFlat)}
-                    disabled={!historyBlock}
-                  >
-                    <option value="">All Floors</option>
-                    {historyBlock && Object.keys(structuredResidents[historyBlock] || {}).sort().map((floor) => (
-                      <option key={floor} value={floor}>Floor {floor}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Flat</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={historyFlat}
-                    onChange={(e) => selectHistoryStructure(historyBlock, historyFloor, e.target.value)}
-                    disabled={!historyBlock || !historyFloor}
-                  >
-                    <option value="">All Flats</option>
-                    {historyBlock && historyFloor &&
-                      Object.keys(structuredResidents[historyBlock][historyFloor] || {}).sort().map((flat) => (
-                        <option key={flat} value={flat}>Flat {flat}</option>
-                      ))
-                    }
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={billTypeFilter}
-                    onChange={(e) => setBillTypeFilter(e.target.value)}
-                  >
-                    <option value="">All Types</option>
-                    <option value="Security">Security</option>
-                    <option value="Cleaning">Cleaning</option>
-                    <option value="Parking">Parking</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resident</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flat</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th> */}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredHistory.length > 0 ? (
-                    filteredHistory.map((bill) => (
-                      <tr key={bill._id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {bill._id.substring(0, 8)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{bill.ownerName}</div>
-                          <div className="text-sm text-gray-500">{bill.ownerMobile}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {bill.flatNumber}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                            {bill.billType}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                              ₹{(
-                                (bill.baseAmount || 0) +
-                                (bill.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0) +
-                                (bill.penaltyAmount || 0)
-                              ).toFixed(2)}
-                            </div>
-                            {bill.penaltyAmount > 0 && (
-                              <div className="text-xs text-red-500">
-                                (includes ₹{bill.penaltyAmount.toFixed(2)} penalty)
-                              </div>
-                            )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(bill.issueDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(bill.dueDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            bill.status === 'Paid'
-                              ? 'bg-green-100 text-green-800'
-                              : bill.status === 'Overdue'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {bill.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="9" className="px-6 py-4 text-center text-sm text-gray-500">
-                        No bills found for the selected criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </main>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import OwnerProfiles from "./components/OwnerProfile";
 import TenantProfiles from "./components/TenantProfile";
 import MaintenanceBills from "./components/MaintenanceBills";
 import UtilityBills from "./components/UtilityBills";
+import AmenityBills from "./components/AmenityBills";
 import PaymentTracking from "./components/PaymentTracking";
 import Tickets from "./components/Tickets";
 import Announcements from "./components/Announcements";
@@ -32,32 +33,41 @@ import { PermissionsContext } from "../../components/PermissionsContext";
 // Sidebar navigation model
 const NAV_SECTIONS = [
   {
-    section: "Main",
+    section: "Overview & Administration",
     items: [
       { label: "Dashboard", component: "DashboardDefault", icon: null, requiredPermissions: null },
       { label: "Society Profile", component: "SocietyProfile", icon: null, requiredPermissions: null },
-      { label: "Apartment Structure Form", component: "ApartmentStructureForm", icon: null, requiredPermissions: null },
+      { label: "Apartment Structure", component: "ApartmentStructureForm", icon: null, requiredPermissions: null },
     ],
   },
   {
     section: "Resident Management",
     items: [
-      { label: "Pending Residents", component: "PendingResidents", icon: <FaUserClock className="mr-3" />, requiredPermissions: ["manage_residents"] },
-      { label: "Owner Profiles", component: "OwnerProfiles", icon: <FaUserTie className="mr-3" />, requiredPermissions: ["manage_residents"] },
+      { label: "Pending Approvals", component: "PendingResidents", icon: <FaUserClock className="mr-3" />, requiredPermissions: ["manage_residents"] },
+      { label: "Owner Directory", component: "OwnerProfiles", icon: <FaUserTie className="mr-3" />, requiredPermissions: ["manage_residents"] },
+      { label: "Member Management", component: "ManageMembers", icon: <FaUserCog className="mr-3" />, requiredPermissions: ["manage_members"] },
     ],
   },
   {
-    section: "Finance & Maintenance",
+    section: "Financial Management",
     items: [
-      { label: "Bill Heads", component: "BillHeads", icon: <FaFileInvoiceDollar className="mr-3" />, requiredPermissions: ["manage_bills"] },
-      { label: "Maintenance Bills", component: "MaintenanceBills", icon: <FaWrench className="mr-3" />, requiredPermissions: ["manage_bills"] },
-      { label: "Utility Bills", component: "UtilityBills", icon: <FaClipboardList className="mr-3" />, requiredPermissions: ["manage_bills"] },
-      { label: "Payment Tracking", component: "PaymentTracking", icon: <FaMoneyBill className="mr-3" />, requiredPermissions: ["manage_bills"] },
-      { label: "Tickets", component: "Tickets", icon: <FaStickyNote className="mr-3" />, requiredPermissions: ["manage_maintenance"] },
+      { label: "Bill Configuration", component: "BillHeads", icon: <FaFileInvoiceDollar className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Scheduled Billing", component: "ScheduledBills", icon: <FaUserClock className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Maintenance Charges", component: "MaintenanceBills", icon: <FaWrench className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Utility Charges", component: "UtilityBills", icon: <FaClipboardList className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Amenity Charges", component: "AmenityBills", icon: <FaClipboardList className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Payment Collection", component: "PaymentTracking", icon: <FaMoneyBill className="mr-3" />, requiredPermissions: ["manage_bills"] },
+      { label: "Financial Reports", component: "GeneralLedger", icon: <FaFileInvoiceDollar className="mr-3" />, requiredPermissions: ["view_reports"] },
     ],
   },
   {
-    section: "Notices & Community",
+    section: "Maintenance & Support",
+    items: [
+      { label: "Service Requests", component: "Tickets", icon: <FaStickyNote className="mr-3" />, requiredPermissions: ["manage_maintenance"] },
+    ],
+  },
+  {
+    section: "Community Engagement",
     items: [
       { label: "Announcements", component: "Announcements", icon: <FaBullhorn className="mr-3" />, requiredPermissions: ["manage_notices"] },
       { label: "Polls & Surveys", component: "PollsSurveys", icon: <FaPoll className="mr-3" />, requiredPermissions: ["manage_notices"] },
@@ -65,21 +75,13 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    section: "Security & Emergency",
+    section: "Security & Access Control",
     items: [
-      { label: "Security Profile", component: "SecurityProfile", icon: <FaUserShield className="mr-3" />, requiredPermissions: ["manage_security"] },
-      { label: "Visitor Entry", component: "VisitorEntry", icon: <FaUserShield className="mr-3" />, requiredPermissions: ["manage_security"] },
-      { label: "Delivery Management", component: "DeliveryManagement", icon: <FaBox className="mr-3" />, requiredPermissions: ["manage_security"] },
-      { label: "Emergency Alerts", component: "EmergencyAlerts", icon: <FaExclamationTriangle className="mr-3" />, requiredPermissions: ["manage_security"] },
-      { label: "Incident Logs", component: "IncidentLogs", icon: <FaFileAlt className="mr-3" />, requiredPermissions: ["manage_security"] },
-    ],
-  },
-  {
-    section: "Finance & Reports",
-    items: [
-      { label: "General Ledger", component: "GeneralLedger", icon: <FaFileInvoiceDollar className="mr-3" />, requiredPermissions: ["view_reports"] },
-      { label: "Scheduled Bills", component: "ScheduledBills", icon: <FaUserClock className="mr-3" />, requiredPermissions: ["manage_bills"] },
-      { label: "Manage Members", component: "ManageMembers", icon: <FaUserCog className="mr-3" />, requiredPermissions: ["manage_members"] },
+      { label: "Security Personnel", component: "SecurityProfile", icon: <FaUserShield className="mr-3" />, requiredPermissions: ["manage_security"] },
+      { label: "Visitor Management", component: "VisitorEntry", icon: <FaUserShield className="mr-3" />, requiredPermissions: ["manage_security"] },
+      { label: "Delivery Tracking", component: "DeliveryManagement", icon: <FaBox className="mr-3" />, requiredPermissions: ["manage_security"] },
+      { label: "Emergency Management", component: "EmergencyAlerts", icon: <FaExclamationTriangle className="mr-3" />, requiredPermissions: ["manage_security"] },
+      { label: "Incident Reports", component: "IncidentLogs", icon: <FaFileAlt className="mr-3" />, requiredPermissions: ["manage_security"] },
     ],
   },
 ];
@@ -191,6 +193,8 @@ export default function Home() {
                 return <SecurityProfile />;
             case "UtilityBills":
                 return <UtilityBills />;
+            case "AmenityBills":
+                return <AmenityBills />;
             case "PaymentTracking":
                 return <PaymentTracking />;
             case "Tickets":

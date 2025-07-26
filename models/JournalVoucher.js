@@ -188,6 +188,15 @@ const JournalVoucherSchema = new mongoose.Schema({
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  // Approval details
+  approvedBy: {
+    adminId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Society' 
+    },
+    adminName: { type: String },
+    approvedAt: { type: Date }
   }
 }, {
   timestamps: true

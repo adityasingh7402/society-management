@@ -1,52 +1,93 @@
 import connectToDatabase from "../../../lib/mongodb";
 import ScheduledBill from '../../../models/ScheduledBill';
-import { verifyToken } from '../../../utils/auth';
+import BillHead from '../../../models/BillHead';
+import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // Verify authentication token
+    await connectToDatabase();
+    
+    // Get token from header
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
-      return res.status(401).json({ message: 'Unauthorized - No token provided' });
+      return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded = await verifyToken(token);
-    if (!decoded || !decoded.societyId) {
-      return res.status(401).json({ message: 'Unauthorized - Invalid token' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
-    await connectToDatabase();
+    const { societyId, ...scheduledBillData } = req.body;
 
-    // Create scheduled bill
+    // Verify bill head exists and get its details
+    const billHead = await BillHead.findById(scheduledBillData.billHeadId);
+    if (!billHead) {
+      return res.status(404).json({ error: 'Bill head not found' });
+    }
+
+    // Set initial next generation date
+    const startDate = new Date(scheduledBillData.startDate);
+    let nextGenerationDate = startDate;
+    if (startDate < new Date()) {
+      // If start date is in the past, calculate next generation date from today
+      const tempBill = new ScheduledBill({
+        ...scheduledBillData,
+        nextGenerationDate: startDate
+      });
+      nextGenerationDate = tempBill.calculateNextGenerationDate();
+    }
+
+    // Get late payment config from bill head if not provided
+    const latePaymentConfig = scheduledBillData.latePaymentConfig || {
+      isLatePaymentChargeApplicable: billHead.latePaymentConfig?.isLatePaymentChargeApplicable || false,
+      gracePeriodDays: billHead.latePaymentConfig?.gracePeriodDays || 0,
+      chargeType: billHead.latePaymentConfig?.chargeType || 'Fixed',
+      chargeValue: billHead.latePaymentConfig?.chargeValue || 0,
+      compoundingFrequency: billHead.latePaymentConfig?.compoundingFrequency || 'Monthly'
+    };
+
+    // Store bill head details
+    const billHeadDetails = {
+      _id: billHead._id,  // Store the original billHead _id
+      code: billHead.code,
+      name: billHead.name,
+      category: billHead.category,
+      subCategory: billHead.subCategory,
+      calculationType: billHead.calculationType,
+      perUnitRate: billHead.perUnitRate,
+      fixedAmount: billHead.fixedAmount,
+      formula: billHead.formula
+    };
+
+    // Create the scheduled bill
     const scheduledBill = new ScheduledBill({
-      ...req.body,
-      societyId: decoded.societyId,
-      createdBy: decoded.Id
+      ...scheduledBillData,
+      societyId,
+      nextGenerationDate,
+      latePaymentConfig,
+      billHeadDetails,
+      createdBy: decoded.id,
+      approvedBy: {
+        adminId: decoded.id,
+        adminName: decoded.name || 'Admin',
+        approvedAt: new Date()
+      }
     });
 
-    // Validate and save
-    await scheduledBill.validate();
     await scheduledBill.save();
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Scheduled bill created successfully',
-      scheduledBill
+      data: scheduledBill
     });
 
   } catch (error) {
-    console.error('Error creating scheduled bill:', error);
-    
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        message: 'Validation error',
-        errors: Object.values(error.errors).map(err => err.message)
-      });
-    }
-    
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error in create-scheduled-bill:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 } 

@@ -8,4 +8,4 @@ cmds = ["yarn install --ignore-engines"]
 cmds = ["yarn build"]
 
 [start]
-cmd = "yarn start" 
+cmd = "yarn run start" 

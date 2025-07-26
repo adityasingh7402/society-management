@@ -1,255 +1,461 @@
-import connectToDatabase from '../../../lib/mongodb';
+import connectToDatabase from "../../../lib/mongodb.js";
+import mongoose from 'mongoose';
 import ScheduledBill from '../../../models/ScheduledBill';
-import ResidentBill from '../../../models/ResidentBill';
-import BillHead from '../../../models/BillHead';
-import Resident from '../../../models/Resident';
+import UtilityBill from '../../../models/UtilityBill';
+import MaintenanceBill from '../../../models/MaintenanceBill';
+import AmenityBill from '../../../models/AmenityBill';
+import JournalVoucher from '../../../models/JournalVoucher';
+import Ledger from '../../../models/Ledger';
+import BillHead from '../../../models/BillHead'; // Added import for BillHead
+
+// Helper function to generate unique voucher number with retries
+async function generateUniqueVoucherNumber(societyId, billHeadCode, date, residentId, session, retryCount = 0) {
+  const maxRetries = 10;
+  const baseDate = date.toISOString().split('T')[0].replace(/-/g, '');
+  
+  try {
+    // Include residentId in the prefix to ensure uniqueness per resident
+    const voucherPrefix = `JV/${billHeadCode}/${baseDate}/${residentId.toString().substr(-4)}/`;
+    const lastVoucher = await JournalVoucher.findOne({
+      societyId,
+      voucherNumber: new RegExp('^' + voucherPrefix)
+    })
+    .sort({ voucherNumber: -1 })
+    .session(session);
+
+    let nextSequence = 1;
+    if (lastVoucher) {
+      const lastSequence = parseInt(lastVoucher.voucherNumber.split('/').pop());
+      nextSequence = isNaN(lastSequence) ? 1 : lastSequence + 1;
+    }
+
+    const sequence = nextSequence + retryCount;
+    const voucherNumber = `${voucherPrefix}${sequence.toString().padStart(4, '0')}`;
+
+    // Verify the generated number is unique
+    const existingVoucher = await JournalVoucher.findOne({
+      societyId,
+      voucherNumber
+    }).session(session);
+
+    if (!existingVoucher) {
+      return voucherNumber;
+    }
+
+    if (retryCount < maxRetries) {
+      // Add a small delay before retrying
+      await new Promise(resolve => setTimeout(resolve, 100 * (retryCount + 1)));
+      return generateUniqueVoucherNumber(societyId, billHeadCode, date, residentId, session, retryCount + 1);
+    }
+
+    // If we've exhausted retries, try a different approach with timestamp
+    const timestamp = Date.now().toString().slice(-4);
+    const emergencyVoucherNumber = `${voucherPrefix}${timestamp}`;
+    
+    const emergencyExists = await JournalVoucher.findOne({
+      societyId,
+      voucherNumber: emergencyVoucherNumber
+    }).session(session);
+
+    if (!emergencyExists) {
+      return emergencyVoucherNumber;
+    }
+
+    throw new Error(`Failed to generate unique voucher number after ${maxRetries} retries`);
+  } catch (error) {
+    if (retryCount < maxRetries) {
+      // Add a small delay before retrying
+      await new Promise(resolve => setTimeout(resolve, 100 * (retryCount + 1)));
+      return generateUniqueVoucherNumber(societyId, billHeadCode, date, residentId, session, retryCount + 1);
+    }
+    console.error('Error generating voucher number:', error);
+    throw error;
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  // Verify cron secret to ensure only authorized calls
-  const cronSecret = req.headers['x-cron-secret'];
-  if (cronSecret !== process.env.CRON_SECRET) {
-    return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
     await connectToDatabase();
-    
-    const today = new Date();
-    const currentDay = today.getDate();
-    
-    // Fetch active scheduled bills that should be generated today
+
+    // Get all active scheduled bills that are due for generation
+    const now = new Date();
+    console.log('Running scheduled bill generation at:', now.toISOString());
+
+    // TEMPORARILY MODIFIED FOR TESTING - ignore dates
     const scheduledBills = await ScheduledBill.find({
       status: 'Active',
-      generateOn: currentDay,
-      $or: [
-        { endDate: { $exists: false } },
-        { endDate: { $gt: today } }
-      ]
-    }).populate('billHeadId');
+      nextGenerationDate: { $lte: now }  // DISABLED FOR TESTING
+    });
+
+    console.log(`Found ${scheduledBills.length} bills to process`);
 
     const results = {
-      total: scheduledBills.length,
-      processed: 0,
-      success: 0,
-      failed: 0,
-      errors: []
+      success: [],
+      failed: []
     };
 
-    for (const schedule of scheduledBills) {
+    for (const scheduledBill of scheduledBills) {
+      console.log(`Processing scheduled bill: ${scheduledBill._id} (${scheduledBill.title})`);
+      const session = await mongoose.startSession();
+      
       try {
-        results.processed++;
-        
-        // Get applicable residents based on targeting rules
-        const residents = await getApplicableResidents(schedule);
-        
-        // Generate bills for each resident
-        for (const resident of residents) {
-          try {
-            const billAmount = await calculateBillAmount(schedule, resident);
-            
-            // Generate bill number
-            const billNumber = await generateBillNumber(schedule.societyId);
-            
-            // Create the bill
-            const bill = await ResidentBill.create({
-              societyId: schedule.societyId,
-              billNumber,
-              residentId: resident._id,
-              billHeadId: schedule.billHeadId._id,
-              scheduledBillId: schedule._id,
-              amount: billAmount.baseAmount,
-              gstDetails: billAmount.gstDetails,
-              issueDate: today,
-              dueDate: calculateDueDate(today, schedule.dueAfterDays),
-              
-              // Store resident details for quick access
-              residentDetails: {
-                name: resident.name,
-                phone: resident.phone,
-                email: resident.email,
-                flatNumber: resident.flatDetails?.flatNumber,
-                blockName: resident.flatDetails?.blockName,
-                floorNumber: resident.flatDetails?.floorNumber
-              },
-              
-              // Store bill head details for quick access
-              billHeadDetails: {
-                code: schedule.billHeadId.code,
-                name: schedule.billHeadId.name,
-                category: schedule.billHeadId.category,
-                calculationType: schedule.billHeadId.calculationType
-              }
+        await session.withTransaction(async () => {
+          // Check if bills already generated for current period
+          const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+          const existingSuccess = scheduledBill.successHistory.find(
+            history => history.period === currentPeriod && history.status === 'Success'
+          );
+
+          if (existingSuccess) {
+            console.log(`Bills already generated for period ${currentPeriod} for scheduled bill: ${scheduledBill.title}`);
+            results.success.push({
+              id: scheduledBill._id,
+              title: scheduledBill.title,
+              billsGenerated: 0,
+              billsSkipped: scheduledBill.selectedResidents.length,
+              billType: scheduledBill.billHeadDetails.category,
+              reason: `Already generated for period ${currentPeriod}`,
+              nextGenerationDate: scheduledBill.nextGenerationDate
             });
-            
-            results.success++;
-          } catch (error) {
-            results.failed++;
-            results.errors.push({
-              residentId: resident._id,
-              error: error.message
-            });
+            return; // Skip this scheduled bill
           }
-        }
-        
-        // Update last generated date
-        schedule.lastGeneratedDate = today;
-        schedule.nextGenerationDate = calculateNextGenerationDate(schedule);
-        schedule.totalGeneratedCount++;
-        await schedule.save();
-        
+
+          // Determine bill model based on category
+          let BillModel;
+          switch (scheduledBill.billHeadDetails.category) {
+            case 'Utility':
+              BillModel = UtilityBill;
+              break;
+            case 'Maintenance':
+              BillModel = MaintenanceBill;
+              break;
+            case 'Amenity':
+              BillModel = AmenityBill;
+              break;
+            default:
+              throw new Error(`Unsupported bill type: ${scheduledBill.billHeadDetails.category}`);
+          }
+
+          console.log(`Generating ${scheduledBill.billHeadDetails.category} bills for ${scheduledBill.selectedResidents.length} residents`);
+
+          // Calculate base amount based on calculation type
+          let baseAmount = 0;
+          switch (scheduledBill.billHeadDetails.calculationType) {
+            case 'Fixed':
+              baseAmount = scheduledBill.billHeadDetails.fixedAmount;
+              break;
+            case 'PerUnit':
+              baseAmount = scheduledBill.unitUsage * scheduledBill.billHeadDetails.perUnitRate;
+              break;
+            case 'Formula':
+              try {
+                const formula = scheduledBill.billHeadDetails.formula
+                  .replace(/\$\{unitUsage\}/g, scheduledBill.unitUsage)
+                  .replace(/\$\{rate\}/g, scheduledBill.billHeadDetails.perUnitRate);
+                baseAmount = eval(formula);
+              } catch (error) {
+                throw new Error('Error calculating formula: ' + error.message);
+              }
+              break;
+          }
+
+          // Generate bills for each resident
+          const generatedBills = await Promise.all(
+            scheduledBill.selectedResidents.map(async (resident) => {
+              const dueDate = new Date(now.getTime() + (scheduledBill.dueDays * 24 * 60 * 60 * 1000));
+              
+              // Get bill head details to access proper ledger IDs
+              const billHead = await BillHead.findById(scheduledBill.billHeadDetails._id).session(session);
+              if (!billHead) {
+                throw new Error('Bill head not found');
+              }
+
+              // Get required ledgers from bill head accounting config
+              const incomeLedger = await Ledger.findById(billHead.accountingConfig.incomeLedgerId).session(session);
+              if (!incomeLedger) {
+                throw new Error('Income ledger not found');
+              }
+              const receivableLedger = await Ledger.findById(billHead.accountingConfig.receivableLedgerId).session(session);
+              if (!receivableLedger) {
+                throw new Error('Receivable ledger not found');
+              }
+
+              // Get GST ledger if applicable
+              let gstLedger;
+              if (scheduledBill.gstDetails.isGSTApplicable) {
+                gstLedger = await Ledger.findById(billHead.accountingConfig.gstLedgerId).session(session);
+                if (!gstLedger) {
+                  throw new Error('GST ledger not found');
+                }
+              }
+              
+              const billData = {
+                societyId: scheduledBill.societyId,
+                billHeadId: scheduledBill.billHeadDetails._id,
+                flatNumber: resident.flatNumber,
+                blockName: resident.blockName,
+                floorNumber: resident.floorNumber,
+                residentId: resident.residentId,
+                ownerName: resident.ownerName,
+                ownerMobile: resident.ownerMobile,
+                ownerEmail: resident.ownerEmail,
+                baseAmount: baseAmount,
+                unitUsage: scheduledBill.unitUsage,
+                perUnitRate: scheduledBill.billHeadDetails.perUnitRate,
+                formula: scheduledBill.billHeadDetails.formula,
+                periodType: scheduledBill.periodType,
+                gstDetails: scheduledBill.gstDetails,
+                latePaymentDetails: scheduledBill.latePaymentConfig,
+                totalAmount: scheduledBill.totalAmount,
+                additionalCharges: scheduledBill.additionalCharges || [],
+                issueDate: now,
+                dueDate: dueDate,
+                status: 'Pending',
+                createdBy: scheduledBill.createdBy,
+                approvedBy: {
+                  adminId: scheduledBill.createdBy,
+                  adminName: scheduledBill.approvedBy?.adminName || 'System',
+                  approvedAt: now
+                },
+                // Add reference to scheduled bill
+                scheduledBillReference: {
+                  scheduledBillId: scheduledBill._id,
+                  scheduledBillTitle: scheduledBill.title,
+                  generatedAt: now
+                }
+              };
+
+              const bill = new BillModel(billData);
+              bill.billNumber = await bill.generateBillNumber(session);
+              bill.remainingAmount = bill.totalAmount;
+
+              // Generate voucher number with retries and resident info
+              const voucherNumber = await generateUniqueVoucherNumber(
+                scheduledBill.societyId,
+                scheduledBill.billHeadDetails.code,
+                now,
+                resident.residentId,
+                session
+              );
+
+              console.log(`Generated voucher number for resident ${resident.residentId}: ${voucherNumber}`);
+
+              // Create journal voucher with all required fields
+              const journalVoucher = new JournalVoucher({
+                societyId: scheduledBill.societyId,
+                voucherNumber,
+                voucherType: 'Journal',
+                voucherDate: now,
+                referenceType: 'Bill',
+                referenceId: bill._id,
+                referenceNumber: bill.billNumber,
+                category: scheduledBill.billHeadDetails.category,
+                subCategory: scheduledBill.billHeadDetails.subCategory,
+                narration: `Auto-generated ${scheduledBill.billHeadDetails.category} bill for ${scheduledBill.title}`,
+                entries: [],
+                gstDetails: {
+                  isGSTApplicable: scheduledBill.gstDetails.isGSTApplicable,
+                  gstType: 'Regular',
+                  gstMonth: now,
+                  gstEntries: []
+                },
+                status: 'Active',
+                approvalStatus: 'Approved',
+                approvalWorkflow: [{
+                  action: 'Created',
+                  userId: scheduledBill.createdBy,
+                  remarks: 'Auto-generated by scheduled bill',
+                  timestamp: now
+                }],
+                createdBy: scheduledBill.createdBy,
+                tags: [scheduledBill.billHeadDetails.category, scheduledBill.billHeadDetails.subCategory],
+                approvedBy: {
+                  adminId: scheduledBill.createdBy,
+                  adminName: 'System',
+                  approvedAt: now
+                }
+              });
+
+              // Add credit entries first - Base amount
+              journalVoucher.entries.push({
+                ledgerId: incomeLedger._id,
+                type: 'credit',
+                amount: baseAmount,
+                description: `Bill for ${scheduledBill.title}`
+              });
+
+              // Add GST entries if applicable
+              if (scheduledBill.gstDetails.isGSTApplicable) {
+                if (scheduledBill.gstDetails.cgstAmount > 0) {
+                  journalVoucher.entries.push({
+                    ledgerId: gstLedger._id,
+                    type: 'credit',
+                    amount: scheduledBill.gstDetails.cgstAmount,
+                    description: `CGST (${scheduledBill.gstDetails.cgstPercentage}%) for ${scheduledBill.title}`
+                  });
+
+                  // Add to GST entries
+                  journalVoucher.gstDetails.gstEntries.push({
+                    type: 'CGST',
+                    percentage: scheduledBill.gstDetails.cgstPercentage,
+                    amount: scheduledBill.gstDetails.cgstAmount,
+                    ledgerId: gstLedger._id
+                  });
+                }
+
+                if (scheduledBill.gstDetails.sgstAmount > 0) {
+                  journalVoucher.entries.push({
+                    ledgerId: gstLedger._id,
+                    type: 'credit',
+                    amount: scheduledBill.gstDetails.sgstAmount,
+                    description: `SGST (${scheduledBill.gstDetails.sgstPercentage}%) for ${scheduledBill.title}`
+                  });
+
+                  // Add to GST entries
+                  journalVoucher.gstDetails.gstEntries.push({
+                    type: 'SGST',
+                    percentage: scheduledBill.gstDetails.sgstPercentage,
+                    amount: scheduledBill.gstDetails.sgstAmount,
+                    ledgerId: gstLedger._id
+                  });
+                }
+
+                if (scheduledBill.gstDetails.igstAmount > 0) {
+                  journalVoucher.entries.push({
+                    ledgerId: gstLedger._id,
+                    type: 'credit',
+                    amount: scheduledBill.gstDetails.igstAmount,
+                    description: `IGST (${scheduledBill.gstDetails.igstPercentage}%) for ${scheduledBill.title}`
+                  });
+
+                  // Add to GST entries
+                  journalVoucher.gstDetails.gstEntries.push({
+                    type: 'IGST',
+                    percentage: scheduledBill.gstDetails.igstPercentage,
+                    amount: scheduledBill.gstDetails.igstAmount,
+                    ledgerId: gstLedger._id
+                  });
+                }
+              }
+
+              // Add additional charges
+              for (const charge of scheduledBill.additionalCharges || []) {
+                journalVoucher.entries.push({
+                  ledgerId: charge.ledgerId,
+                  type: 'credit',
+                  amount: charge.amount,
+                  description: `${charge.chargeType} for ${scheduledBill.title}`
+                });
+              }
+
+              // Calculate total credit amount
+              const totalCredit = journalVoucher.entries
+                .filter(e => e.type === 'credit')
+                .reduce((sum, e) => sum + e.amount, 0);
+
+              // Add single debit entry for total
+              journalVoucher.entries.push({
+                ledgerId: receivableLedger._id,
+                type: 'debit',
+                amount: totalCredit,
+                description: `Total receivable for ${scheduledBill.title}`
+              });
+
+              // Save the journal voucher
+              await journalVoucher.save({ session });
+
+              // Update ledger balances for all entries
+              for (const entry of journalVoucher.entries) {
+                const ledger = await Ledger.findById(entry.ledgerId).session(session);
+                if (ledger) {
+                  await ledger.updateBalance(entry.amount, entry.type, session);
+                  console.log(`Updated ledger ${ledger.name} with ${entry.type} amount: ${entry.amount}`);
+                } else {
+                  console.warn(`Ledger not found for ID: ${entry.ledgerId}`);
+                }
+              }
+
+              // Add journal entry reference to bill
+              bill.journalEntries = [{
+                voucherId: journalVoucher._id,
+                type: 'Bill',
+                amount: scheduledBill.totalAmount,
+                date: now
+              }];
+
+              await bill.save({ session });
+              return bill;
+            })
+          );
+
+          console.log(`Successfully generated ${generatedBills.length} bills`);
+
+          // Update scheduled bill
+          scheduledBill.lastGenerationDate = now;
+          scheduledBill.nextGenerationDate = scheduledBill.calculateNextGenerationDate();
+          scheduledBill.generationHistory.push({
+            generatedAt: now,
+            billsGenerated: generatedBills.length,
+            status: 'Success'
+          });
+
+          // Add to success history for duplicate prevention
+          scheduledBill.successHistory.push({
+            generationDate: now,
+            billIds: generatedBills.map(bill => bill._id),
+            period: currentPeriod,
+            status: 'Success',
+            billsGenerated: generatedBills.length,
+            billType: scheduledBill.billHeadDetails.category
+          });
+
+          await scheduledBill.save({ session });
+
+          results.success.push({
+            id: scheduledBill._id,
+            title: scheduledBill.title,
+            billsGenerated: generatedBills.length,
+            billType: scheduledBill.billHeadDetails.category,
+            nextGenerationDate: scheduledBill.nextGenerationDate
+          });
+        });
       } catch (error) {
-        results.failed++;
-        results.errors.push({
-          scheduleId: schedule._id,
+        console.error(`Error generating bills for scheduled bill ${scheduledBill._id}:`, error);
+        
+        // Record failed generation attempt
+        scheduledBill.generationHistory.push({
+          generatedAt: now,
+          status: 'Failed',
           error: error.message
         });
+        await scheduledBill.save();
+
+        results.failed.push({
+          id: scheduledBill._id,
+          title: scheduledBill.title,
+          error: error.message
+        });
+      } finally {
+        await session.endSession();
       }
     }
 
+    console.log('Bill generation completed:', {
+      successCount: results.success.length,
+      failedCount: results.failed.length
+    });
+
     return res.status(200).json({
-      message: 'Bill generation completed',
+      message: 'Scheduled bills generation completed',
       results
     });
+
   } catch (error) {
-    console.error('Error in bill generation:', error);
-    return res.status(500).json({ 
-      message: 'Error generating bills',
-      error: error.message
-    });
+    console.error('Error in generate-monthly-bills:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
-}
-
-// Helper function to get applicable residents
-async function getApplicableResidents(schedule) {
-  let query = {
-    societyId: schedule.societyId,
-    status: 'Active'
-  };
-
-  if (schedule.applicableTo === 'Specific') {
-    if (schedule.targetResidents?.length > 0) {
-      query._id = { $in: schedule.targetResidents };
-    }
-    
-    if (schedule.targetBlocks?.length > 0) {
-      query['flatDetails.blockName'] = { $in: schedule.targetBlocks };
-    }
-    
-    if (schedule.targetFloors?.length > 0) {
-      query['flatDetails.floorNumber'] = { $in: schedule.targetFloors };
-    }
-    
-    if (schedule.targetFlatTypes?.length > 0) {
-      query['flatDetails.type'] = { $in: schedule.targetFlatTypes };
-    }
-  }
-
-  return await Resident.find(query);
-}
-
-// Helper function to calculate bill amount
-async function calculateBillAmount(schedule, resident) {
-  const billHead = schedule.billHeadId;
-  let baseAmount = 0;
-  
-  switch (schedule.calculationType) {
-    case 'Fixed':
-      baseAmount = schedule.fixedAmount;
-      break;
-      
-    case 'PerUnit':
-      const area = resident.flatDetails?.area || 0;
-      baseAmount = area * schedule.perUnitRate;
-      break;
-      
-    case 'Formula':
-      // Evaluate formula with resident data
-      const formula = schedule.formula
-        .replace('{area}', resident.flatDetails?.area || 0)
-        .replace('{members}', resident.familyMembers?.length || 1);
-      baseAmount = eval(formula);
-      break;
-      
-    case 'Custom':
-      // Use bill head's calculation method
-      baseAmount = billHead.calculateCharge(
-        resident.flatDetails?.area || 0,
-        !resident.isRented
-      );
-      break;
-  }
-  
-  // Calculate GST if applicable
-  const gstDetails = {
-    isGSTApplicable: schedule.gstConfig?.isGSTApplicable || false,
-    gstType: schedule.gstConfig?.gstType || 'None',
-    gstPercentage: schedule.gstConfig?.gstPercentage || 0,
-    gstAmount: 0
-  };
-  
-  if (gstDetails.isGSTApplicable) {
-    gstDetails.gstAmount = (baseAmount * gstDetails.gstPercentage) / 100;
-    baseAmount += gstDetails.gstAmount;
-  }
-  
-  return { baseAmount, gstDetails };
-}
-
-// Helper function to generate bill number
-async function generateBillNumber(societyId) {
-  const date = new Date();
-  const prefix = 'BILL/' + 
-    date.getFullYear().toString().substr(-2) + 
-    ('0' + (date.getMonth() + 1)).slice(-2) + '/';
-  
-  const lastBill = await ResidentBill.findOne({
-    societyId,
-    billNumber: new RegExp('^' + prefix)
-  }).sort({ billNumber: -1 });
-  
-  let nextNumber = 1;
-  if (lastBill) {
-    const lastNumber = parseInt(lastBill.billNumber.split('/').pop());
-    nextNumber = lastNumber + 1;
-  }
-  
-  return prefix + ('000' + nextNumber).slice(-4);
-}
-
-// Helper function to calculate due date
-function calculateDueDate(issueDate, dueAfterDays) {
-  const dueDate = new Date(issueDate);
-  dueDate.setDate(dueDate.getDate() + dueAfterDays);
-  return dueDate;
-}
-
-// Helper function to calculate next generation date
-function calculateNextGenerationDate(schedule) {
-  const today = new Date();
-  const nextDate = new Date(today);
-  
-  switch (schedule.frequency) {
-    case 'Monthly':
-      nextDate.setMonth(nextDate.getMonth() + 1);
-      break;
-    case 'Quarterly':
-      nextDate.setMonth(nextDate.getMonth() + 3);
-      break;
-    case 'Half-Yearly':
-      nextDate.setMonth(nextDate.getMonth() + 6);
-      break;
-    case 'Yearly':
-      nextDate.setFullYear(nextDate.getFullYear() + 1);
-      break;
-    case 'Custom':
-      nextDate.setDate(nextDate.getDate() + (schedule.customFrequencyDays || 30));
-      break;
-  }
-  
-  nextDate.setDate(schedule.generateOn);
-  return nextDate;
 } 

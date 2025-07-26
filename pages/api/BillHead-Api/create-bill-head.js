@@ -26,6 +26,12 @@ const validateBillHead = (data) => {
     errors.category = 'Invalid category';
   }
 
+  // Period Type validation
+  const validPeriodTypes = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'HalfYearly', 'Yearly'];
+  if (data.periodType && !validPeriodTypes.includes(data.periodType)) {
+    errors.periodType = 'Invalid period type';
+  }
+
   // Subcategory validation
   const subCategories = {
     Utility: ['Water', 'Electricity', 'Gas', 'Internet', 'Cable', 'Telephone', 'Other'],
@@ -107,7 +113,7 @@ const validateBillHead = (data) => {
 };
 
 // Add this function after the validation functions
-const createRequiredLedgers = async (societyId, category, subCategory, userId) => {
+const createRequiredLedgers = async (societyId, category, subCategory, userId, adminName = 'Admin') => {
   const Ledger = mongoose.model('Ledger');
   const ledgers = {};
 
@@ -159,7 +165,13 @@ const createRequiredLedgers = async (societyId, category, subCategory, userId) =
         reconciliationStatus: 'Pending',
         status: 'Active',
         gstConfig: { isGSTApplicable: false },
-        tdsConfig: { isTDSApplicable: false }
+        tdsConfig: { isTDSApplicable: false },
+        // Add admin approval details
+        approvedBy: {
+          adminId: userId,
+          adminName: adminName,
+          approvedAt: new Date()
+        }
       });
       ledgers.incomeLedger = incomeLedger;
     } else {
@@ -183,7 +195,13 @@ const createRequiredLedgers = async (societyId, category, subCategory, userId) =
         reconciliationStatus: 'Pending',
         status: 'Active',
         gstConfig: { isGSTApplicable: false },
-        tdsConfig: { isTDSApplicable: false }
+        tdsConfig: { isTDSApplicable: false },
+        // Add admin approval details
+        approvedBy: {
+          adminId: userId,
+          adminName: adminName,
+          approvedAt: new Date()
+        }
       });
       ledgers.receivableLedger = receivableLedger;
     } else {
@@ -205,7 +223,13 @@ const createRequiredLedgers = async (societyId, category, subCategory, userId) =
         reconciliationStatus: 'Pending',
         status: 'Active',
         gstConfig: { isGSTApplicable: false },
-        tdsConfig: { isTDSApplicable: false }
+        tdsConfig: { isTDSApplicable: false },
+        // Add admin approval details
+        approvedBy: {
+          adminId: userId,
+          adminName: adminName,
+          approvedAt: new Date()
+        }
       });
       ledgers.gstLedger = gstLedger;
     } else {
@@ -238,10 +262,20 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
+    // Extract admin details from token
+    const adminId = decoded.id;
+    const adminName = decoded.name || 'Admin'; // Fallback if name is not in token
+
     const { societyId, ...billHeadData } = req.body;
 
     // Create required ledgers first
-    const ledgers = await createRequiredLedgers(societyId, billHeadData.category, billHeadData.subCategory, decoded.id);
+    const ledgers = await createRequiredLedgers(
+      societyId, 
+      billHeadData.category, 
+      billHeadData.subCategory, 
+      decoded.id,
+      adminName  // Pass the admin name to the function
+    );
 
     // Create the bill head with proper ledger references and createdBy
     const billHead = new BillHead({
@@ -252,6 +286,12 @@ export default async function handler(req, res) {
         incomeLedgerId: ledgers.incomeLedger._id,
         receivableLedgerId: ledgers.receivableLedger._id,
         gstLedgerId: ledgers.gstLedger._id
+      },
+      // Add admin approval details
+      approvedBy: {
+        adminId: adminId,
+        adminName: adminName,
+        approvedAt: new Date()
       }
     });
 

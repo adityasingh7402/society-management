@@ -88,12 +88,7 @@ export default function PendingResidents() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          flatDetails: selectedResident.flatDetails,
-          adminDetails: {
-            adminId: societyData._id,
-            adminName: societyData.managerName || societyData.name,
-            approvedAt: new Date()
-          }
+          flatDetails: selectedResident.flatDetails
         })
       });
 

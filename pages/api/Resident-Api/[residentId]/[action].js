@@ -1,13 +1,32 @@
 import connectToDatabase from '../../../../lib/mongodb';
 import Resident from '../../../../models/Resident';
 import Society from '../../../../models/Society';
+import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
   if (req.method === 'PUT') {
     const { residentId, action } = req.query;
-    const { flatDetails, adminDetails } = req.body;
+    const { flatDetails } = req.body;
 
     await connectToDatabase();
+
+    let adminDetails = null;
+    try {
+      // Decode JWT from Authorization header
+      const authHeader = req.headers.authorization || req.headers.Authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        adminDetails = {
+          adminId: decoded.id,
+          adminName: decoded.name,
+          approvedAt: new Date()
+        };
+      }
+    } catch (err) {
+      // If decoding fails, continue without adminDetails
+      adminDetails = null;
+    }
 
     try {
       // First, get the resident details
@@ -25,7 +44,7 @@ export default async function handler(req, res) {
         resident.flatDetails = flatDetails;
       }
 
-      // Add admin approval details if action is 'Approved'
+      // Add admin approval details if action is 'Approved' and adminDetails is available
       if (action === 'Approved' && adminDetails) {
         resident.approvedBy = {
           adminId: adminDetails.adminId,

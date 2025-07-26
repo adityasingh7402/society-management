@@ -230,6 +230,7 @@ export default function ManageMembers() {
 
   // Update the handleEditMember function
   const handleEditMember = (member) => {
+    setSelectedMember(member); // <-- Add this line
     setFormData({
       name: member.name,
       email: member.email,

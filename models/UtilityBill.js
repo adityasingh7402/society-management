@@ -25,13 +25,49 @@ const UtilityBillSchema = new mongoose.Schema({
   },
   ownerName: { type: String, required: true },
   ownerMobile: { type: String, required: true },
-  ownerEmail: { type: String },
+  ownerEmail: {
+    type: String,
+    required: true
+  },
+  periodType: {
+    type: String,
+    enum: ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'HalfYearly', 'Yearly'],
+    required: true,
+    default: 'Monthly'
+  },
   
   // Bill calculation details
   baseAmount: { type: Number, required: true },
   unitUsage: { type: Number },
   perUnitRate: { type: Number },
   formula: { type: String },
+  
+  // Additional charges
+  additionalCharges: [{
+    chargeType: {
+      type: String,
+      enum: [
+        'Society Charges',
+        'Platform Charges',
+        'Transfer Charges',
+        'NOC Charges',
+        'Processing Fees',
+        'Late Payment Charges',
+        'Legal Charges',
+        'Documentation Charges',
+        'Administrative Charges',
+        'Event Charges',
+        'Miscellaneous'
+      ]
+    },
+    amount: { type: Number, required: true },
+    ledgerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Ledger',
+      required: true
+    },
+    description: String
+  }],
   
   // GST details
   gstDetails: {
@@ -85,7 +121,11 @@ const UtilityBillSchema = new mongoose.Schema({
     recordedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
-    }
+    },
+    // Add maker information fields
+    makerName: String,
+    makerContact: String,
+    makerEmail: String
   }],
   
   // Journal entries
@@ -111,6 +151,25 @@ const UtilityBillSchema = new mongoose.Schema({
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  // Approval details
+  approvedBy: {
+    adminId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Society' 
+    },
+    adminName: { type: String },
+    approvedAt: { type: Date }
+  },
+  
+  // Scheduled bill reference (for auto-generated bills)
+  scheduledBillReference: {
+    scheduledBillId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ScheduledBill'
+    },
+    scheduledBillTitle: { type: String },
+    generatedAt: { type: Date }
   }
 }, { 
   timestamps: true 
@@ -123,7 +182,7 @@ UtilityBillSchema.pre('save', function(next) {
 });
 
 // Method to generate bill number
-UtilityBillSchema.methods.generateBillNumber = async function() {
+UtilityBillSchema.methods.generateBillNumber = async function(session) {
   const date = new Date();
   const prefix = 'UTL/' + date.getFullYear().toString().substr(-2) + 
     ('0' + (date.getMonth() + 1)).slice(-2) + '/';
@@ -131,15 +190,29 @@ UtilityBillSchema.methods.generateBillNumber = async function() {
   const lastBill = await this.constructor.findOne({
     societyId: this.societyId,
     billNumber: new RegExp('^' + prefix)
-  }).sort({ billNumber: -1 });
+  }).sort({ billNumber: -1 }).session(session);
   
   let nextNumber = 1;
   if (lastBill) {
     const lastNumber = parseInt(lastBill.billNumber.split('/').pop());
-    nextNumber = lastNumber + 1;
+    nextNumber = isNaN(lastNumber) ? 1 : lastNumber + 1;
   }
   
-  return prefix + ('000' + nextNumber).slice(-4);
+  const billNumber = prefix + ('000' + nextNumber).slice(-4);
+
+  // Verify the generated number is unique
+  const existingBill = await this.constructor.findOne({
+    societyId: this.societyId,
+    billNumber: billNumber
+  }).session(session);
+
+  if (existingBill) {
+    // If duplicate found, recursively try next number
+    this.billNumber = prefix + ('000' + (nextNumber + 1)).slice(-4);
+    return this.generateBillNumber(session);
+  }
+
+  return billNumber;
 };
 
 // Method to calculate late payment charges

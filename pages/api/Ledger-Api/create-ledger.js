@@ -19,6 +19,10 @@ export default async function handler(req, res) {
       return res.status(401).json({ message: 'Invalid token' });
     }
 
+    // Extract admin details from token
+    const adminId = decoded.id;
+    const adminName = decoded.name || 'Admin'; // Fallback if name is not in token
+
     await connectToDatabase();
 
     const {
@@ -96,7 +100,13 @@ export default async function handler(req, res) {
       isControlled: isControlled || false,
       controlLimit,
       status: 'Active',
-      createdBy: decoded.id
+      createdBy: decoded.id,
+      // Add admin approval details
+      approvedBy: {
+        adminId: adminId,
+        adminName: adminName,
+        approvedAt: new Date()
+      }
     };
 
     // Create new ledger

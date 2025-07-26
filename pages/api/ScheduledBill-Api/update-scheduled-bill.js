@@ -1,99 +1,97 @@
 import connectToDatabase from "../../../lib/mongodb";
 import ScheduledBill from '../../../models/ScheduledBill';
-import { verifyToken } from '../../../utils/auth';
+import BillHead from '../../../models/BillHead';
+import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // Verify authentication token
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'Unauthorized - No token provided' });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded || !decoded.societyId) {
-      return res.status(401).json({ message: 'Unauthorized - Invalid token' });
-    }
-
     await connectToDatabase();
 
-    const { id } = req.query;
-    if (!id) {
-      return res.status(400).json({ message: 'Scheduled bill ID is required' });
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
     }
 
-    // Find existing scheduled bill
-    const existingBill = await ScheduledBill.findOne({
-      _id: id,
-      societyId: decoded.societyId
-    });
-
-    if (!existingBill) {
-      return res.status(404).json({ message: 'Scheduled bill not found' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
-    // Update fields
-    const updateData = {
-      ...req.body,
-      modifiedBy: decoded.Id,
-      modifiedAt: new Date()
-    };
+    const { id, societyId } = req.query;
+    if (!societyId) {
+      return res.status(400).json({ error: 'Society ID is required' });
+    }
 
-    // Remove fields that shouldn't be updated
-    delete updateData.societyId;
-    delete updateData.createdBy;
-    delete updateData.createdAt;
-    delete updateData._id;
+    const updateData = req.body;
 
-    // Special handling for status changes
-    if (updateData.status && updateData.status !== existingBill.status) {
-      switch (updateData.status) {
-        case 'Paused':
-          // Store the current next generation date to resume from later
-          updateData.lastGeneratedDate = existingBill.nextGenerationDate;
-          updateData.nextGenerationDate = null;
-          break;
-        case 'Active':
-          if (existingBill.status === 'Paused') {
-            // Resume from the stored next generation date
-            updateData.nextGenerationDate = existingBill.lastGeneratedDate;
-          }
-          break;
-        case 'Cancelled':
-          updateData.nextGenerationDate = null;
-          break;
+    // Verify bill head exists if it's being updated
+    if (updateData.billHeadId) {
+      const billHead = await BillHead.findById(updateData.billHeadId);
+      if (!billHead) {
+        return res.status(404).json({ error: 'Bill head not found' });
+      }
+
+      // Update bill head details
+      updateData.billHeadDetails = {
+        _id: billHead._id,  // Store the original billHead _id
+        code: billHead.code,
+        name: billHead.name,
+        category: billHead.category,
+        subCategory: billHead.subCategory,
+        calculationType: billHead.calculationType,
+        perUnitRate: billHead.perUnitRate,
+        fixedAmount: billHead.fixedAmount,
+        formula: billHead.formula
+      };
+
+      // Update late payment config from bill head if not provided
+      if (!updateData.latePaymentConfig) {
+        updateData.latePaymentConfig = {
+          isLatePaymentChargeApplicable: billHead.latePaymentConfig?.isLatePaymentChargeApplicable || false,
+          gracePeriodDays: billHead.latePaymentConfig?.gracePeriodDays || 0,
+          chargeType: billHead.latePaymentConfig?.chargeType || 'Fixed',
+          chargeValue: billHead.latePaymentConfig?.chargeValue || 0,
+          compoundingFrequency: billHead.latePaymentConfig?.compoundingFrequency || 'Monthly'
+        };
       }
     }
 
-    // Update the scheduled bill
-    const updatedBill = await ScheduledBill.findByIdAndUpdate(
-      id,
-      { $set: updateData },
+    // Find and update the scheduled bill
+    const scheduledBill = await ScheduledBill.findOneAndUpdate(
+      { _id: id, societyId },
       {
-        new: true,
-        runValidators: true
-      }
-    ).populate('billHeadId', 'name code');
+        ...updateData,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
 
-    res.status(200).json({
+    if (!scheduledBill) {
+      return res.status(404).json({ error: 'Scheduled bill not found' });
+    }
+
+    // Recalculate next generation date if frequency or dates changed
+    if (
+      updateData.frequency ||
+      updateData.customFrequencyDays ||
+      updateData.startDate ||
+      updateData.status
+    ) {
+      scheduledBill.nextGenerationDate = scheduledBill.calculateNextGenerationDate();
+      await scheduledBill.save();
+    }
+
+    return res.status(200).json({
       message: 'Scheduled bill updated successfully',
-      scheduledBill: updatedBill
+      data: scheduledBill
     });
 
   } catch (error) {
-    console.error('Error updating scheduled bill:', error);
-    
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        message: 'Validation error',
-        errors: Object.values(error.errors).map(err => err.message)
-      });
-    }
-    
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error in update-scheduled-bill:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 } 

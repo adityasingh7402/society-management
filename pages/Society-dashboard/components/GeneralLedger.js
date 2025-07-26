@@ -46,7 +46,7 @@ export default function GeneralLedger() {
 
   // Format amount helper
   const formatAmount = (amount, type) => {
-    if (amount === undefined || amount === null) return '₹0.00';
+    if (amount === undefined || amount === null || isNaN(amount)) return '₹0.00';
     const formattedAmount = Math.abs(amount).toFixed(2);
     return `₹${formattedAmount}${type ? ` ${type}` : ''}`;
   };
@@ -139,15 +139,18 @@ export default function GeneralLedger() {
       }
       const voucherEntry = voucherMap.get(key);
       
-      if (entry.entries.ledgerId === selectedIncomeLedger) {
-        if (entry.entries.type === 'credit') {
-          voucherEntry.income = entry.entries.amount;
-        } else {
-          voucherEntry.collection = entry.entries.amount;
-        }
-      }
-      if (entry.entries.ledgerId === selectedReceivableLedger && entry.entries.type === 'debit') {
-        voucherEntry.receivable = entry.entries.amount;
+      // Process all entries in the voucher
+      if (entry.entries && Array.isArray(entry.entries)) {
+        entry.entries.forEach(entryItem => {
+          // Find income amount (credit entry for bill)
+          if (entryItem.type === 'credit' && entryItem.description.includes('Bill for')) {
+            voucherEntry.income = entryItem.amount;
+          }
+          // Find receivable amount (debit entry for total receivable)
+          if (entryItem.type === 'debit' && entryItem.description.includes('Total receivable')) {
+            voucherEntry.receivable = entryItem.amount;
+          }
+        });
       }
     });
     
@@ -164,12 +167,23 @@ export default function GeneralLedger() {
     return combinedEntries.map((entry, index) => {
       // Format GST details if available
       let gstInfo = '';
-      if (entry.gstDetails && entry.gstDetails.isGSTApplicable) {
-        const baseAmount = entry.entries.amount / (1 + (entry.gstDetails.gstEntries.reduce((sum, gst) => sum + gst.rate, 0) / 100));
-        gstInfo = `Base Amount: ₹${formatAmount(baseAmount)}\n`;
-        entry.gstDetails.gstEntries.forEach(gst => {
-          gstInfo += `${gst.type} (${gst.rate}%): ₹${formatAmount((baseAmount * gst.rate) / 100)}\n`;
-        });
+      if (entry.gstDetails && entry.gstDetails.isGSTApplicable && entry.gstDetails.gstEntries) {
+        try {
+          // Always treat entries as an array
+          const entriesArr = Array.isArray(entry.entries) ? entry.entries : (entry.entries ? [entry.entries] : []);
+          const baseAmountEntry = entriesArr.find(e => e.type === 'credit' && e.description && e.description.includes('Bill for'));
+          const baseAmount = baseAmountEntry ? baseAmountEntry.amount : 0;
+          
+          gstInfo = `Base Amount: ${formatAmount(baseAmount)}\n`;
+          
+          // Add individual GST components from gstEntries
+          entry.gstDetails.gstEntries.forEach(gst => {
+            gstInfo += `${gst.type} (${gst.percentage || 0}%): ${formatAmount(gst.amount || 0)}\n`;
+          });
+        } catch (error) {
+          console.error('Error calculating GST details:', error);
+          gstInfo = 'GST calculation error';
+        }
       }
 
       return (

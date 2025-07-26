@@ -1,78 +1,96 @@
 import connectToDatabase from "../../../lib/mongodb";
 import ScheduledBill from '../../../models/ScheduledBill';
-import { verifyToken } from '../../../utils/auth';
+import BillHead from '../../../models/BillHead';  // Import BillHead model
+import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // Verify authentication token
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'Unauthorized - No token provided' });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded || !decoded.societyId) {
-      return res.status(401).json({ message: 'Unauthorized - Invalid token' });
-    }
-
     await connectToDatabase();
 
-    // Build query
-    const { status, frequency, billHeadId } = req.query;
-    const query = { societyId: decoded.societyId };
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
 
-    if (status) query.status = status;
-    if (frequency) query.frequency = frequency;
-    if (billHeadId) query.billHeadId = billHeadId;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
 
-    // Fetch scheduled bills
+    const query = { societyId: req.query.societyId };
+    console.log("query", query);
+
+    // Add filters if provided
+    if (req.query.status) {
+      query.status = req.query.status;
+    }
+    if (req.query.frequency) {
+      query.frequency = req.query.frequency;
+    }
+    if (req.query.billHeadId) {
+      query.billHeadId = req.query.billHeadId;
+    }
+
+    // Fetch scheduled bills with populated bill head
     const scheduledBills = await ScheduledBill.find(query)
-      .populate('billHeadId', 'name code')
-      .sort({ nextGenerationDate: 1, createdAt: -1 });
+      .populate('billHeadId', 'name code category subCategory')
+      .sort({ nextGenerationDate: 1 });
+    console.log("scheduledBills", scheduledBills);
 
     // Calculate summary
     const summary = {
       total: scheduledBills.length,
-      active: scheduledBills.filter(bill => bill.status === 'Active').length,
-      paused: scheduledBills.filter(bill => bill.status === 'Paused').length,
-      completed: scheduledBills.filter(bill => bill.status === 'Completed').length,
-      cancelled: scheduledBills.filter(bill => bill.status === 'Cancelled').length,
+      active: scheduledBills.filter(b => b.status === 'Active').length,
+      paused: scheduledBills.filter(b => b.status === 'Paused').length,
+      completed: scheduledBills.filter(b => b.status === 'Completed').length,
+      cancelled: scheduledBills.filter(b => b.status === 'Cancelled').length,
       byFrequency: {},
-      byCalculationType: {}
+      byCategory: {}
     };
 
-    // Group by frequency and calculation type
+    // Calculate frequency summary
     scheduledBills.forEach(bill => {
+      // Frequency summary
       if (!summary.byFrequency[bill.frequency]) {
         summary.byFrequency[bill.frequency] = 0;
       }
       summary.byFrequency[bill.frequency]++;
 
-      if (!summary.byCalculationType[bill.calculationType]) {
-        summary.byCalculationType[bill.calculationType] = 0;
+      // Category summary
+      const category = bill.billHeadId?.category || 'Unknown';
+      if (!summary.byCategory[category]) {
+        summary.byCategory[category] = 0;
       }
-      summary.byCalculationType[bill.calculationType]++;
+      summary.byCategory[category]++;
     });
 
-    // Get upcoming bills
-    const upcomingBills = scheduledBills
-      .filter(bill => bill.status === 'Active' && bill.nextGenerationDate)
-      .sort((a, b) => a.nextGenerationDate - b.nextGenerationDate)
-      .slice(0, 5);
+    // Get upcoming bills (next 7 days)
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now);
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
-    res.status(200).json({
-      message: 'Scheduled bills fetched successfully',
+    const upcomingBills = scheduledBills.filter(bill => {
+      const nextGen = new Date(bill.nextGenerationDate);
+      return bill.status === 'Active' && nextGen >= now && nextGen <= sevenDaysFromNow;
+    }).map(bill => ({
+      _id: bill._id,
+      title: bill.title,
+      nextGenerationDate: bill.nextGenerationDate,
+      billHead: bill.billHeadDetails
+    }));
+
+    return res.status(200).json({
       scheduledBills,
       summary,
       upcomingBills
     });
 
   } catch (error) {
-    console.error('Error fetching scheduled bills:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error in get-scheduled-bills:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 } 

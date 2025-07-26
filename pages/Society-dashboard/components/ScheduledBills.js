@@ -4,6 +4,7 @@ import PreloaderSociety from '../../components/PreloaderSociety';
 import { useRouter } from 'next/router';
 import { usePermissions } from "../../../components/PermissionsContext";
 import AccessDenied from "../widget/societyComponents/accessRestricted";
+import ScheduledBillModal from '../../../components/Society/widgets/ScheduledBillModal';
 
 export default function ScheduledBills() {
   const permissions = usePermissions();
@@ -58,19 +59,46 @@ export default function ScheduledBills() {
         return;
       }
 
-      const queryParams = new URLSearchParams(filters).toString();
+      // First get society details
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+
+      if (!societyData.societyId) {
+        throw new Error('Society ID not found in response');
+      }
+
+      // Build query params
+      const queryParams = new URLSearchParams({
+        societyId: societyData._id,
+        ...(filters.status && { status: filters.status }),
+        ...(filters.frequency && { frequency: filters.frequency }),
+        ...(filters.billHeadId && { billHeadId: filters.billHeadId })
+      });
+
+      // Then fetch scheduled bills
       const response = await fetch(`/api/ScheduledBill-Api/get-scheduled-bills?${queryParams}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setBills(data.scheduledBills);
-        setSummary(data.summary);
-        setUpcomingBills(data.upcomingBills);
+      if (!response.ok) {
+        throw new Error('Failed to fetch scheduled bills');
       }
+
+      const data = await response.json();
+      setBills(data.scheduledBills);
+      setSummary(data.summary);
+      setUpcomingBills(data.upcomingBills);
     } catch (error) {
       console.error('Error fetching scheduled bills:', error);
       showNotification('Failed to fetch scheduled bills', 'error');
@@ -78,6 +106,50 @@ export default function ScheduledBills() {
   };
 
   const fetchBillHeads = async () => {
+    try {
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      // First get society details
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+
+      if (!societyData.societyId) {
+        throw new Error('Society ID not found in response');
+      }
+
+      // Then fetch bill heads
+      const response = await fetch(`/api/BillHead-Api/get-bill-heads?societyId=${societyData.societyId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch bill heads');
+      }
+
+      const data = await response.json();
+      setBillHeads(data.data);
+    } catch (error) {
+      console.error('Error fetching bill heads:', error);
+      showNotification('Failed to fetch bill heads', 'error');
+    }
+  };
+
+  const handleStatusChange = async (billId, newStatus) => {
     try {
       const token = localStorage.getItem('Society');
       if (!token) {
@@ -97,32 +169,8 @@ export default function ScheduledBills() {
       }
 
       const societyData = await societyResponse.json();
-      const societyId = societyData.societyId;
 
-      const response = await fetch(`/api/BillHead-Api/get-bill-heads?societyId=${societyId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setBillHeads(data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching bill heads:', error);
-    }
-  };
-
-  const handleStatusChange = async (billId, newStatus) => {
-    try {
-      const token = localStorage.getItem('Society');
-      if (!token) {
-        router.push('/societyLogin');
-        return;
-      }
-
-      const response = await fetch(`/api/ScheduledBill-Api/update-scheduled-bill?id=${billId}`, {
+      const response = await fetch(`/api/ScheduledBill-Api/update-scheduled-bill?id=${billId}&societyId=${societyData._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -192,21 +240,21 @@ export default function ScheduledBills() {
       )}
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="mx-auto px-4 py-6">
         {/* Summary Cards */}
-        {summary && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="mx-auto px-4 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg shadow p-4">
               <h3 className="text-lg font-semibold text-gray-700 mb-2">Total Bills</h3>
-              <p className="text-3xl font-bold text-gray-900">{summary.total}</p>
+              <p className="text-2xl font-bold text-gray-900">{summary?.total || 0}</p>
               <div className="mt-2 text-sm text-gray-500">
-                Active: {summary.active} | Paused: {summary.paused}
+                Active: {summary?.active || 0} | Paused: {summary?.paused || 0}
               </div>
             </div>
             <div className="bg-white rounded-lg shadow p-4">
               <h3 className="text-lg font-semibold text-gray-700 mb-2">By Frequency</h3>
               <div className="space-y-1">
-                {Object.entries(summary.byFrequency).map(([freq, count]) => (
+                {Object.entries(summary?.byFrequency || {}).map(([freq, count]) => (
                   <div key={freq} className="flex justify-between text-sm">
                     <span>{freq}</span>
                     <span className="font-medium">{count}</span>
@@ -215,11 +263,11 @@ export default function ScheduledBills() {
               </div>
             </div>
             <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">By Calculation</h3>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">By Category</h3>
               <div className="space-y-1">
-                {Object.entries(summary.byCalculationType).map(([type, count]) => (
-                  <div key={type} className="flex justify-between text-sm">
-                    <span>{type}</span>
+                {Object.entries(summary?.byCategory || {}).map(([category, count]) => (
+                  <div key={category} className="flex justify-between text-sm">
+                    <span>{category}</span>
                     <span className="font-medium">{count}</span>
                   </div>
                 ))}
@@ -228,18 +276,24 @@ export default function ScheduledBills() {
             <div className="bg-white rounded-lg shadow p-4">
               <h3 className="text-lg font-semibold text-gray-700 mb-2">Upcoming Bills</h3>
               <div className="space-y-2">
-                {upcomingBills.map((bill, index) => (
-                  <div key={index} className="text-sm">
-                    <div className="font-medium">{bill.title}</div>
-                    <div className="text-gray-500">
-                      {new Date(bill.nextGenerationDate).toLocaleDateString()}
+                {upcomingBills.length > 0 ? (
+                  upcomingBills.map((bill, index) => (
+                    <div key={index} className="text-sm">
+                      <div className="font-medium">{bill.title}</div>
+                      <div className="text-gray-500">
+                        {new Date(bill.nextGenerationDate).toLocaleDateString()}
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-gray-500 italic">
+                    No upcoming bills in the next 7 days
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
@@ -281,11 +335,58 @@ export default function ScheduledBills() {
                 onChange={(e) => setFilters(prev => ({ ...prev, billHeadId: e.target.value }))}
               >
                 <option value="">All Bill Heads</option>
-                {billHeads.map(head => (
-                  <option key={head._id} value={head._id}>
-                    {head.code} - {head.name}
-                  </option>
-                ))}
+                {/* Utility Bills */}
+                {billHeads.filter(head => head.category === 'Utility').length > 0 && (
+                  <optgroup label="Utility Bills">
+                    {billHeads
+                      .filter(head => head.category === 'Utility')
+                      .map(head => (
+                        <option key={head._id} value={head._id}>
+                          {head.code} - {head.name}
+                        </option>
+                      ))
+                    }
+                  </optgroup>
+                )}
+                {/* Maintenance Bills */}
+                {billHeads.filter(head => head.category === 'Maintenance').length > 0 && (
+                  <optgroup label="Maintenance Bills">
+                    {billHeads
+                      .filter(head => head.category === 'Maintenance')
+                      .map(head => (
+                        <option key={head._id} value={head._id}>
+                          {head.code} - {head.name}
+                        </option>
+                      ))
+                    }
+                  </optgroup>
+                )}
+                {/* Amenity Bills */}
+                {billHeads.filter(head => head.category === 'Amenity').length > 0 && (
+                  <optgroup label="Amenity Bills">
+                    {billHeads
+                      .filter(head => head.category === 'Amenity')
+                      .map(head => (
+                        <option key={head._id} value={head._id}>
+                          {head.code} - {head.name}
+                        </option>
+                      ))
+                    }
+                  </optgroup>
+                )}
+                {/* Additional Charges */}
+                {billHeads.filter(head => head.category === 'Other').length > 0 && (
+                  <optgroup label="Additional Charges">
+                    {billHeads
+                      .filter(head => head.category === 'Other')
+                      .map(head => (
+                        <option key={head._id} value={head._id}>
+                          {head.code} - {head.name}
+                        </option>
+                      ))
+                    }
+                  </optgroup>
+                )}
               </select>
             </div>
             <div className="flex items-end">
@@ -395,8 +496,79 @@ export default function ScheduledBills() {
         </div>
       </div>
 
-      {/* TODO: Implement Create Modal */}
-      {/* TODO: Implement Edit Modal */}
+      {/* Create/Edit Modal */}
+      {(showCreateModal || showEditModal) && (
+        <ScheduledBillModal
+          isOpen={true}
+          onClose={() => {
+            setShowCreateModal(false);
+            setShowEditModal(false);
+            setSelectedBill(null);
+          }}
+          billHeads={billHeads}
+          selectedBill={selectedBill}
+          onSubmit={async (formData) => {
+            try {
+              const token = localStorage.getItem('Society');
+              if (!token) {
+                router.push('/societyLogin');
+                return;
+              }
+
+              // First get society details
+              const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+
+              if (!societyResponse.ok) {
+                throw new Error('Failed to fetch society details');
+              }
+
+              const societyData = await societyResponse.json();
+
+              if (!societyData.societyId) {
+                throw new Error('Society ID not found in response');
+              }
+
+              const response = await fetch(
+                selectedBill
+                  ? `/api/ScheduledBill-Api/update-scheduled-bill?id=${selectedBill._id}&societyId=${societyData.societyId}`
+                  : '/api/ScheduledBill-Api/create-scheduled-bill',
+                {
+                  method: selectedBill ? 'PUT' : 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    ...formData,
+                    societyId: societyData._id
+                  })
+                }
+              );
+
+              if (response.ok) {
+                showNotification(
+                  `Scheduled bill ${selectedBill ? 'updated' : 'created'} successfully`,
+                  'success'
+                );
+                setShowCreateModal(false);
+                setShowEditModal(false);
+                setSelectedBill(null);
+                fetchScheduledBills();
+              } else {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to save scheduled bill');
+              }
+            } catch (error) {
+              console.error('Error saving scheduled bill:', error);
+              showNotification(error.message, 'error');
+            }
+          }}
+        />
+      )}
     </div>
   );
 } 

@@ -1,856 +1,762 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import Webcam from 'react-webcam';
-import { useRouter } from 'next/router';
-import {
-  Camera, User, Clock, LogOut, Home, Building,
-  CheckCircle, XCircle, Layers, MessageSquare,
-  Calendar, Shield, Loader
-} from 'lucide-react';
-import { FaArrowLeft } from "react-icons/fa";
+import React, { useEffect, useState } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
-import { usePermissions } from "../../../components/PermissionsContext";
-import AccessDenied from "../widget/societyComponents/accessRestricted";
+import { Eye, User, Home, Trash2, Filter, Calendar, CheckCircle, XCircle, X, Phone, Mail, MapPin, Clock, LogOut, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { useRouter } from 'next/router';
+import Notification from '../../../components/Society/widgets/Notification';
+
+// Helper to group visitors by date range
+function groupVisitorsByDate(visitors) {
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfYesterday = new Date(startOfToday); startOfYesterday.setDate(startOfToday.getDate() - 1);
+  const startOfLastWeek = new Date(startOfToday); startOfLastWeek.setDate(startOfToday.getDate() - 7);
+  const startOfLastMonth = new Date(startOfToday); startOfLastMonth.setMonth(startOfToday.getMonth() - 1);
+  const startOfLastYear = new Date(startOfToday); startOfLastYear.setFullYear(startOfToday.getFullYear() - 1);
+
+  const groups = {
+    today: [],
+    yesterday: [],
+    lastWeek: [],
+    lastMonth: [],
+    lastYear: [],
+  };
+
+  visitors.forEach(v => {
+    const entry = new Date(v.entryTime);
+    if (entry >= startOfToday) {
+      groups.today.push(v);
+    } else if (entry >= startOfYesterday) {
+      groups.yesterday.push(v);
+    } else if (entry >= startOfLastWeek) {
+      groups.lastWeek.push(v);
+    } else if (entry >= startOfLastMonth) {
+      groups.lastMonth.push(v);
+    } else if (entry >= startOfLastYear) {
+      groups.lastYear.push(v);
+    }
+  });
+  return groups;
+}
 
 export default function VisitorEntry() {
-  const permissions = usePermissions();
-  if (!permissions.includes("manage_security") && !permissions.includes("full_access")) {
-    return <AccessDenied />;
-  }
-
-  const router = useRouter();
-  const [visitorName, setVisitorName] = useState('');
-  const [visitorImage, setVisitorImage] = useState(null);
-  const [visitorReason, setVisitorReason] = useState('');
-  const [entryTime, setEntryTime] = useState(new Date().toISOString().split('.')[0]);
-  const [exitTime, setExitTime] = useState('');
-  const [showCamera, setShowCamera] = useState(false);
-  const [permissionStatus, setPermissionStatus] = useState('pending');
-  const [isCameraReady, setIsCameraReady] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [securityDetails, setSecurityDetails] = useState({});
+  const [visitors, setVisitors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+  const [filters, setFilters] = useState({ block: '', floor: '', flat: '', status: '', from: '', to: '' });
+  const [allBlocks, setAllBlocks] = useState([]);
+  const [allFloors, setAllFloors] = useState([]);
+  const [allFlats, setAllFlats] = useState([]);
   const [societyId, setSocietyId] = useState('');
-  const [showPopup, setShowPopup] = useState(false);
-  const [cameraFacingMode, setCameraFacingMode] = useState('environment');
-  const [popupMessage, setPopupMessage] = useState('');
-  const [popupType, setPopupType] = useState('');
+  const [selectedVisitor, setSelectedVisitor] = useState(null);
+  const [showDetailPopup, setShowDetailPopup] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [visitorToDelete, setVisitorToDelete] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImageName, setSelectedImageName] = useState('');
+  const router = useRouter();
+  const [openGroup, setOpenGroup] = useState(''); // which group is open (except today)
 
-  // Structure and resident state 
-  const [structuredResidents, setStructuredResidents] = useState({});
-  const [selectedBlock, setSelectedBlock] = useState('');
-  const [selectedFloor, setSelectedFloor] = useState('');
-  const [selectedFlat, setSelectedFlat] = useState('');
-  const [selectedResident, setSelectedResident] = useState(null);
-  const [activeStep, setActiveStep] = useState(1);
-
-  const webcamRef = useRef(null);
-
-  // Fetch security details on component mount
+  // Fetch societyId on mount
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchSociety = async () => {
       try {
-        const token = localStorage.getItem("Society");
+        const token = localStorage.getItem('Society');
         if (!token) {
-          router.push("/societyLogin");
+          router.push('/societyLogin');
           return;
         }
-
-        const response = await fetch("/api/Society-Api/get-society-details", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const res = await fetch('/api/Society-Api/get-society-details', {
+          headers: { Authorization: `Bearer ${token}` },
         });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch profile");
-        }
-
-        const data = await response.json();
-        setSecurityDetails(data);
-        setSocietyId(data._id);
+        if (!res.ok) throw new Error('Failed to fetch society details');
+        const data = await res.json();
+        setSocietyId(data._id || data.societyId);
       } catch (error) {
-        console.error("Error fetching profile:", error);
-        showNotification("Failed to fetch Society profile", "error");
+        setNotification({ show: true, message: error.message, type: 'error' });
       }
     };
-
-    fetchProfile();
+    fetchSociety();
   }, [router]);
 
-  // Fetch residents on component mount
+  // Fetch visitors when societyId or filters change
   useEffect(() => {
-    const fetchResidents = async () => {
+    if (!societyId) return;
+    const fetchVisitors = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/Security-Api/getAllResidents');
-        if (response.ok) {
-          const data = await response.json();
-          organizeResidentsByStructure(data);
-        } else {
-          console.error('Failed to fetch residents');
-        }
+        let url = `/api/VisitorApi/Get-All-Visitors?societyId=${societyId}`;
+        if (filters.block) url += `&blockName=${filters.block}`;
+        if (filters.floor) url += `&floorNumber=${filters.floor}`;
+        if (filters.flat) url += `&flatNumber=${filters.flat}`;
+        // No status filter in API, so filter client-side
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch visitors');
+        const { data } = await res.json();
+        let filtered = data;
+        // Date range filter
+        if (filters.from) filtered = filtered.filter(v => new Date(v.entryTime) >= new Date(filters.from));
+        if (filters.to) filtered = filtered.filter(v => new Date(v.entryTime) <= new Date(filters.to));
+        // Status filter
+        if (filters.status) filtered = filtered.filter(v => v.status === filters.status);
+        setVisitors(filtered);
+        // Populate block/floor/flat options
+        const blocks = [...new Set(data.map(v => v.blockName))];
+        setAllBlocks(blocks);
+        const floors = filters.block ? [...new Set(data.filter(v => v.blockName === filters.block).map(v => v.floorNumber))] : [];
+        setAllFloors(floors);
+        const flats = filters.block && filters.floor ? [...new Set(data.filter(v => v.blockName === filters.block && v.floorNumber === Number(filters.floor)).map(v => v.flatNumber))] : [];
+        setAllFlats(flats);
       } catch (error) {
-        console.error('Error fetching residents:', error);
+        setNotification({ show: true, message: error.message, type: 'error' });
       } finally {
         setLoading(false);
       }
     };
+    fetchVisitors();
+  }, [societyId, filters]);
 
-    fetchResidents();
-  }, []);
-
-  // Show notification popup
-  const showNotification = (message, type) => {
-    setPopupMessage(message);
-    setPopupType(type);
-    setShowPopup(true);
-
-    // Auto hide after 3 seconds
-    setTimeout(() => {
-      setShowPopup(false);
-    }, 3000);
+  // Handle filter changes
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value, ...(name === 'block' ? { floor: '', flat: '' } : name === 'floor' ? { flat: '' } : {}) }));
   };
 
-  // Organize residents by apartment structure
-  const organizeResidentsByStructure = (residents) => {
-    const structure = {};
-
-    residents.forEach(resident => {
-      if (!resident.flatDetails || !resident.flatDetails.flatNumber) return;
-
-      // Parse flat number format (e.g., "A-101" where A is block and 101 is flat number) 
-      const flatNumberParts = resident.flatDetails.flatNumber.split('-');
-      if (flatNumberParts.length !== 2) return;
-
-      const blockName = flatNumberParts[0];
-      const flatNumber = flatNumberParts[1];
-      const floorNumber = flatNumber.substring(0, 1); // Assuming first digit of flat number is floor
-
-      // Initialize block if it doesn't exist 
-      if (!structure[blockName]) {
-        structure[blockName] = {};
-      }
-
-      // Initialize floor if it doesn't exist 
-      if (!structure[blockName][floorNumber]) {
-        structure[blockName][floorNumber] = {};
-      }
-
-      // Initialize flat if it doesn't exist 
-      if (!structure[blockName][floorNumber][flatNumber]) {
-        structure[blockName][floorNumber][flatNumber] = [];
-      }
-
-      // Add resident to the flat 
-      structure[blockName][floorNumber][flatNumber].push(resident);
-    });
-
-    setStructuredResidents(structure);
+  // Handle view visitor details
+  const handleViewDetails = (visitor) => {
+    setSelectedVisitor(visitor);
+    setShowDetailPopup(true);
   };
 
-  // Handle step navigation
-  const goToStep = (step) => {
-    if (step === 2 && !selectedFlat) {
-      showNotification("Please select a flat first", "error");
-      return;
-    }
-
-    if (step === 3 && !selectedResident) {
-      showNotification("Please ensure a resident is selected", "error");
-      return;
-    }
-
-    setActiveStep(step);
+  // Handle delete visitor
+  const handleDelete = (visitor) => {
+    setVisitorToDelete(visitor);
+    setShowDeleteModal(true);
   };
 
-  // Handle block selection
-  const handleBlockChange = (e) => {
-    const block = e.target.value;
-    setSelectedBlock(block);
-    setSelectedFloor('');
-    setSelectedFlat('');
-    setSelectedResident(null);
-  };
-
-  // Handle floor selection
-  const handleFloorChange = (e) => {
-    const floor = e.target.value;
-    setSelectedFloor(floor);
-    setSelectedFlat('');
-    setSelectedResident(null);
-  };
-
-  // Handle flat selection and auto-populate resident data
-  const handleFlatChange = (e) => {
-    const flat = e.target.value;
-    setSelectedFlat(flat);
-
-    // Auto-select the first resident in the flat
-    if (selectedBlock && selectedFloor && flat) {
-      const residents = structuredResidents[selectedBlock][selectedFloor][flat];
-      if (residents && residents.length > 0) {
-        setSelectedResident(residents[0]);
-      } else {
-        setSelectedResident(null);
-      }
-    }
-  };
-
-  // Camera and photo capture functions
-  const requestCameraAccess = () => {
-    setShowCamera(true);
-  };
-
-  const handleUserMedia = () => {
-    setIsCameraReady(true);
-    setPermissionStatus('granted');
-  };
-
-  const handleUserMediaError = () => {
-    setPermissionStatus('denied');
-    setIsCameraReady(false);
-    showNotification("Camera access denied. Please check browser settings.", "error");
-  };
-
-  // Upload image after visitor entry is created
-  const uploadImage = async (file, visitorId) => {
-    try {
-      setUploadingImage(true);
-
-      const formData = new FormData();
-      formData.append('visitorId', visitorId); // Use the actual visitor ID now
-      formData.append('image', file);
-
-      const imageUploadResponse = await fetch('/api/VisitorApi/Visitor-imageUpload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!imageUploadResponse.ok) {
-        throw new Error('Image upload failed');
-      }
-
-      const imageData = await imageUploadResponse.json();
-      showNotification("Image uploaded successfully", "success");
-
-      return imageData;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      showNotification(error.message || 'Error uploading image', "error");
-      throw error;
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const capturePhoto = useCallback(() => {
-    if (webcamRef.current) {
-      const imageSrc = webcamRef.current.getScreenshot();
-
-      // Convert base64 image to file object
-      fetch(imageSrc)
-        .then((res) => res.blob())
-        .then((blob) => {
-          const file = new File([blob], 'visitor-photo.jpg', { type: 'image/jpeg' });
-          setVisitorImage(file);
-          setShowCamera(false);
-        })
-        .catch((err) => {
-          console.error('Error converting image:', err);
-          showNotification("Failed to capture photo", "error");
-        });
-    }
-  }, [webcamRef]);
-
-  // Handle form submission - First create visitor entry, then upload image
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!selectedResident) {
-      showNotification("Please select a valid flat with resident information", "error");
-      return;
-    }
-
-    if (!visitorImage) {
-      showNotification("Please take a photo of the visitor", "error");
-      return;
-    }
-
+  // Confirm delete visitor
+  const confirmDelete = async () => {
+    if (!visitorToDelete) return;
     try {
       setLoading(true);
-
-      // Step 1: Create visitor entry first without image
-      const visitorData = {
-        societyId: securityDetails.societyId,
-        blockName: selectedBlock,
-        floorNumber: parseInt(selectedFloor),
-        flatNumber: selectedFlat,
-        residentId: selectedResident._id,
-        ownerName: selectedResident.name,
-        ownerMobile: selectedResident.phone,
-        ownerEmail: selectedResident.email,
-        visitorName,
-        visitorReason,
-        entryTime,
-        exitTime,
-        CreatedBy: societyId
-      };
-
-      const entryResponse = await fetch('/api/VisitorApi/VisitorEntry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(visitorData),
-      });
-
-      if (!entryResponse.ok) {
-        throw new Error('Failed to create visitor entry');
-      }
-
-      const entryData = await entryResponse.json();
-      const visitorId = entryData._id || entryData.visitorId;
-
-      if (!visitorId) {
-        throw new Error('No visitor ID returned from server');
-      }
-
-      // Step 2: Now upload the image with the actual visitor ID
-      const imageData = await uploadImage(visitorImage, visitorId);
-
-      // Step 3: Update visitor entry with image information if needed
-      // Only if the API doesn't handle this internally
-      if (imageData && imageData.imageId) {
-        await fetch(`/api/VisitorApi/update-visitor/${visitorId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ visitorImageId: imageData.imageId }),
-        });
-      }
-
-      // Success!
-      showNotification("Visitor entry created successfully!", "success");
-
-      // Reset form
-      setVisitorName('');
-      setVisitorImage(null);
-      setVisitorReason('');
-      setSelectedBlock('');
-      setSelectedFloor('');
-      setSelectedFlat('');
-      setSelectedResident(null);
-      setEntryTime(new Date().toISOString().split('.')[0]);
-      setExitTime('');
-      setActiveStep(1);
-
+      const res = await fetch(`/api/VisitorApi/Delete-Visitor-Entry?visitorId=${visitorToDelete._id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete visitor entry');
+      setVisitors(prev => prev.filter(v => v._id !== visitorToDelete._id));
+      setNotification({ show: true, message: 'Visitor entry deleted successfully', type: 'success' });
+      setShowDeleteModal(false);
+      setVisitorToDelete(null);
     } catch (error) {
-      console.error('Error creating visitor entry:', error);
-      showNotification(error.message || 'Error creating visitor entry', "error");
+      setNotification({ show: true, message: error.message, type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  // Render progress steps
-  const renderProgressSteps = () => {
-    return (
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          {[1, 2, 3].map((step) => (
-            <div
-              key={step}
-              className="flex-1 relative"
-              onClick={() => goToStep(step)}
-            >
-              <div className={`
-                flex flex-col items-center cursor-pointer
-                ${step < activeStep ? 'text-green-600' : step === activeStep ? 'text-blue-600' : 'text-gray-400'}
-              `}>
-                <div className={`
-                  w-10 h-10 rounded-full flex items-center justify-center mb-1
-                  ${step < activeStep
-                    ? 'bg-green-100 border-2 border-green-500'
-                    : step === activeStep
-                      ? 'bg-blue-100 border-2 border-blue-500'
-                      : 'bg-gray-100 border-2 border-gray-300'}
-                `}>
-                  {step === 1 && <Building size={20} />}
-                  {step === 2 && <User size={20} />}
-                  {step === 3 && <Camera size={20} />}
-                </div>
-                <span className="text-xs font-medium mt-1 text-center">
-                  {step === 1 && "Select Flat"}
-                  {step === 2 && "Resident"}
-                  {step === 3 && "Visitor"}
-                </span>
-              </div>
-
-              {/* Connector line */}
-              {step < 3 && (
-                <div className={`absolute top-5 left-full w-full h-0.5 -ml-2.5 ${step < activeStep ? 'bg-green-500' : 'bg-gray-300'
-                  }`} style={{ width: 'calc(100% - 20px)' }}></div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+  // Handle image click
+  const handleImageClick = (imageUrl, visitorName) => {
+    setSelectedImage(imageUrl);
+    setSelectedImageName(visitorName);
+    setShowImageModal(true);
   };
 
+  // Format date/time
+  const formatDate = (date) => date ? new Date(date).toLocaleString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+
+  // Group visitors by date for accordion rendering
+  const grouped = groupVisitorsByDate(visitors);
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      {/* Header with security details */}
-      <div className="classss">
-        <button onClick={() => router.back()} className="flex items-center p-4 md:p-6 space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors">
-          <FaArrowLeft size={18} />
-          <span className="text-base">Back</span>
-        </button>
-      </div>
-      <h1 className="text-2xl md:text-4xl font-bold text-blue-600 mb-4 md:mb-8 text-center">Security Guard Profile</h1>
-
-      {/* Notification Popup */}
-      {showPopup && (
-        <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-xs animate-fade-in ${popupType === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-          }`}>
-          <div className="flex items-center">
-            <span className="mr-2 flex-shrink-0">
-              {popupType === 'success' ? <CheckCircle size={20} /> : <XCircle size={20} />}
-            </span>
-            <p className="text-sm">{popupMessage}</p>
-            <button
-              onClick={() => setShowPopup(false)}
-              className="ml-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 flex-shrink-0"
-              aria-label="Close notification"
-            >
-              <XCircle size={16} />
-            </button>
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <header className="bg-gray-800 shadow-lg border-b-4 border-green-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
+              <User className="mr-3" size={32} />
+              Visitor Entry Log
+            </h1>
           </div>
         </div>
-      )}
+      </header>
 
-      {/* Main loading overlay */}
-      {loading && (
-        <PreloaderSociety />
-      )}
+      {/* Notification */}
+      <Notification {...notification} />
 
-      <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-        {/* Progress Steps */}
-        {renderProgressSteps()}
+      {/* Filters */}
+      <div className="mx-auto py-4 px-4">
+        <div className="bg-white rounded-xl shadow-sm border border-blue-100 p-6 mb-6">
+          <div className="flex items-center mb-4">
+            <Filter className="h-5 w-5 text-blue-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-800">Filter Visitors</h3>
+          </div>
 
-        {/* Step 1: Select Flat */}
-        <div className={`${activeStep === 1 ? 'block' : 'hidden'} mb-6 border-b pb-4`}>
-          <h2 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-            <Building className="mr-2 text-blue-600" size={20} />
-            Select Apartment
-          </h2>
-
-          {/* Block Selection */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Block</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            {/* Block Filter */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 flex items-center">
+                <Home className="h-4 w-4 mr-1 text-blue-600" />
+                Block
+              </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Layers size={18} className="text-gray-500" />
-              </div>
               <select
-                value={selectedBlock}
-                onChange={handleBlockChange}
-                className="block w-full pl-10 p-2.5 border border-gray-300 rounded-md bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                required
+                  name="block" 
+                  value={filters.block} 
+                  onChange={handleFilterChange} 
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-blue-400"
               >
-                <option value="">Select Block</option>
-                {Object.keys(structuredResidents).sort().map((block) => (
-                  <option key={block} value={block}>
-                    Block {block}
-                  </option>
-                ))}
+                  <option value="">All Blocks</option>
+                  {allBlocks.map(block => <option key={block} value={block}>Block {block}</option>)}
               </select>
-            </div>
-          </div>
-
-          {/* Floor Selection */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Layers size={18} className="text-gray-500" />
-              </div>
-              <select
-                value={selectedFloor}
-                onChange={handleFloorChange}
-                className="block w-full pl-10 p-2.5 border border-gray-300 rounded-md bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                disabled={!selectedBlock}
-                required
-              >
-                <option value="">Select Floor</option>
-                {selectedBlock &&
-                  Object.keys(structuredResidents[selectedBlock] || {}).sort().map((floor) => (
-                    <option key={floor} value={floor}>
-                      Floor {floor}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Flat Selection */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Flat Number</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Home size={18} className="text-gray-500" />
-              </div>
-              <select
-                value={selectedFlat}
-                onChange={handleFlatChange}
-                className="block w-full pl-10 p-2.5 border border-gray-300 rounded-md bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                disabled={!selectedFloor}
-                required
-              >
-                <option value="">Select Flat</option>
-                {selectedBlock &&
-                  selectedFloor &&
-                  Object.keys(structuredResidents[selectedBlock][selectedFloor] || {}).sort().map((flat) => (
-                    <option key={flat} value={flat}>
-                      Flat {flat}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Navigation Button */}
-          <div className="mt-6">
-            <button
-              type="button"
-              disabled={!selectedFlat}
-              onClick={() => goToStep(2)}
-              className={`w-full py-3 rounded-md text-white font-medium flex items-center justify-center ${!selectedFlat
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-            >
-              Continue
-              <svg
-                className="ml-2 w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Step 2: Resident Details Section */}
-        <div className={`${activeStep === 2 ? 'block' : 'hidden'} mb-6 border-b pb-4`}>
-          <h2 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-            <User className="mr-2 text-blue-600" size={20} />
-            Resident Details
-          </h2>
-
-          <div className="bg-blue-50 p-4 rounded-md shadow-sm">
-            {selectedResident ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                      <User size={16} className="mr-1 text-blue-600" />
-                      Resident Name
-                    </label>
-                    <div className="p-3 bg-white border border-gray-300 rounded-md shadow-sm">
-                      {selectedResident.name || 'N/A'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                      <svg className="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                          d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                      Mobile Number
-                    </label>
-                    <div className="p-3 bg-white border border-gray-300 rounded-md shadow-sm">
-                      {selectedResident.phone || 'N/A'}
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                      <svg className="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      Email
-                    </label>
-                    <div className="p-3 bg-white border border-gray-300 rounded-md shadow-sm">
-                      {selectedResident.email || 'N/A'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center p-2 mt-3 bg-blue-100 rounded-md">
-                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                   </svg>
-                  <p className="text-sm text-blue-700">
-                    Selected apartment: Block {selectedBlock}, Floor {selectedFloor}, Flat {selectedFlat}
-                  </p>
-                </div>
-              </>
-            ) : (
-              <div className="text-center p-6 text-gray-500 flex flex-col items-center">
-                <User size={40} className="text-gray-400 mb-2" />
-                <p>Resident information will appear here after selecting a flat</p>
-              </div>
-            )}
+          </div>
+            </div>
           </div>
 
-          {/* Navigation Buttons */}
-          <div className="mt-6 flex justify-between space-x-4">
-            <button
-              type="button"
-              onClick={() => goToStep(1)}
-              className="flex-1 py-3 border border-gray-300 rounded-md text-gray-700 font-medium bg-white hover:bg-gray-50 flex items-center justify-center"
-            >
-              <svg
-                className="mr-2 w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            {/* Floor Filter */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 flex items-center">
+                <svg className="h-4 w-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              Back
-            </button>
+                Floor
+                    </label>
+              <div className="relative">
+                <select 
+                  name="floor" 
+                  value={filters.floor} 
+                  onChange={handleFilterChange} 
+                  disabled={!filters.block}
+                  className={`w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-blue-400 ${!filters.block ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <option value="">All Floors</option>
+                  {allFloors.map(floor => <option key={floor} value={floor}>Floor {floor}</option>)}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
 
-            <button
-              type="button"
-              onClick={() => goToStep(3)}
-              className="flex-1 py-3 rounded-md text-white font-medium bg-blue-600 hover:bg-blue-700 flex items-center justify-center"
-            >
-              Continue
-              <svg
-                className="ml-2 w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+            {/* Flat Filter */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 flex items-center">
+                <svg className="h-4 w-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z" />
+                </svg>
+                Flat
+              </label>
+              <div className="relative">
+                <select 
+                  name="flat" 
+                  value={filters.flat} 
+                  onChange={handleFilterChange} 
+                  disabled={!filters.floor}
+                  className={`w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-blue-400 ${!filters.floor ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <option value="">All Flats</option>
+                  {allFlats.map(flat => <option key={flat} value={flat}>Flat {flat}</option>)}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+          </div>
+
+            {/* Status Filter */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 flex items-center">
+                <svg className="h-4 w-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-            </button>
+                Status
+              </label>
+              <div className="relative">
+                <select 
+                  name="status" 
+                  value={filters.status} 
+                  onChange={handleFilterChange} 
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer hover:border-blue-400"
+                >
+                  <option value="">All Status</option>
+                  <option value="approve">✅ Approved</option>
+                  <option value="reject">❌ Rejected</option>
+                  <option value="pending">⏳ Pending</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
           </div>
         </div>
-
-        {/* Step 3: Visitor Details Section */}
-        <div className={`${activeStep === 3 ? 'block' : 'hidden'}`}>
-          <h2 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-            <User className="mr-2 text-blue-600" size={20} />
-            Visitor Details
-          </h2>
-
-          {/* Visitor Name */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-              <User size={16} className="mr-1 text-gray-600" />
-              Visitor Name
-            </label>
-            <input
-              type="text"
-              value={visitorName}
-              onChange={(e) => setVisitorName(e.target.value)}
-              className="block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              required
-              placeholder="Enter visitor's full name"
-            />
           </div>
 
-          {/* Visitor Reason */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-              <MessageSquare size={16} className="mr-1 text-gray-600" />
-              Purpose of Visit
-            </label>
-            <input
-              type="text"
-              value={visitorReason}
-              onChange={(e) => setVisitorReason(e.target.value)}
-              className="block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              required
-              placeholder="e.g., Delivery, Guest, Maintenance"
-            />
-          </div>
-
-          {/* Times Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            {/* Entry Time */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                <Clock size={16} className="mr-1 text-gray-600" />
-                Entry Time
+            {/* From Date Filter */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 flex items-center">
+                <Calendar className="h-4 w-4 mr-1 text-blue-600" />
+                From Date
               </label>
               <input
-                type="datetime-local"
-                value={entryTime}
-                onChange={(e) => setEntryTime(e.target.value)}
-                className="block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                required
+                type="date" 
+                name="from" 
+                value={filters.from} 
+                onChange={handleFilterChange} 
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400"
               />
             </div>
 
-            {/* Exit Time (Optional) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
-                <LogOut size={16} className="mr-1 text-gray-600" />
-                Exit Time <span className="text-gray-500 text-xs ml-1">(Optional)</span>
+            {/* To Date Filter */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 flex items-center">
+                <Calendar className="h-4 w-4 mr-1 text-blue-600" />
+                To Date
               </label>
               <input
-                type="datetime-local"
-                value={exitTime}
-                onChange={(e) => setExitTime(e.target.value)}
-                className="block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                type="date" 
+                name="to" 
+                value={filters.to} 
+                onChange={handleFilterChange} 
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400"
               />
             </div>
           </div>
 
-          {/* Visitor Image (Camera Capture) */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-              <Camera size={16} className="mr-1 text-gray-600" />
-              Visitor Image <span className="text-red-500 ml-1">*</span>
-            </label>
-
-            {!showCamera ? (
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                {visitorImage ? (
-                  <div className="relative w-32 h-32 border border-gray-300 rounded-md overflow-hidden shadow-md">
-                    <img
-                      src={URL.createObjectURL(visitorImage)}
-                      alt="Visitor"
-                      className="w-full h-full object-cover" />
+          {/* Clear Filters Button */}
+          <div className="mt-4 flex justify-end">
                     <button
-                      type="button"
-                      onClick={() => setVisitorImage(null)}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600"
-                      title="Remove photo"
+              onClick={() => setFilters({ block: '', floor: '', flat: '', status: '', from: '', to: '' })}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center text-sm font-medium"
                     >
-                      <XCircle size={16} />
+              <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Filters
                     </button>
                   </div>
+        </div>
+      </div>
+
+      {/* Main Content - Table */}
+      <div className="mx-auto py-4 px-4">
+        {loading ? (
+          <PreloaderSociety />
                 ) : (
-                  <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center bg-gray-50">
-                    <Camera size={32} className="text-gray-400" />
-                  </div>
+          <div className="bg-white rounded-lg shadow-lg overflow-x-auto">
+            {/* Today group (always open) */}
+            <div className="border-b">
+              <button className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-t-lg font-semibold text-blue-800 text-lg focus:outline-none cursor-default" disabled>
+                <span className="flex items-center"><Calendar className="mr-2 text-blue-600" size={20}/>Today</span>
+                <span className="ml-2 text-xs bg-blue-200 text-blue-800 rounded-full px-2 py-0.5">{grouped.today.length}</span>
+              </button>
+              <div className="transition-all duration-300">
+                {grouped.today.length > 0 ? (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visitor</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entry Time</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exit Time</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Block</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Floor</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flat</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner Mobile</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {grouped.today.map((v) => (
+                        <tr key={v._id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 whitespace-nowrap">{v.visitorName}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <img 
+                              src={v.visitorImage || '/profile.png'} 
+                              alt={v.visitorName} 
+                              className="h-10 w-10 rounded-full object-cover border cursor-pointer hover:opacity-80 transition-opacity duration-200" 
+                              onClick={() => handleImageClick(v.visitorImage || '/profile.png', v.visitorName)}
+                              onError={e => {e.target.src = '/profile.png'}} 
+                            />
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">{v.visitorReason}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{formatDate(v.entryTime)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{formatDate(v.exitTime)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {v.status === 'approve' && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Approved</span>}
+                            {v.status === 'reject' && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>}
+                            {v.status === 'pending' && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">{v.blockName}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{v.floorNumber}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{v.flatNumber}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{v.ownerName}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{v.ownerMobile}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                            <button className="text-blue-600 hover:text-blue-900 mr-2" title="View Details" onClick={() => handleViewDetails(v)}><Eye size={18} /></button>
+                            <button className="text-red-600 hover:text-red-900" title="Delete" onClick={() => handleDelete(v)}><Trash2 size={18} /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-center py-6 text-gray-500">No visitors today.</div>
                 )}
-
-                <button
-                  type="button"
-                  onClick={requestCameraAccess}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
-                >
-                  {visitorImage ? "Retake Photo" : "Take Photo"}
-                  <Camera size={16} className="ml-2" />
-                </button>
               </div>
-            ) : (
-              <div className="relative border border-gray-300 rounded-lg overflow-hidden">
-                {permissionStatus === 'denied' ? (
-                  <div className="p-4 text-center text-red-500 bg-red-50">
-                    <p>Camera access denied. Please check your browser permissions.</p>
+            </div>
+            {/* Other groups: yesterday, lastWeek, lastMonth, lastYear */}
+            {[
+              { key: 'yesterday', label: 'Yesterday', color: 'yellow', icon: <Calendar className="mr-2 text-yellow-600" size={20}/> },
+              { key: 'lastWeek', label: 'Last Week', color: 'purple', icon: <Calendar className="mr-2 text-purple-600" size={20}/> },
+              { key: 'lastMonth', label: 'Last Month', color: 'green', icon: <Calendar className="mr-2 text-green-600" size={20}/> },
+              { key: 'lastYear', label: 'Last Year', color: 'gray', icon: <Calendar className="mr-2 text-gray-600" size={20}/> },
+            ].map(group => (
+              <div key={group.key} className="border-b">
+                <button
+                  className={`w-full flex items-center justify-between px-4 py-3 bg-${group.color}-50 hover:bg-${group.color}-100 font-semibold text-${group.color}-800 text-lg focus:outline-none transition-colors duration-200`}
+                  onClick={() => setOpenGroup(openGroup === group.key ? '' : group.key)}
+                >
+                  <span className="flex items-center">{group.icon}{group.label}</span>
+                  <span className="flex items-center">
+                    <span className={`ml-2 text-xs bg-${group.color}-200 text-${group.color}-800 rounded-full px-2 py-0.5`}>{grouped[group.key].length}</span>
+                    {openGroup === group.key ? <ChevronUp className="ml-2" size={18}/> : <ChevronDown className="ml-2" size={18}/>}
+                  </span>
+                </button>
+                <div className={`transition-all duration-300 overflow-hidden ${openGroup === group.key ? 'max-h-[2000px]' : 'max-h-0'}`}>
+                  {openGroup === group.key && grouped[group.key].length > 0 && (
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visitor</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entry Time</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exit Time</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Block</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Floor</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flat</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner Mobile</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {grouped[group.key].map((v) => (
+                          <tr key={v._id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap">{v.visitorName}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <img 
+                                src={v.visitorImage || '/profile.png'} 
+                                alt={v.visitorName} 
+                                className="h-10 w-10 rounded-full object-cover border cursor-pointer hover:opacity-80 transition-opacity duration-200" 
+                                onClick={() => handleImageClick(v.visitorImage || '/profile.png', v.visitorName)}
+                                onError={e => {e.target.src = '/profile.png'}} 
+                              />
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">{v.visitorReason}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{formatDate(v.entryTime)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{formatDate(v.exitTime)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {v.status === 'approve' && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Approved</span>}
+                              {v.status === 'reject' && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>}
+                              {v.status === 'pending' && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">{v.blockName}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{v.floorNumber}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{v.flatNumber}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{v.ownerName}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{v.ownerMobile}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                              <button className="text-blue-600 hover:text-blue-900 mr-2" title="View Details" onClick={() => handleViewDetails(v)}><Eye size={18} /></button>
+                              <button className="text-red-600 hover:text-red-900" title="Delete" onClick={() => handleDelete(v)}><Trash2 size={18} /></button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                  {openGroup === group.key && grouped[group.key].length === 0 && (
+                    <div className="text-center py-6 text-gray-500">No visitors in this range.</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Visitor Detail Popup */}
+      {showDetailPopup && selectedVisitor && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            
+            {/* Header Section */}
+            <div className="bg-white border-b border-gray-200 px-6 py-4">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
+                    <User className="h-5 w-5 text-blue-600" />
                   </div>
-                ) : (
-                  <>
-                    <Webcam
-                      ref={webcamRef}
-                      audio={false}
-                      screenshotFormat="image/jpeg"
-                      videoConstraints={{
-                        facingMode: cameraFacingMode  // 'environment' for back camera
-                      }}
-                      onUserMedia={handleUserMedia}
-                      onUserMediaError={handleUserMediaError}
-                      className="w-full h-auto"
-                    />
-
-                    {isCameraReady && (
-                      <div className="p-2 flex justify-center bg-gray-100">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Visitor Details</h2>
+                    <p className="text-sm text-gray-500">View visitor information and entry details</p>
+                  </div>
+                </div>
                         <button
-                          type="button"
-                          onClick={capturePhoto}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
+                  onClick={() => setShowDetailPopup(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                         >
-                          Capture
-                          <Camera size={16} className="ml-2" />
+                  <X className="w-5 h-5 text-gray-500" />
                         </button>
+              </div>
+                  </div>
 
-                        <button
-                          type="button"
-                          onClick={() => setCameraFacingMode(cameraFacingMode === 'environment' ? 'user' : 'environment')}
-                          className="mx-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center"
-                        >
-                          Switch Camera
-                          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                        </button>
+            {/* Main Content */}
+            <div className="p-6">
+              <div className="grid grid-cols-12 gap-6">
+                
+                {/* Left Column - Profile Section */}
+                <div className="col-span-12 lg:col-span-4">
+                  <div className="bg-gray-50 rounded-lg border border-gray-200 p-5">
+                    <div className="flex flex-col items-center space-y-4">
+                      
+                                             {/* Profile Image */}
+                       <div className="relative">
+                         <img
+                           src={selectedVisitor.visitorImage || "/profile.png"}
+                           alt={selectedVisitor.visitorName || 'Visitor'}
+                           className="w-24 h-24 rounded-full object-cover border-2 border-gray-200 shadow-sm cursor-pointer hover:opacity-80 transition-opacity duration-200"
+                           onClick={() => handleImageClick(selectedVisitor.visitorImage || "/profile.png", selectedVisitor.visitorName)}
+                           onError={(e) => {e.target.src = "/profile.png"}}
+                         />
+                         <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center ${
+                           selectedVisitor.status === 'approve' ? 'bg-green-500' : 
+                           selectedVisitor.status === 'reject' ? 'bg-red-500' : 'bg-yellow-500'
+                         }`}>
+                           {selectedVisitor.status === 'approve' ? <CheckCircle className="w-3 h-3 text-white" /> :
+                            selectedVisitor.status === 'reject' ? <XCircle className="w-3 h-3 text-white" /> :
+                            <Clock className="w-3 h-3 text-white" />}
+                         </div>
+                       </div>
 
+                      {/* Basic Info */}
+                      <div className="text-center space-y-1">
+                        <h3 className="text-lg font-semibold text-gray-900">{selectedVisitor.visitorName || 'N/A'}</h3>
+                        <p className="text-sm text-gray-600">{selectedVisitor.visitorReason || 'N/A'}</p>
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          selectedVisitor.status === 'approve' ? 'bg-green-100 text-green-800' :
+                          selectedVisitor.status === 'reject' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {selectedVisitor.status === 'approve' ? '✅ Approved' :
+                           selectedVisitor.status === 'reject' ? '❌ Rejected' :
+                           '⏳ Pending'}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-col w-full space-y-2">
                         <button
-                          type="button"
-                          onClick={() => setShowCamera(false)}
-                          className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 flex items-center"
+                          onClick={() => handleDelete(selectedVisitor)}
+                          className="w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors duration-200 flex items-center justify-center space-x-2"
                         >
-                          Cancel
-                          <XCircle size={16} className="ml-2" />
+                          <Trash2 size={14} />
+                          <span>Delete Entry</span>
                         </button>
                       </div>
-                    )}
-                  </>
-                )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Details */}
+                <div className="col-span-12 lg:col-span-8 space-y-5">
+                  
+                  {/* Visit Details Card */}
+                  <div className="bg-white rounded-lg border border-gray-200">
+                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                      <h3 className="text-base font-semibold text-gray-900 flex items-center">
+                        <Clock className="h-4 w-4 text-gray-600 mr-2" />
+                        Visit Details
+                      </h3>
+                    </div>
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                          <p className="text-xs font-medium text-gray-500 mb-1">Entry Time</p>
+                          <p className="text-sm font-semibold text-gray-900">{formatDate(selectedVisitor.entryTime)}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                          <p className="text-xs font-medium text-gray-500 mb-1">Exit Time</p>
+                          <p className="text-sm font-semibold text-gray-900">{formatDate(selectedVisitor.exitTime)}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                          <p className="text-xs font-medium text-gray-500 mb-1">Purpose of Visit</p>
+                          <p className="text-sm font-semibold text-gray-900">{selectedVisitor.visitorReason || 'N/A'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                          <p className="text-xs font-medium text-gray-500 mb-1">Entry Date</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {selectedVisitor.entryTime ? new Date(selectedVisitor.entryTime).toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            }) : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Location Details Card */}
+                  <div className="bg-white rounded-lg border border-gray-200">
+                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                      <h3 className="text-base font-semibold text-gray-900 flex items-center">
+                        <Home className="h-4 w-4 text-gray-600 mr-2" />
+                        Location Details
+                      </h3>
+                    </div>
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                          <p className="text-xs font-medium text-gray-500 mb-1">Block</p>
+                          <p className="text-sm font-semibold text-gray-900">{selectedVisitor.blockName || 'N/A'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                          <p className="text-xs font-medium text-gray-500 mb-1">Floor</p>
+                          <p className="text-sm font-semibold text-gray-900">{selectedVisitor.floorNumber || 'N/A'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                          <p className="text-xs font-medium text-gray-500 mb-1">Flat Number</p>
+                          <p className="text-sm font-semibold text-gray-900">{selectedVisitor.flatNumber || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Owner Details Card */}
+                  <div className="bg-white rounded-lg border border-gray-200">
+                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                      <h3 className="text-base font-semibold text-gray-900 flex items-center">
+                        <User className="h-4 w-4 text-gray-600 mr-2" />
+                        Owner Details
+                      </h3>
+                    </div>
+                    <div className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border border-gray-100">
+                          <div className="p-1 bg-blue-100 rounded-md">
+                            <User className="h-3 w-3 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">Owner Name</p>
+                            <p className="text-sm font-semibold text-gray-900">{selectedVisitor.ownerName || 'N/A'}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border border-gray-100">
+                          <div className="p-1 bg-green-100 rounded-md">
+                            <Phone className="h-3 w-3 text-green-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">Owner Mobile</p>
+                            <p className="text-sm font-semibold text-gray-900">{selectedVisitor.ownerMobile || 'N/A'}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border border-gray-100">
+                          <div className="p-1 bg-red-100 rounded-md">
+                            <Mail className="h-3 w-3 text-red-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">Owner Email</p>
+                            <p className="text-sm font-semibold text-gray-900">{selectedVisitor.ownerEmail || 'N/A'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
               </div>
             )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && visitorToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-lg max-w-md w-full">
+            <div className="p-5">
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                  <AlertTriangle size={24} className="text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Visitor Entry</h3>
+                <p className="text-sm text-gray-600 mb-5">
+                  Are you sure you want to delete the visitor entry for <span className="font-medium text-gray-900">"{visitorToDelete.visitorName}"</span>? 
+                  This action cannot be undone.
+                </p>
           </div>
 
-          {/* Navigation Buttons */}
-          <div className="mt-6 flex justify-between space-x-4">
+              <div className="flex space-x-3">
             <button
-              type="button"
-              onClick={() => goToStep(2)}
-              className="flex-1 py-3 border border-gray-300 rounded-md text-gray-700 font-medium bg-white hover:bg-gray-50 flex items-center justify-center"
-            >
-              <svg
-                className="mr-2 w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setVisitorToDelete(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                >
+                  Cancel
             </button>
-
             <button
-              type="submit"
-              disabled={!visitorImage || loading}
-              className={`flex-1 py-3 rounded-md text-white font-medium flex items-center justify-center ${!visitorImage || loading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700'
-                }`}
+                  onClick={confirmDelete}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors duration-200"
+                >
+                  Delete
+            </button>
+              </div>
+            </div>
+          </div>
+                 </div>
+       )}
+
+      {/* Image Modal */}
+      {showImageModal && selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[70] p-4">
+          <div className="relative flex items-center justify-center">
+            <img
+              src={selectedImage}
+              alt={selectedImageName || 'Visitor'}
+              className="w-[400px] h-[400px] object-cover rounded-full shadow-2xl"
+              style={{ background: 'none', border: 'none' }}
+              onError={(e) => {e.target.src = '/profile.png'}}
+            />
+            <button
+              onClick={() => {
+                setShowImageModal(false);
+                setSelectedImage(null);
+                setSelectedImageName('');
+              }}
+              className="absolute top-2 right-2 bg-black bg-opacity-50 hover:bg-opacity-80 text-white rounded-full p-2 transition-colors duration-200"
+              style={{ transform: 'translate(50%, -50%)' }}
+              aria-label="Close image preview"
             >
-              {loading ? (
-                <>
-                  <Loader size={16} className="mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Submit
-                  <CheckCircle size={16} className="ml-2" />
-                </>
-              )}
+              <X className="w-6 h-6" />
             </button>
           </div>
         </div>
-      </form>
+      )}
     </div>
   );
-};
+}

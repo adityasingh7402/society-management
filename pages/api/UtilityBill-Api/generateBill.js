@@ -37,17 +37,28 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Invalid token' });
     }
 
+    console.log('Request Body:', req.body);  // Debug log
+    console.log('Additional:', req.body.additionalCharges);
+    // Extract admin details from token
+    const adminId = decoded.id;
+    const adminName = decoded.name || 'Admin'; // Fallback if name is not in token
+
     const {
       societyId,
         billHeadId,
+      residentId,
       flatNumber,
       blockName,
       floorNumber,
-      residentId,
       ownerName,
       ownerMobile,
       ownerEmail,
       unitUsage,
+      periodType,
+      baseAmount: requestedBaseAmount,
+      gstDetails: requestedGstDetails,
+      additionalCharges,
+      totalAmount: requestedTotalAmount,
       issueDate,
       dueDate
     } = req.body;
@@ -74,24 +85,24 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: 'Receivable ledger not found' });
     }
 
-    // Calculate base amount based on calculation type
-    let baseAmount = 0;
+      // Calculate or use provided base amount
+      const calculatedBaseAmount = requestedBaseAmount ?? (() => {
     switch (billHead.calculationType) {
       case 'Fixed':
-        baseAmount = billHead.fixedAmount;
-        break;
+            return billHead.fixedAmount;
       case 'PerUnit':
-        baseAmount = unitUsage * billHead.perUnitRate;
-        break;
+            return unitUsage * billHead.perUnitRate;
       case 'Formula':
         // Implement formula calculation if needed
-        break;
+            return 0;
       default:
-        return res.status(400).json({ message: 'Invalid calculation type' });
+            throw new Error('Invalid calculation type');
     }
+      })();
 
-    // Calculate GST if applicable
-    const gstDetails = {
+      // Calculate or use provided GST details
+      const calculatedGstDetails = requestedGstDetails ?? (() => {
+        const details = {
       isGSTApplicable: billHead.gstConfig.isGSTApplicable,
       cgstPercentage: billHead.gstConfig.cgstPercentage,
       sgstPercentage: billHead.gstConfig.sgstPercentage,
@@ -101,43 +112,75 @@ export default async function handler(req, res) {
       igstAmount: 0
     };
 
-    let gstLedger;
-    if (gstDetails.isGSTApplicable) {
-      gstDetails.cgstAmount = (baseAmount * gstDetails.cgstPercentage) / 100;
-      gstDetails.sgstAmount = (baseAmount * gstDetails.sgstPercentage) / 100;
-      gstDetails.igstAmount = (baseAmount * gstDetails.igstPercentage) / 100;
+        if (details.isGSTApplicable) {
+          details.cgstAmount = (calculatedBaseAmount * details.cgstPercentage) / 100;
+          details.sgstAmount = (calculatedBaseAmount * details.sgstPercentage) / 100;
+          details.igstAmount = (calculatedBaseAmount * details.igstPercentage) / 100;
+        }
 
-      // Get GST ledger from bill head configuration
+        return details;
+      })();
+
+      // Get GST ledger if needed
+    let gstLedger;
+      if (calculatedGstDetails.isGSTApplicable && !requestedGstDetails) {
       gstLedger = await Ledger.findById(billHead.accountingConfig.gstLedgerId).session(session);
       if (!gstLedger) {
         return res.status(400).json({ message: 'GST ledger not found. Please configure it in bill head settings.' });
       }
     }
 
-      const totalAmount = baseAmount + gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
+      // Calculate final total amount
+      const calculatedTotalAmount = requestedTotalAmount ?? (
+        calculatedBaseAmount +
+        calculatedGstDetails.cgstAmount +
+        calculatedGstDetails.sgstAmount +
+        calculatedGstDetails.igstAmount
+      );
 
     // Create utility bill
-    const utilityBill = new UtilityBill({
+    console.log('Creating utility bill with data:', {
       societyId,
       billHeadId,
+      residentId,
       flatNumber,
       blockName,
       floorNumber,
-      residentId,
       ownerName,
       ownerMobile,
       ownerEmail,
-      baseAmount,
       unitUsage,
-      perUnitRate: billHead.perUnitRate,
-      formula: billHead.formula,
-      gstDetails,
-      latePaymentDetails: billHead.latePaymentConfig,
-        totalAmount,
-      issueDate: new Date(issueDate),
-      dueDate: new Date(dueDate),
-      status: 'Pending',
-      createdBy: decoded.id
+      periodType,
+      baseAmount: calculatedBaseAmount,
+      gstDetails: calculatedGstDetails,
+      additionalCharges,
+      totalAmount: calculatedTotalAmount,
+    });
+
+    const utilityBill = new UtilityBill({
+      societyId,
+      billHeadId,
+      residentId,
+      flatNumber,
+      blockName,
+      floorNumber,
+      ownerName,
+      ownerMobile,
+      ownerEmail,
+      unitUsage,
+      periodType: periodType || 'Monthly',  // Ensure periodType is set with default
+      baseAmount: calculatedBaseAmount,
+      gstDetails: calculatedGstDetails,
+      additionalCharges,
+      totalAmount: calculatedTotalAmount,
+        issueDate,
+        dueDate,
+      createdBy: decoded.id,
+      approvedBy: {
+          adminId: decoded.id,
+          adminName: decoded.name || 'Admin',
+        approvedAt: new Date()
+      }
     });
 
     // Generate bill number
@@ -146,32 +189,19 @@ export default async function handler(req, res) {
       // Create journal voucher
     const journalVoucher = new JournalVoucher({
       societyId,
+        voucherType: 'Journal',
       voucherDate: new Date(),
-      voucherType: 'Journal',
       referenceType: 'Bill',
-      referenceId: utilityBill._id,
+      referenceId: utilityBill._id, 
       referenceNumber: utilityBill.billNumber,
-      category: billHead.category,
+        category: 'Utility',
       subCategory: billHead.subCategory,
       narration: `Bill generated for ${billHead.name} - ${utilityBill.billNumber}`,
-      entries: [
-        // Debit entry (Receivable)
-        {
-          ledgerId: receivableLedger._id,
-          type: 'debit',
-          amount: totalAmount, // Total amount including GST
-          description: `Bill for ${billHead.name}`
-        },
-        // Credit entry (Income)
-        {
-          ledgerId: incomeLedger._id,
-          type: 'credit',
-          amount: baseAmount, // Base amount without GST
-          description: `Bill for ${billHead.name}`
-        }
-      ],
+        entries: [],  // Initialize empty entries array
       gstDetails: {
         isGSTApplicable: billHead.gstConfig.isGSTApplicable,
+          gstType: 'Regular',
+          gstMonth: new Date(),
         gstEntries: []
       },
       status: 'Active',
@@ -183,100 +213,156 @@ export default async function handler(req, res) {
         timestamp: new Date()
       }],
       createdBy: decoded.id,
-      tags: [`${billHead.category}`, `${billHead.subCategory}`]
+      tags: [`${billHead.category}`, `${billHead.subCategory}`],
+      approvedBy: {
+        adminId: adminId,
+        adminName: adminName,
+        approvedAt: new Date()
+      }
     });
 
+      // Calculate total amount including all charges
+      let totalBillAmount = calculatedBaseAmount;
+      
+      // Add main bill entries
+      journalVoucher.entries.push({
+        ledgerId: receivableLedger._id,
+        type: 'debit',
+        amount: calculatedTotalAmount, // This will be updated after all calculations
+        description: `Bill for ${billHead.name}`
+      });
+
+      journalVoucher.entries.push({
+        ledgerId: incomeLedger._id,
+        type: 'credit',
+        amount: calculatedBaseAmount,
+        description: `Bill for ${billHead.name}`
+      });
+
     // Add GST entries if applicable
-    if (billHead.gstConfig.isGSTApplicable) {
-      // Get GST ledger - use the one we found earlier
+    if (billHead.gstConfig.isGSTApplicable && calculatedGstDetails.isGSTApplicable) {
+      // Only try to get GST ledger if we actually have GST amounts
+      const hasGstAmounts = calculatedGstDetails.cgstAmount > 0 || 
+                           calculatedGstDetails.sgstAmount > 0 || 
+                           calculatedGstDetails.igstAmount > 0;
+      
+      if (hasGstAmounts) {
+        if (!gstLedger) {
+          gstLedger = await Ledger.findById(billHead.accountingConfig.gstLedgerId).session(session);
       if (!gstLedger) {
-        throw new Error('GST ledger not found');
+            return res.status(400).json({ 
+              error: 'GST ledger not found. Please configure GST ledger in bill head settings or disable GST for this bill.' 
+            });
+          }
+        }
       }
 
       // Add CGST entry
-      if (gstDetails.cgstAmount > 0) {
-        const cgstEntry = {
+      if (calculatedGstDetails.cgstAmount > 0) {
+          journalVoucher.entries.push({
           ledgerId: gstLedger._id,
           type: 'credit',
-          amount: gstDetails.cgstAmount,
-          description: `CGST (${gstDetails.cgstPercentage}%) for ${billHead.name}`
-        };
-        journalVoucher.entries.push(cgstEntry);
-        journalVoucher.gstDetails.gstEntries.push({
-          type: 'CGST',
-          percentage: gstDetails.cgstPercentage,
-          amount: gstDetails.cgstAmount,
-          ledgerId: gstLedger._id
-        });
+          amount: calculatedGstDetails.cgstAmount,
+          description: `CGST (${calculatedGstDetails.cgstPercentage}%) for ${billHead.name}`
+          });
+          totalBillAmount += calculatedGstDetails.cgstAmount;
       }
 
       // Add SGST entry
-      if (gstDetails.sgstAmount > 0) {
-        const sgstEntry = {
+      if (calculatedGstDetails.sgstAmount > 0) {
+          journalVoucher.entries.push({
           ledgerId: gstLedger._id,
           type: 'credit',
-          amount: gstDetails.sgstAmount,
-          description: `SGST (${gstDetails.sgstPercentage}%) for ${billHead.name}`
-        };
-        journalVoucher.entries.push(sgstEntry);
-        journalVoucher.gstDetails.gstEntries.push({
-          type: 'SGST',
-          percentage: gstDetails.sgstPercentage,
-          amount: gstDetails.sgstAmount,
-          ledgerId: gstLedger._id
-        });
+          amount: calculatedGstDetails.sgstAmount,
+          description: `SGST (${calculatedGstDetails.sgstPercentage}%) for ${billHead.name}`
+          });
+          totalBillAmount += calculatedGstDetails.sgstAmount;
       }
 
       // Add IGST entry
-      if (gstDetails.igstAmount > 0) {
-        const igstEntry = {
+      if (calculatedGstDetails.igstAmount > 0) {
+          journalVoucher.entries.push({
           ledgerId: gstLedger._id,
           type: 'credit',
-          amount: gstDetails.igstAmount,
-          description: `IGST (${gstDetails.igstPercentage}%) for ${billHead.name}`
-        };
-        journalVoucher.entries.push(igstEntry);
-        journalVoucher.gstDetails.gstEntries.push({
-          type: 'IGST',
-          percentage: gstDetails.igstPercentage,
-          amount: gstDetails.igstAmount,
-          ledgerId: gstLedger._id
+          amount: calculatedGstDetails.igstAmount,
+          description: `IGST (${calculatedGstDetails.igstPercentage}%) for ${billHead.name}`
+          });
+          totalBillAmount += calculatedGstDetails.igstAmount;
+        }
+      }
+
+      // Add additional charges entries and update total amount
+      if (utilityBill.additionalCharges && utilityBill.additionalCharges.length > 0) {
+        for (const charge of utilityBill.additionalCharges) {
+          // Verify income ledger exists
+          const chargeLedger = await Ledger.findById(charge.ledgerId).session(session);
+          if (!chargeLedger) {
+            throw new Error(`Ledger not found for additional charge: ${charge.chargeType}`);
+          }
+          // Try to find a receivable ledger for this additional charge (optional, if you have it in your BillHead/accountingConfig)
+          let receivableLedger = null;
+          if (charge.billHeadId) {
+            const chargeBillHead = await BillHead.findById(charge.billHeadId).session(session);
+            if (chargeBillHead && chargeBillHead.accountingConfig && chargeBillHead.accountingConfig.receivableLedgerId) {
+              receivableLedger = await Ledger.findById(chargeBillHead.accountingConfig.receivableLedgerId).session(session);
+            }
+          }
+          // Add debit entry to receivable ledger if available
+          if (receivableLedger) {
+            journalVoucher.entries.push({
+              ledgerId: receivableLedger._id,
+              type: 'debit',
+              amount: charge.amount,
+              description: `Receivable for Additional Charge: ${charge.chargeType}`
+            });
+          }
+          // Add credit entry for additional charge (income ledger)
+          journalVoucher.entries.push({
+            ledgerId: charge.ledgerId,
+            type: 'credit',
+            amount: charge.amount,
+            description: `Additional Charge: ${charge.chargeType}`
         });
       }
     }
 
-      // Validate that total debit equals total credit
-      const totalDebit = journalVoucher.entries
-        .filter(e => e.type === 'debit')
-        .reduce((sum, e) => sum + e.amount, 0);
-      
+      // Calculate total credit (total amount)
       const totalCredit = journalVoucher.entries
         .filter(e => e.type === 'credit')
         .reduce((sum, e) => sum + e.amount, 0);
 
-      if (Math.abs(totalDebit - totalCredit) > 0.01) {
-        throw new Error(`Debit (${totalDebit}) and credit (${totalCredit}) amounts do not match`);
-      }
+      journalVoucher.entries[0].amount = totalCredit;
+      utilityBill.totalAmount = totalCredit;
 
-      // Generate voucher number
+      console.log('Final utilityBill.totalAmount:', utilityBill.totalAmount);
+
+      // Generate voucher number BEFORE saving
       journalVoucher.voucherNumber = await JournalVoucher.generateVoucherNumber(
         societyId,
         billHead.code,
         new Date()
       );
 
-      // Save the journal voucher
+      // Now save the journal voucher
       await journalVoucher.save({ session });
 
       // Post entries to ledgers
-      await journalVoucher.postToLedgers(session);
+      for (const entry of journalVoucher.entries) {
+        const ledger = await Ledger.findById(entry.ledgerId).session(session);
+        if (!ledger) {
+          throw new Error(`Ledger not found: ${entry.ledgerId}`);
+        }
+        
+        // Use the updateBalance method instead of directly modifying the balance
+        await ledger.updateBalance(entry.amount, entry.type, session);
+      }
 
       // Add journal entry reference to utility bill
       utilityBill.journalVoucherId = journalVoucher._id;
       await utilityBill.save({ session });
 
       await session.commitTransaction();
-      res.status(200).json({ success: true, data: utilityBill });
+      return { success: true, data: utilityBill };
     } catch (error) {
       await session.abortTransaction();
       throw error;
@@ -287,7 +373,7 @@ export default async function handler(req, res) {
     const result = await attemptBillGeneration();
     res.status(201).json({
       message: 'Utility bill generated successfully',
-      data: result.data
+      data: result
     });
   } catch (error) {
     console.error('Error in generateBill:', error);

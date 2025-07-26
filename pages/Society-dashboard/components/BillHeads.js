@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import PreloaderSociety from '../../components/PreloaderSociety';
-import { FileText, Plus, Edit2, Archive, Check, X, AlertCircle } from 'lucide-react';
+import { FileText, Plus, Edit2, Archive, Check, X, AlertCircle, Trash2 } from 'lucide-react';
 import { debounce } from 'lodash';
 import { usePermissions } from "../../../components/PermissionsContext";
 import AccessDenied from "../widget/societyComponents/accessRestricted";
@@ -90,7 +90,7 @@ export default function BillHeads() {
     Utility: ['Water', 'Electricity', 'Gas', 'Internet', 'Cable', 'Telephone', 'Other'],
     Maintenance: ['Cleaning', 'Security', 'Gardening', 'Equipment', 'Repairs', 'Staff', 'Other'],
     Amenity: ['Gym', 'Swimming Pool', 'Club House', 'Sports', 'Park', 'Community Hall', 'Other'],
-    Service: ['Pest Control', 'Plumbing', 'Electrical', 'Carpentry', 'Housekeeping', 'Other'],
+    // Service: ['Pest Control', 'Plumbing', 'Electrical', 'Carpentry', 'Housekeeping', 'Other'],
     Other: [
       'Society Charges',
       'Platform Charges',
@@ -860,6 +860,43 @@ export default function BillHeads() {
     }
   };
 
+  // Add delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    show: false,
+    billHead: null
+  });
+
+  // Add delete handler
+  const handleDelete = async (billHead) => {
+    try {
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      const response = await fetch(`/api/BillHead-Api/delete-bill-head?billHeadId=${billHead._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete bill head');
+      }
+
+      showNotification('Bill head deleted successfully', 'success');
+      setDeleteConfirm({ show: false, billHead: null });
+      fetchBillHeads(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting bill head:', error);
+      showNotification(error.message, 'error');
+    }
+  };
+
   if (isFetchingBillHeads || isFetchingLedgers) {
     return <PreloaderSociety />;
   }
@@ -868,7 +905,7 @@ export default function BillHeads() {
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
       <header className="bg-gray-800 shadow-lg border-b-4 border-blue-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
               <FileText className="mr-3" size={32} />
@@ -902,7 +939,7 @@ export default function BillHeads() {
       )}
 
       {/* Add search bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="mx-auto px-4 py-4">
         <div className="mb-4">
           <input
             type="text"
@@ -915,7 +952,7 @@ export default function BillHeads() {
       </div>
 
       {/* Add filter section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="mx-auto px-4 py-4">
         <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Category</label>
@@ -961,7 +998,7 @@ export default function BillHeads() {
       </div>
 
       {/* Summary Cards */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div 
             onClick={() => handleFilterClick('all')}
@@ -1003,7 +1040,7 @@ export default function BillHeads() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      <main className="mx-auto px-4 pb-8">
         {/* Bill Heads Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
@@ -1014,6 +1051,7 @@ export default function BillHeads() {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subcategory</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period Type</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calculation Type</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST</th>
@@ -1028,6 +1066,7 @@ export default function BillHeads() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{billHead.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{billHead.category}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{billHead.subCategory}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{billHead.periodType || 'Monthly'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{billHead.calculationType}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {billHead.calculationType === 'Fixed' && `₹${billHead.fixedAmount}`}
@@ -1054,12 +1093,22 @@ export default function BillHeads() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end space-x-3">
                       <button
                         onClick={() => handleEdit(billHead)}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Edit"
                       >
-                        Edit
+                          <Edit2 size={18} />
                       </button>
+                        <button
+                          onClick={() => setDeleteConfirm({ show: true, billHead })}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1595,6 +1644,38 @@ export default function BillHeads() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-center mb-6">
+              <div className="bg-red-100 rounded-full p-3">
+                <AlertCircle className="text-red-600" size={32} />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-center mb-4">Confirm Delete</h3>
+            <p className="text-gray-600 text-center mb-6">
+              Are you sure you want to delete the bill head "{deleteConfirm.billHead?.name}"? 
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => setDeleteConfirm({ show: false, billHead: null })}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm.billHead)}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

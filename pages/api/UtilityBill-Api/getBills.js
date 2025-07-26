@@ -1,5 +1,6 @@
 import connectToDatabase from '../../../lib/mongodb';
 import UtilityBill from '../../../models/UtilityBill';
+import JournalVoucher from '../../../models/JournalVoucher';
 import { verifyToken } from '../../../utils/auth';
 import mongoose from 'mongoose';
 
@@ -15,81 +16,99 @@ export default async function handler(req, res) {
     if (!decoded) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
-    console.log('Token verified for user:', decoded);
+    // console.log('Token verified for user:', decoded);
 
     await connectToDatabase();
-    console.log('Connected to database');
+    // console.log('Connected to database');
 
-    const { societyId, status, billHeadId, fromDate, toDate } = req.query;
-    console.log('Received query params:', { societyId, status, billHeadId, fromDate, toDate });
+    const {
+      societyId,
+      status,
+      billHeadId,
+      fromDate,
+      toDate,
+      subCategory,
+      periodType
+    } = req.query;
+    // console.log('Received query params:', { societyId, status, billHeadId, fromDate, toDate });
 
     // Build query
-    const query = {
-      societyId: new mongoose.Types.ObjectId(societyId)
-    };
-    
+    const query = { societyId };
     if (status) query.status = status;
-    if (billHeadId) query.billHeadId = new mongoose.Types.ObjectId(billHeadId);
-    if (fromDate && toDate) {
-      query.issueDate = {
-        $gte: new Date(fromDate),
-        $lte: new Date(toDate)
-      };
+    if (billHeadId) query.billHeadId = billHeadId;
+    if (subCategory) query.subCategory = subCategory;
+    if (periodType) query.periodType = periodType;
+
+    // Add date range if provided
+    if (fromDate || toDate) {
+      query.issueDate = {};
+      if (fromDate) query.issueDate.$gte = new Date(fromDate);
+      if (toDate) query.issueDate.$lte = new Date(toDate);
     }
 
-    console.log('Query being executed:', JSON.stringify(query, null, 2));
+    // console.log('Query being executed:', JSON.stringify(query, null, 2));
 
-    // Get bills with populated bill head details
+    // Fetch bills with populated references
     const bills = await UtilityBill.find(query)
-      .populate('billHeadId', 'name code')
-      .sort({ issueDate: -1 })
-      .lean();
+      .populate('billHeadId', 'name code category subCategory')
+      .populate('residentId', 'name phone email')
+      .populate('journalEntries.voucherId')
+      .sort({ createdAt: -1 });
 
-    console.log("bills",bills);
-    console.log('Query results:', {
-      billsFound: bills.length,
-      sampleQueryBill: bills[0]
-    });
+    // console.log("bills",bills);
+    // console.log('Query results:', {
+    //   billsFound: bills.length,
+    //   sampleQueryBill: bills[0]
+    // });
 
     // Calculate summary
     const summary = {
       totalBills: bills.length,
-      totalAmount: bills.reduce((sum, bill) => sum + (bill.totalAmount || 0), 0),
-      totalPaid: bills.filter(bill => bill.status === 'Paid')
-        .reduce((sum, bill) => sum + (bill.totalAmount || 0), 0),
-      totalPending: bills.filter(bill => bill.status === 'Pending')
-        .reduce((sum, bill) => sum + (bill.remainingAmount || 0), 0),
-      totalOverdue: bills.filter(bill => bill.status === 'Overdue')
-        .reduce((sum, bill) => sum + (bill.remainingAmount || 0), 0),
-      totalGstCollected: bills.reduce((sum, bill) => {
-        if (!bill.gstDetails?.isGSTApplicable) return sum;
-        return sum + (
-          (bill.gstDetails.cgstAmount || 0) +
-          (bill.gstDetails.sgstAmount || 0) +
-          (bill.gstDetails.igstAmount || 0)
-        );
-      }, 0),
-      byStatus: {
-        Paid: bills.filter(bill => bill.status === 'Paid').length,
-        Pending: bills.filter(bill => bill.status === 'Pending').length,
-        'Partially Paid': bills.filter(bill => bill.status === 'Partially Paid').length,
-        Overdue: bills.filter(bill => bill.status === 'Overdue').length
-      }
+      totalAmount: 0,
+      pendingAmount: 0,
+      paidAmount: 0,
+      overdueAmount: 0,
+      totalGstCollected: 0,
+      byPeriodType: {}
     };
 
-    console.log('Calculated summary:', summary);
+    bills.forEach(bill => {
+      summary.totalAmount += bill.totalAmount;
+      summary.paidAmount += bill.paidAmount;
+      summary.pendingAmount += bill.remainingAmount;
+
+      // Calculate GST totals
+      if (bill.gstDetails?.isGSTApplicable) {
+        summary.totalGstCollected += (bill.gstDetails.cgstAmount || 0) +
+                                   (bill.gstDetails.sgstAmount || 0) +
+                                   (bill.gstDetails.igstAmount || 0);
+      }
+
+      // Calculate overdue amount
+      if (bill.status === 'Overdue') {
+        summary.overdueAmount += bill.remainingAmount;
+      }
+
+      // Group by period type
+      if (!summary.byPeriodType[bill.periodType]) {
+        summary.byPeriodType[bill.periodType] = {
+          count: 0,
+          totalAmount: 0,
+          paidAmount: 0,
+          pendingAmount: 0
+        };
+      }
+      summary.byPeriodType[bill.periodType].count++;
+      summary.byPeriodType[bill.periodType].totalAmount += bill.totalAmount;
+      summary.byPeriodType[bill.periodType].paidAmount += bill.paidAmount;
+      summary.byPeriodType[bill.periodType].pendingAmount += bill.remainingAmount;
+    });
+
+    // console.log('Calculated summary:', summary);
 
     return res.status(200).json({
       bills,
-      summary,
-      filters: {
-        status: ['Paid', 'Pending', 'Partially Paid', 'Overdue'],
-        billHeads: [...new Set(bills.map(bill => ({
-          id: bill.billHeadId._id,
-          name: bill.billHeadId.name,
-          code: bill.billHeadId.code
-        })))]
-      }
+      summary
     });
 
   } catch (error) {

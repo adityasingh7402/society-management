@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tag, AlertTriangle } from 'lucide-react';
+import { Tag, AlertTriangle, User, Home, CheckCircle, Phone, Mail, MapPin, Edit3, Trash2, X } from 'lucide-react';
 
 export default function DetailPopup({ resident, onClose, onUpdate, onDelete, onViewTags }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -29,119 +29,198 @@ export default function DetailPopup({ resident, onClose, onUpdate, onDelete, onV
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl transform transition-all duration-300 ease-in-out scale-100">
-        <div className="relative">
-          {/* Header with gradient background */}
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-2xl p-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-white flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                Resident Details
-              </h2>
-              <button
-                onClick={onClose}
-                className="text-white hover:text-gray-200 transition-colors duration-200"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        
+        {/* Header Section */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
+                <User className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Resident Details</h2>
+                <p className="text-sm text-gray-500">View and manage resident information</p>
+              </div>
             </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
           </div>
+        </div>
 
-          {/* Content */}
-          <div className="p-8">
-            <div className="grid grid-cols-12 gap-8">
-              {/* Left Column - Profile Image and Basic Info */}
-              <div className="col-span-4">
+        {/* Main Content */}
+        <div className="p-6">
+          <div className="grid grid-cols-12 gap-6">
+            
+            {/* Left Column - Profile Section */}
+            <div className="col-span-12 lg:col-span-4">
+              <div className="bg-gray-50 rounded-lg border border-gray-200 p-5">
                 <div className="flex flex-col items-center space-y-4">
+                  
+                  {/* Profile Image */}
                   <div className="relative">
                     <img
                       src={resident.userImage || "/profile.png"}
                       alt={resident.name || 'Resident'}
-                      className="w-40 h-40 rounded-full object-cover border-4 border-white shadow-lg"
+                      className="w-24 h-24 rounded-full object-cover border-2 border-gray-200 shadow-sm"
                       onError={(e) => {e.target.src = "/profile.png"}}
                     />
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white shadow-sm flex items-center justify-center">
+                      <CheckCircle className="w-3 h-3 text-white" />
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <h3 className="text-2xl font-bold text-gray-800">{resident.name || 'N/A'}</h3>
-                    <p className="text-gray-600">{resident.email || 'N/A'}</p>
+
+                  {/* Basic Info */}
+                  <div className="text-center space-y-1">
+                    <h3 className="text-lg font-semibold text-gray-900">{resident.name || 'N/A'}</h3>
+                    <p className="text-sm text-gray-600 flex items-center justify-center">
+                      <Mail className="w-3 h-3 mr-1" />
+                      {resident.email || 'N/A'}
+                    </p>
+                    <p className="text-sm text-gray-600 flex items-center justify-center">
+                      <Phone className="w-3 h-3 mr-1" />
+                      {resident.phone || 'N/A'}
+                    </p>
                   </div>
-                  
+
                   {/* Action Buttons */}
-                  <div className="flex flex-col w-full space-y-3 mt-4">
+                  <div className="flex flex-col w-full space-y-2">
                     <button
                       onClick={() => onUpdate(resident)}
-                      className="w-full px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105"
+                      className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center space-x-2"
                     >
-                      Update Profile
+                      <Edit3 size={14} />
+                      <span>Update Profile</span>
                     </button>
+                    
                     <button
                       onClick={() => onViewTags(resident)}
-                      className="w-full px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white font-medium hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 flex items-center justify-center"
+                      className="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors duration-200 flex items-center justify-center space-x-2"
                     >
-                      <Tag size={18} className="mr-2" />
-                      View Tags
+                      <Tag size={14} />
+                      <span>View Tags</span>
                     </button>
+                    
                     <button
                       onClick={handleDelete}
-                      className="w-full px-4 py-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105"
+                      className="w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors duration-200 flex items-center justify-center space-x-2"
                     >
-                      Delete Profile
+                      <Trash2 size={14} />
+                      <span>Delete Profile</span>
                     </button>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Right Column - Details */}
-              <div className="col-span-8 space-y-6">
-                {/* Flat Details */}
-                <div className="bg-gray-50 rounded-2xl p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
+            {/* Right Column - Details */}
+            <div className="col-span-12 lg:col-span-8 space-y-5">
+              
+              {/* Flat Details Card */}
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                  <h3 className="text-base font-semibold text-gray-900 flex items-center">
+                    <Home className="h-4 w-4 text-gray-600 mr-2" />
                     Flat Details
                   </h3>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm capitalize text-gray-500">{resident.flatDetails?.structureType || 'Block/Wing'}</p>
-                      <p className="font-medium text-lg">{resident.flatDetails?.blockName || 'N/A'}</p>
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                      <p className="text-xs font-medium text-gray-500 mb-1">
+                        {resident.flatDetails?.structureType || 'Block/Wing'}
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900">{resident.flatDetails?.blockName || 'N/A'}</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Floor</p>
-                      <p className="font-medium text-lg">{resident.flatDetails?.floorIndex || 'N/A'}</p>
+                    <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Floor</p>
+                      <p className="text-sm font-semibold text-gray-900">{resident.flatDetails?.floorIndex || 'N/A'}</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Flat Number</p>
-                      <p className="font-medium text-lg">{resident.flatDetails?.flatNumber || 'N/A'}</p>
+                    <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Flat Number</p>
+                      <p className="text-sm font-semibold text-gray-900">{resident.flatDetails?.flatNumber || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Contact Details */}
-                <div className="bg-gray-50 rounded-2xl p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
+              {/* Approved By Card */}
+              {resident.approvedBy && (
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                    <h3 className="text-base font-semibold text-gray-900 flex items-center">
+                      <CheckCircle className="h-4 w-4 text-gray-600 mr-2" />
+                      Approved By
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Admin Name</p>
+                        <p className="text-sm font-semibold text-gray-900">{resident.approvedBy.adminName || 'N/A'}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Approved At</p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {resident.approvedBy.approvedAt 
+                            ? new Date(resident.approvedBy.approvedAt).toLocaleString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              }) 
+                            : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Contact Details Card */}
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                  <h3 className="text-base font-semibold text-gray-900 flex items-center">
+                    <Phone className="h-4 w-4 text-gray-600 mr-2" />
                     Contact Details
                   </h3>
-                  <div className="grid grid-cols-1 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-500">Phone</p>
-                      <p className="font-medium text-lg">{resident.phone || 'N/A'}</p>
+                </div>
+                <div className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border border-gray-100">
+                      <div className="p-1 bg-blue-100 rounded-md">
+                        <Phone className="h-3 w-3 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Phone</p>
+                        <p className="text-sm font-semibold text-gray-900">{resident.phone || 'N/A'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Email</p>
-                      <p className="font-medium text-lg">{resident.email || 'N/A'}</p>
+                    
+                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border border-gray-100">
+                      <div className="p-1 bg-green-100 rounded-md">
+                        <Mail className="h-3 w-3 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Email</p>
+                        <p className="text-sm font-semibold text-gray-900">{resident.email || 'N/A'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Address</p>
-                      <p className="font-medium text-lg">{formatAddress()}</p>
+                    
+                    <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-md border border-gray-100">
+                      <div className="p-1 bg-red-100 rounded-md">
+                        <MapPin className="h-3 w-3 text-red-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Address</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatAddress()}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -153,38 +232,38 @@ export default function DetailPopup({ resident, onClose, onUpdate, onDelete, onV
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div 
-            className="bg-white rounded-lg max-w-md w-full p-6 transform transition-all animate-fade-in-up"
-          >
-            <div className="text-center mb-4">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
-                <AlertTriangle size={32} className="text-red-600" />
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-lg max-w-md w-full">
+            <div className="p-5">
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                  <AlertTriangle size={24} className="text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Resident Profile</h3>
+                <p className="text-sm text-gray-600 mb-5">
+                  Are you sure you want to delete <span className="font-medium text-gray-900">"{resident.name}"</span>'s profile? 
+                  This action cannot be undone.
+                </p>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Resident Profile</h3>
-              <p className="text-sm text-gray-500">
-                Are you sure you want to delete <span className="font-medium">"{resident.name}"</span>'s profile? 
-                This action cannot be undone.
-              </p>
-            </div>
-            
-            <div className="flex justify-center space-x-4 mt-5">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors duration-200"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-} 
+}
