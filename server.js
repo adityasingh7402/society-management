@@ -44,13 +44,12 @@ app.prepare().then(() => {
   console.log('✅ Cron job initialized - will run every hour');
 
   const port = process.env.PORT || 3000;
-  const hostname = process.env.HOSTNAME || 'localhost';
 
   createServer((req, res) => {
     const parsedUrl = parse(req.url, true);
     handle(req, res, parsedUrl);
-  }).listen(port, hostname, (err) => {
-    if (err) throw err;
-    console.log(`> Ready on http://${hostname}:${port}`);
+  }).listen(port, () => {
+    console.log(`> Ready on port ${port}`);
   });
+  
 }); 
