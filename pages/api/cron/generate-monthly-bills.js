@@ -1,12 +1,12 @@
 import connectToDatabase from "../../../lib/mongodb.js";
 import mongoose from 'mongoose';
-import ScheduledBill from '../../../models/ScheduledBill';
-import UtilityBill from '../../../models/UtilityBill';
-import MaintenanceBill from '../../../models/MaintenanceBill';
-import AmenityBill from '../../../models/AmenityBill';
-import JournalVoucher from '../../../models/JournalVoucher';
-import Ledger from '../../../models/Ledger';
-import BillHead from '../../../models/BillHead'; // Added import for BillHead
+import ScheduledBill from '../../../models/ScheduledBill.js';
+import UtilityBill from '../../../models/UtilityBill.js';
+import MaintenanceBill from '../../../models/MaintenanceBill.js';
+import AmenityBill from '../../../models/AmenityBill.js';
+import JournalVoucher from '../../../models/JournalVoucher.js';
+import Ledger from '../../../models/Ledger.js';
+import BillHead from '../../../models/BillHead.js'; // Added import for BillHead
 
 // Helper function to generate unique voucher number with retries
 async function generateUniqueVoucherNumber(societyId, billHeadCode, date, residentId, session, retryCount = 0) {
