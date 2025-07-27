@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+Dockerfile
+.dockerignore
+.git
+.gitignore
+*.md
+docs
+public/uploads
+public/images
+*.log
+yarn.lock
+*.test.js
+test
+coverage
+.next/cache 
