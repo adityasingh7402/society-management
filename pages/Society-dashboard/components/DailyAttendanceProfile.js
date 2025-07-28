@@ -19,7 +19,8 @@ import {
     Home,
     Building2,
     Timer,
-    AlertTriangle
+    AlertTriangle,
+    X
 } from 'lucide-react';
 
 export default function DailyAttendanceProfile() {
@@ -46,65 +47,67 @@ export default function DailyAttendanceProfile() {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [fullScreenImage, setFullScreenImage] = useState(null);
 
     const router = useRouter();
 
+    // Fetch attendance records function
+    const fetchAttendanceRecords = async () => {
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('Society');
+            if (!token) {
+                router.push('/societyLogin');
+                return;
+            }
+
+            const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!societyResponse.ok) {
+                throw new Error('Failed to fetch society details');
+            }
+
+            const societyData = await societyResponse.json();
+            const societyId = societyData._id;
+
+            // Build query parameters
+            const queryParams = new URLSearchParams({
+                societyId,
+                date: selectedDate,
+                page: currentPage,
+                limit: 10
+            });
+
+            if (statusFilter !== 'all') queryParams.append('status', statusFilter);
+            if (visitorTypeFilter !== 'all') queryParams.append('visitorType', visitorTypeFilter);
+            if (searchTerm) queryParams.append('searchTerm', searchTerm);
+
+            const response = await fetch(`/api/DailyAttendance-Api/get-attendance?${queryParams}`);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch attendance records');
+            }
+
+            const data = await response.json();
+            setAttendanceRecords(data.records);
+            setSummary(data.summary.dailySummary);
+            setTotalPages(data.summary.totalPages);
+            setError('');
+        } catch (error) {
+            console.error('Error fetching attendance records:', error);
+            setError('An error occurred while fetching attendance records');
+            setAttendanceRecords([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Fetch attendance records
     useEffect(() => {
-        const fetchAttendanceRecords = async () => {
-            setLoading(true);
-            try {
-                const token = localStorage.getItem('Society');
-                if (!token) {
-                    router.push('/societyLogin');
-                    return;
-                }
-
-                const societyResponse = await fetch('/api/Society-Api/get-society-details', {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (!societyResponse.ok) {
-                    throw new Error('Failed to fetch society details');
-                }
-
-                const societyData = await societyResponse.json();
-                const societyId = societyData._id;
-
-                // Build query parameters
-                const queryParams = new URLSearchParams({
-                    societyId,
-                    date: selectedDate,
-                    page: currentPage,
-                    limit: 10
-                });
-
-                if (statusFilter !== 'all') queryParams.append('status', statusFilter);
-                if (visitorTypeFilter !== 'all') queryParams.append('visitorType', visitorTypeFilter);
-                if (searchTerm) queryParams.append('searchTerm', searchTerm);
-
-                const response = await fetch(`/api/DailyAttendance-Api/get-attendance?${queryParams}`);
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch attendance records');
-                }
-
-                const data = await response.json();
-                setAttendanceRecords(data.records);
-                setSummary(data.summary.dailySummary);
-                setTotalPages(data.summary.totalPages);
-                setError('');
-            } catch (error) {
-                console.error('Error fetching attendance records:', error);
-                setError('An error occurred while fetching attendance records');
-                setAttendanceRecords([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchAttendanceRecords();
     }, [selectedDate, statusFilter, visitorTypeFilter, searchTerm, currentPage]);
 
@@ -146,8 +149,8 @@ export default function DailyAttendanceProfile() {
                 throw new Error('Failed to update visitor exit');
             }
 
-            // Refresh the records
-            setCurrentPage(1);
+            // Refresh the records by calling fetchAttendanceRecords
+            await fetchAttendanceRecords();
             setError('');
         } catch (error) {
             console.error('Error updating visitor exit:', error);
@@ -292,8 +295,6 @@ export default function DailyAttendanceProfile() {
                                     >
                                         <option value="all">All Types</option>
                                         <option value="GateVisitor">Gate Visitor</option>
-                                        <option value="VehicleTag">Vehicle Tag</option>
-                                        <option value="AnimalTag">Animal Tag</option>
                                         <option value="GatePass">Gate Pass</option>
                                         <option value="ServicePersonnel">Service Personnel</option>
                                     </select>
@@ -345,6 +346,25 @@ export default function DailyAttendanceProfile() {
                                                 <tr key={visitor._id} className="hover:bg-gray-50">
                                                     <td className="px-4 py-4">
                                                         <div className="flex items-center">
+                                                            {/* Visitor Image */}
+                                                            <div className="flex-shrink-0 mr-4">
+                                                                {visitor.visitorImage ? (
+                                                                    <div
+                                                                        onClick={() => setFullScreenImage(visitor.visitorImage)}
+                                                                        className="cursor-pointer h-12 w-12 rounded-full overflow-hidden border-2 border-gray-300 hover:border-blue-500 transition-colors"
+                                                                    >
+                                                                        <img
+                                                                            src={visitor.visitorImage}
+                                                                            alt={visitor.visitorName}
+                                                                            className="h-full w-full object-cover"
+                                                                        />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center">
+                                                                        <User className="h-6 w-6 text-gray-500" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                             <div>
                                                                 <div className="text-sm font-medium text-gray-900">
                                                                     {visitor.visitorName}
@@ -452,6 +472,40 @@ export default function DailyAttendanceProfile() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Full Screen Image Modal */}
+                        {fullScreenImage && (
+                            <div 
+                                className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4"
+                                onClick={() => setFullScreenImage(null)} // Click outside to close
+                            >
+                                <div className="relative">
+                                    {/* Close button positioned outside the circle */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setFullScreenImage(null);
+                                        }}
+                                        className="absolute -top-12 -right-12 z-20 text-white hover:text-red-400 bg-black bg-opacity-60 hover:bg-opacity-80 p-3 rounded-full transition-all duration-200 shadow-lg"
+                                        aria-label="Close image"
+                                    >
+                                        <X size={24} />
+                                    </button>
+                                    
+                                    {/* Image container */}
+                                    <div 
+                                        className="bg-white rounded-full h-[400px] w-[400px] flex items-center justify-center overflow-hidden shadow-2xl"
+                                        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking on image
+                                    >
+                                        <img
+                                            src={fullScreenImage}
+                                            alt="Full screen view"
+                                            className="object-cover h-full w-full"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const gatePassSchema = new mongoose.Schema({
   residentId: {
@@ -95,4 +95,4 @@ gatePassSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.models.GatePass || mongoose.model('GatePass', gatePassSchema); 
+export default mongoose.models.GatePass || mongoose.model('GatePass', gatePassSchema);

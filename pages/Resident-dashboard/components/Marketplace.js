@@ -116,6 +116,13 @@ const Marketplace = () => {
     };
   }, []);
 
+  // Add effect to apply search and filters in real-time
+  useEffect(() => {
+    if (activeTab !== 'responses') {
+      applyFilters(searchQuery, filters);
+    }
+  }, [searchQuery, filters, activeTab, products]);
+
   const fetchResidentData = async () => {
     try {
       const token = localStorage.getItem('Resident');

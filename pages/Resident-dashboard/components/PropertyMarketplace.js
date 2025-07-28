@@ -187,10 +187,11 @@ const PropertyMarketplace = () => {
   const applyFilters = (search = searchQuery, filterValues = filters) => {
     let filtered = [...properties];
 
-    if (search) {
+    if (search && typeof search === 'string') {
+      const searchLower = search.toLowerCase();
       filtered = filtered.filter(property =>
-        property.title.toLowerCase().includes(search.toLowerCase()) ||
-        property.description.toLowerCase().includes(search.toLowerCase())
+        property.title.toLowerCase().includes(searchLower) ||
+        property.description.toLowerCase().includes(searchLower)
       );
     }
 
@@ -440,6 +441,13 @@ const PropertyMarketplace = () => {
     };
     loadMessages();
   }, [activeTab, residentData]);
+
+  // Add effect to apply search in real-time
+  useEffect(() => {
+    if (activeTab !== 'responses') {
+      applyFilters(searchQuery, filters);
+    }
+  }, [searchQuery, filters, activeTab, properties]);
 
   const getFilteredProperties = () => {
     if (activeTab === 'my-listings') {

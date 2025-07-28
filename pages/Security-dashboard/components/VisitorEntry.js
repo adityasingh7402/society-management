@@ -19,7 +19,6 @@ const VisitorEntry = () => {
   const [permissionStatus, setPermissionStatus] = useState('pending');
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [securityDetails, setSecurityDetails] = useState({});
   const [securityId, setSecurityId] = useState('');
   const [showPopup, setShowPopup] = useState(false);
@@ -277,36 +276,7 @@ const VisitorEntry = () => {
     showNotification("Camera access denied. Please check browser settings.", "error");
   };
 
-  // Upload image after visitor entry is created
-  const uploadImage = async (file, visitorId) => {
-    try {
-      setUploadingImage(true);
-
-      const formData = new FormData();
-      formData.append('visitorId', visitorId); // Use the actual visitor ID now
-      formData.append('image', file);
-
-      const imageUploadResponse = await fetch('/api/VisitorApi/Visitor-imageUpload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!imageUploadResponse.ok) {
-        throw new Error('Image upload failed');
-      }
-
-      const imageData = await imageUploadResponse.json();
-      showNotification("Image uploaded successfully", "success");
-
-      return imageData;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      showNotification(error.message || 'Error uploading image', "error");
-      throw error;
-    } finally {
-      setUploadingImage(false);
-    }
-  };
+  // No longer needed - combined API handles both creation and upload
 
   const capturePhoto = useCallback(() => {
     if (webcamRef.current) {
@@ -327,7 +297,7 @@ const VisitorEntry = () => {
     }
   }, [webcamRef]);
 
-  // Handle form submission - First create visitor entry, then upload image
+  // Handle form submission - Single API call with both data and image
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -344,56 +314,45 @@ const VisitorEntry = () => {
     try {
       setLoading(true);
 
-      // Step 1: Create visitor entry first without image
-      const visitorData = {
-        societyId: securityDetails.societyId,
-        blockName: selectedBlock,
-        floorNumber: parseInt(selectedFloor),
-        flatNumber: selectedFlat,
-        residentId: selectedResident._id,
-        ownerName: selectedResident.name,
-        ownerMobile: selectedResident.phone,
-        ownerEmail: selectedResident.email,
-        visitorName,
-        visitorReason,
-        entryTime,
-        CreatedBy: securityId,
-        guardName: securityDetails.guardName,
-        guardImage: securityDetails.guardImage,
-        guardPhone: securityDetails.guardPhone
-      };
+      // Create FormData with all visitor data and image
+      const formData = new FormData();
+      
+      // Add all visitor data as form fields
+      formData.append('societyId', securityDetails.societyId);
+      formData.append('blockName', selectedBlock);
+      formData.append('floorNumber', selectedFloor);
+      formData.append('flatNumber', selectedFlat);
+      formData.append('residentId', selectedResident._id);
+      formData.append('ownerName', selectedResident.name);
+      formData.append('ownerMobile', selectedResident.phone);
+      formData.append('ownerEmail', selectedResident.email);
+      formData.append('visitorName', visitorName);
+      formData.append('visitorReason', visitorReason);
+      formData.append('entryTime', entryTime);
+      formData.append('CreatedBy', securityId);
+      formData.append('guardName', securityDetails.guardName || '');
+      formData.append('guardImage', securityDetails.guardImage || '');
+      formData.append('guardPhone', securityDetails.guardPhone || '');
+      
+      // Add the visitor image
+      formData.append('image', visitorImage);
 
-      const entryResponse = await fetch('/api/VisitorApi/VisitorEntry', {
+      // Single API call to create visitor entry with image
+      const response = await fetch('/api/VisitorApi/VisitorEntryWithImage', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(visitorData),
+        body: formData, // No Content-Type header needed for FormData
       });
 
-      if (!entryResponse.ok) {
-        throw new Error('Failed to create visitor entry');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create visitor entry');
       }
 
-      const entryData = await entryResponse.json();
-      const visitorId = entryData._id || entryData.visitorId;
-
-      if (!visitorId) {
-        throw new Error('No visitor ID returned from server');
-      }
-
-      // Step 2: Now upload the image with the actual visitor ID
-      const imageData = await uploadImage(visitorImage, visitorId);
-
-      // Step 3: Update visitor entry with image information if needed
-      if (imageData && imageData.imageId) {
-        await fetch(`/api/VisitorApi/update-visitor/${visitorId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ visitorImageId: imageData.imageId }),
-        });
-      }
-
+      const result = await response.json();
+      
       // Success!
-      showNotification("Visitor entry created successfully!", "success");
+      showNotification("Visitor entry created successfully with image!", "success");
+      console.log('Visitor created:', result);
 
       // Reset form
       setVisitorName('');

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
@@ -349,19 +350,27 @@ I'm interested in this property. Would like to know more details.`;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 border-solid mx-auto"></div>
-          <p className="mt-4 text-gray-700 text-lg">Loading property details...</p>
+      <motion.div
+        className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-indigo-700 font-medium">Loading property details...</p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   if (!property) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center max-w-lg">
+      <motion.div
+        className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        <div className="text-center max-w-lg bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
           <div className="w-20 h-20 mx-auto mb-4 text-red-500">
             <X size={80} className="mx-auto" />
           </div>
@@ -369,43 +378,70 @@ I'm interested in this property. Would like to know more details.`;
           <p className="text-gray-600 mb-6">
             Sorry, the property you're looking for doesn't exist or may have been removed.
           </p>
-          <button
+          <motion.button
             onClick={goBack}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-200 font-medium"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             Go Back
-          </button>
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-12">
-      {/* Header */}
-      <div className="bg-white shadow-md py-4 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="p-2">
-            <button
-              onClick={goBack}
-              className="flex items-center space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors"
-            >
-              <ArrowLeft size={18} />
-              <span className="text-base">Back</span>
-            </button>
-          </div>
-          <h1 className="text-xl font-semibold text-gray-800 mt-2">
-            {property.title}
-          </h1>
-        </div>
+    <motion.div
+      className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 relative"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Background pattern overlay */}
+      <div className="absolute inset-0 z-0 opacity-10"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236366F1' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundSize: '60px 60px'
+        }}>
       </div>
+      
+      {/* Header */}
+      <motion.div
+        className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-4 px-4 shadow-lg relative z-10"
+        initial={{ y: -50 }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", stiffness: 100 }}
+      >
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between">
+            <motion.button
+              onClick={goBack}
+              className="flex items-center space-x-2 text-white bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 hover:bg-white/30 transition-colors transform hover:scale-105 duration-200"
+              whileTap={{ scale: 0.95 }}
+            >
+              <ArrowLeft size={20} />
+              <span className="text-base font-medium">Back</span>
+            </motion.button>
+            
+            <motion.h1
+              className="text-2xl font-bold"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              Property Details
+            </motion.h1>
+          </div>
+        </div>
+      </motion.div>
 
       <div className="max-w-6xl mx-auto px-4 mt-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Property Images and Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Property Images */}
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-indigo-50 overflow-hidden">
               <div className="relative h-64 md:h-80 lg:h-96 bg-gray-200">
                 {property.images && property.images.length > 0 ? (
                   <img
@@ -418,7 +454,7 @@ I'm interested in this property. Would like to know more details.`;
                     <Home size={64} className="text-gray-400" />
                   </div>
                 )}
-
+                
                 {/* Image Navigation buttons if multiple images */}
                 {property.images && property.images.length > 1 && (
                   <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
@@ -426,14 +462,15 @@ I'm interested in this property. Would like to know more details.`;
                       <button
                         key={index}
                         onClick={() => setActiveImageIndex(index)}
-                        className={`w-3 h-3 rounded-full ${activeImageIndex === index ? 'bg-blue-600' : 'bg-gray-300'
-                          }`}
+                        className={`w-3 h-3 rounded-full ${
+                          activeImageIndex === index ? 'bg-blue-600' : 'bg-gray-300'
+                        }`}
                       />
                     ))}
                   </div>
                 )}
               </div>
-
+              
               {/* Thumbnail images */}
               {property.images && property.images.length > 1 && (
                 <div className="flex overflow-x-auto p-2 space-x-2">
@@ -441,8 +478,9 @@ I'm interested in this property. Would like to know more details.`;
                     <button
                       key={index}
                       onClick={() => setActiveImageIndex(index)}
-                      className={`flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 ${activeImageIndex === index ? 'border-blue-500' : 'border-transparent'
-                        }`}
+                      className={`flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 ${
+                        activeImageIndex === index ? 'border-blue-500' : 'border-transparent'
+                      }`}
                     >
                       <img
                         src={image}
@@ -455,125 +493,10 @@ I'm interested in this property. Would like to know more details.`;
               )}
             </div>
 
-            {/* Price and Share Section - Moved here */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-blue-600">{formatPrice(property.price)}</h2>
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${property.status === 'Available' ? 'bg-green-100 text-green-800' :
-                    property.status === 'Reserved' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                  }`}>
-                  {property.status}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex space-x-3">
-                <button
-                  onClick={handleLike}
-                  className={`flex-1 py-3 rounded-lg border flex items-center justify-center ${isLikedByUser() ?
-                      'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' :
-                      'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                    }`}
-                >
-                  <Heart size={18} className="mr-2" fill={isLikedByUser() ? 'currentColor' : 'none'} />
-                  {isLikedByUser() ? 'Liked' : 'Like'} ({property.likes ? property.likes.length : 0})
-                </button>
-
-                {/* Share button */}
-                {hasNativeShare ? (
-                  <button
-                    onClick={() => shareOnSocial('native')}
-                    className="flex-1 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
-                  >
-                    <Share size={18} className="mr-2" />
-                    Share
-                  </button>
-                ) : (
-                  <button
-                    onClick={toggleShareOptions}
-                    className="flex-1 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
-                  >
-                    <Share size={18} className="mr-2" />
-                    Share
-                  </button>
-                )}
-              </div>
-
-              {/* Share Options Modal */}
-              {showShare && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-semibold text-blue-800">Share this listing</h3>
-                    <button
-                      onClick={toggleShareOptions}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2 mb-3">
-                    <button
-                      onClick={() => shareOnSocial('whatsapp')}
-                      className="flex flex-col items-center justify-center p-3 bg-green-100 rounded-lg hover:bg-green-200"
-                    >
-                      <WhatsApp size={24} className="text-green-600 mb-1" />
-                      <span className="text-xs">WhatsApp</span>
-                    </button>
-
-                    <button
-                      onClick={() => shareOnSocial('facebook')}
-                      className="flex flex-col items-center justify-center p-3 bg-blue-100 rounded-lg hover:bg-blue-200"
-                    >
-                      <Facebook size={24} className="text-blue-600 mb-1" />
-                      <span className="text-xs">Facebook</span>
-                    </button>
-
-                    <button
-                      onClick={() => shareOnSocial('twitter')}
-                      className="flex flex-col items-center justify-center p-3 bg-sky-100 rounded-lg hover:bg-sky-200"
-                    >
-                      <Twitter size={24} className="text-sky-500 mb-1" />
-                      <span className="text-xs">Twitter</span>
-                    </button>
-
-                    <button
-                      onClick={() => shareOnSocial('linkedin')}
-                      className="flex flex-col items-center justify-center p-3 bg-blue-100 rounded-lg hover:bg-blue-200"
-                    >
-                      <Linkedin size={24} className="text-blue-700 mb-1" />
-                      <span className="text-xs">LinkedIn</span>
-                    </button>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="flex items-center bg-white rounded-lg border border-gray-200 overflow-hidden">
-                      <div className="flex-1 truncate px-3 py-2 text-sm text-gray-600">
-                        {window.location.href}
-                      </div>
-                      <button
-                        onClick={copyToClipboard}
-                        className="px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 border-l"
-                      >
-                        {linkCopied ? (
-                          <Check size={18} className="text-green-600" />
-                        ) : (
-                          <Copy size={18} />
-                        )}
-                      </button>
-                    </div>
-                    {linkCopied && (
-                      <p className="text-xs text-green-600 mt-1">Link copied to clipboard!</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Property Description */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Description</h2>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">{property.title}</h2>
               <p className="text-gray-700 whitespace-pre-line">{property.description}</p>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
@@ -667,7 +590,7 @@ I'm interested in this property. Would like to know more details.`;
             </div>
 
             {/* Comments Section */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">
                 Comments ({property.comments.length})
               </h2>
@@ -683,7 +606,7 @@ I'm interested in this property. Would like to know more details.`;
                         className="h-8 w-8 rounded-full"
                       />
                     ) : (
-                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                         <span className="text-sm font-medium text-blue-800">
                           {residentData?.name?.charAt(0) || 'U'}
                         </span>
@@ -758,13 +681,14 @@ I'm interested in this property. Would like to know more details.`;
           {/* Price, Actions, and Seller Info */}
           <div className="space-y-4">
             {/* Price and Status */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-blue-600">{formatPrice(property.price)}</h2>
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${property.status === 'Available' ? 'bg-green-100 text-green-800' :
-                    property.status === 'Reserved' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                  }`}>
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  property.status === 'Available' ? 'bg-green-100 text-green-800' :
+                  property.status === 'Reserved' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
                   {property.status}
                 </div>
               </div>
@@ -892,7 +816,7 @@ I'm interested in this property. Would like to know more details.`;
             </div>
 
             {/* Seller Info */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">Seller Information</h2>
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -931,7 +855,7 @@ I'm interested in this property. Would like to know more details.`;
             </div>
 
             {/* Safety Tips */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-2">Safety Tips</h2>
               <ul className="text-sm text-gray-700 space-y-2">
                 <li className="flex items-start">
@@ -951,7 +875,7 @@ I'm interested in this property. Would like to know more details.`;
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

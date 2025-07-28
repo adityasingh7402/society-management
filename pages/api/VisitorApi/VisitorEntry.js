@@ -69,38 +69,44 @@ export default async function handler(req, res) {
       // Save the new visitor
       const savedVisitor = await newVisitor.save();
 
-      // Find the resident to get their FCM token
+      // Find the resident to get their FCM tokens
       const resident = await Resident.findById(residentId);
       
-      // If resident has an FCM token, send a notification
-      if (resident && resident.fcmToken) {
+      // If resident has FCM tokens, send notifications
+      if (resident && resident.fcmTokens && resident.fcmTokens.length > 0) {
         try {
-          await admin.messaging().send({
-            token: resident.fcmToken,
-            data: {
-              title: 'New Visitor',
-              message: `${visitorName} is waiting at the gate`,
-              visitorId: savedVisitor._id.toString()
-            },
-            android: {
-              priority: 'high',
-              notification: {
-                sound: 'visitor_alert',
-                channelId: 'visitor_notification_channel',
+          const notifications = resident.fcmTokens.map(token => 
+            admin.messaging().send({
+              token: token,
+              data: {
+                title: 'New Visitor',
+                body: `Visitor: ${visitorName}\nReason: ${visitorReason || 'Not specified'}` ,
+                visitorId: savedVisitor._id.toString(),
+                type: 'visitor_entry',
+                guardName: guardName || '',
+                guardPhone: guardPhone || '',
+                visitorReason: visitorReason || '',
+                entryTime: entryTime || '',
+                visitorImage: savedVisitor.visitorImage || ''
+              },
+              android: {
                 priority: 'high',
-                vibrateTimingsMillis: [0, 1000, 500, 1000, 500, 1000]
+                ttl: 3600 * 1000
               }
-            }
-          });
-          console.log('Notification sent successfully to resident');
+            })
+          );
+          
+          await Promise.all(notifications);
+          console.log('Notifications sent successfully to resident');
         } catch (notificationError) {
-          console.error('Error sending notification:', notificationError);
+          console.error('Error sending notifications:', notificationError);
           // We don't want to fail the whole request if notification fails
           // Just log the error and continue
         }
       } else {
-        console.log('No FCM token found for resident, notification not sent');
+        console.log('No FCM tokens found for resident, notification not sent');
       }
+      console.log(notifications)
 
       res.status(201).json({ 
         success: true, 

@@ -12,7 +12,9 @@ app.prepare().then(() => {
   cron.schedule('0 * * * *', async () => {
     console.log('Running scheduled bill generation cron job...');
     try {
-      const { handler } = require('./pages/api/cron/generate-monthly-bills');
+      // Dynamic import for CommonJS
+      const generateBillsModule = require('./pages/api/cron/generate-monthly-bills.js');
+      const handler = generateBillsModule.default || generateBillsModule;
       
       // Create mock request and response
       const req = {
@@ -52,4 +54,4 @@ app.prepare().then(() => {
     console.log(`> Ready on port ${port}`);
   });
   
-}); 
+});

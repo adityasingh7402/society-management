@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const visitorSchema = new mongoose.Schema({
   // Society and flat details
@@ -95,4 +95,4 @@ const visitorSchema = new mongoose.Schema({
 // Create compound index for efficient querying
 visitorSchema.index({ societyId: 1, blockName: 1, floorNumber: 1, flatNumber: 1 });
 
-module.exports = mongoose.models.Visitor || mongoose.model('Visitor', visitorSchema);
+export default mongoose.models.Visitor || mongoose.model('Visitor', visitorSchema);

@@ -26,48 +26,10 @@ const nextConfig = {
       }
     ];
   },
-  // Add cron configuration
-  async serverRuntimeConfig() {
-    return {
-      cron: {
-        jobs: [
-          {
-            // Run every hour
-            schedule: '0 * * * *',
-            exec: async () => {
-              try {
-                // Use direct model access instead of HTTP call
-                const { handler } = require('./pages/api/cron/generate-monthly-bills');
-                
-                // Create a mock request and response
-                const req = {
-                  method: 'POST',
-                  headers: {}
-                };
-                
-                const res = {
-                  status: (code) => ({
-                    json: (data) => {
-                      if (code >= 200 && code < 300) {
-                        console.log('Cron job completed successfully:', data);
-                      } else {
-                        console.error('Cron job failed:', data);
-                      }
-                    }
-                  })
-                };
-
-                // Execute the handler directly
-                await handler(req, res);
-              } catch (error) {
-                console.error('Error in scheduled bills generation:', error);
-              }
-            }
-          }
-        ]
-      }
-    };
+  // Server runtime configuration
+  serverRuntimeConfig: {
+    // Configuration for server-side code
   }
 };
 
-module.exports = nextConfig;
+export default nextConfig;

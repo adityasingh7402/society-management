@@ -2,15 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import PreloaderSociety from '../../components/PreloaderSociety';
 
-// Add these imports at the top
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination, Autoplay } from 'swiper/modules';
-import 'swiper/css';
-import 'swiper/css/navigation';
-import 'swiper/css/pagination';
 import Image from 'next/image';
 
-export default function Dashboard() {
+export default function DashboardDefault() {
   const [dateRange, setDateRange] = useState("month");
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -158,50 +152,30 @@ export default function Dashboard() {
               Latest Announcements
             </h2>
             <div className="p-6">
-              <Swiper
-                modules={[Navigation, Pagination, Autoplay]}
-                spaceBetween={30}
-                slidesPerView={1}
-                navigation
-                pagination={{ clickable: true }}
-                autoplay={{ delay: 3000 }}
-                className="announcement-slider"
-              >
+              <div className="space-y-6">
                 {announcements.map((announcement) => (
-                  <SwiperSlide key={announcement.id}>
-                    <div className="mb-6 last:mb-0">
-                      <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-lg font-medium text-gray-900">{announcement.title}</h3>
-                        <div className="text-right">
-                          <span className="block text-sm text-gray-500">{announcement.date}</span>
-                          <span className="block text-xs text-gray-400">{announcement.time}</span>
-                        </div>
+                  <div key={announcement.id} className="mb-6 last:mb-0">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-lg font-medium text-gray-900">{announcement.title}</h3>
+                      <div className="text-right">
+                        <span className="block text-sm text-gray-500">{announcement.date}</span>
+                        <span className="block text-xs text-gray-400">{announcement.time}</span>
                       </div>
-                      {announcement.images?.length > 0 && (
-                        <div className="relative w-full h-48 mb-4 rounded-lg overflow-hidden">
-                          <Swiper
-                            modules={[Pagination]}
-                            pagination={{ clickable: true }}
-                            className="announcement-images-slider"
-                          >
-                            {announcement.images.map((image, index) => (
-                              <SwiperSlide key={index}>
-                                <Image
-                                  src={image}
-                                  alt={`${announcement.title} - Image ${index + 1}`}
-                                  fill
-                                  className="object-cover"
-                                />
-                              </SwiperSlide>
-                            ))}
-                          </Swiper>
-                        </div>
-                      )}
-                      <p className="mt-2 text-gray-600">{announcement.description}</p>
                     </div>
-                  </SwiperSlide>
+                    {announcement.images?.length > 0 && (
+                      <div className="relative w-full h-48 mb-4 rounded-lg overflow-hidden">
+                        <Image
+                          src={announcement.images[0]}
+                          alt={`${announcement.title} - Image`}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
+                    <p className="mt-2 text-gray-600">{announcement.description}</p>
+                  </div>
                 ))}
-              </Swiper>
+              </div>
             </div>
           </div>
 

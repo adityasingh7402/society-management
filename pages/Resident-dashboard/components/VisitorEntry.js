@@ -106,6 +106,11 @@ const VisitorEntry = () => {
                 throw new Error('Failed to update visitor status');
             }
 
+            // If visitor is approved, create daily attendance record
+            if (action === 'approve') {
+                await createDailyAttendanceRecord(visitorId);
+            }
+
             // Update local state with the new status
             setVisitors(prev =>
                 prev.map(visitor =>
@@ -115,12 +120,98 @@ const VisitorEntry = () => {
                 )
             );
 
-            showNotification(`Visitor ${action === 'approve' ? 'approve' : 'reject'} successfully`, 'success');
+            showNotification(`Visitor ${action === 'approve' ? 'approved' : 'rejected'} successfully`, 'success');
         } catch (error) {
             console.error('Error updating visitor status:', error);
             showNotification(error.message, 'error');
         } finally {
             setProcessingId(null);
+        }
+    };
+
+    // Create daily attendance record for approved visitor
+    const createDailyAttendanceRecord = async (visitorId) => {
+        try {
+            // Find the visitor data
+            const visitor = visitors.find(v => v._id === visitorId);
+            if (!visitor) {
+                throw new Error('Visitor not found');
+            }
+
+            // Ensure we have required resident details
+            if (!residentDetails || !residentDetails.flatDetails) {
+                throw new Error('Resident details not available');
+            }
+
+            // Prepare visitor data for DailyAttendance model - matching exact schema
+            const visitorData = {
+                visitorName: visitor.visitorName || 'Unknown Visitor',
+                visitorPhone: visitor.visitorPhone || 'N/A',
+                visitorImage: visitor.visitorImage || undefined,
+                visitorType: 'GateVisitor', // Required enum value
+                purpose: visitor.visitorReason || 'Visit', // Required field
+                entryTime: new Date(), // Required field
+                expectedExitTime: new Date(Date.now() + 4 * 60 * 60 * 1000), // Required field - 4 hours from now
+                status: 'Inside', // Required enum value
+                approvedBy: {
+                    securityId: visitor.securityId || 'system',
+                    guardName: visitor.guardName || 'Security Guard',
+                    guardPhone: visitor.guardPhone || 'N/A'
+                },
+                residentDetails: {
+                    personId: residentDetails._id, // Required ObjectId
+                    personModel: 'Resident', // Required enum value
+                    name: residentDetails.name || 'Unknown Resident', // Required field
+                    phone: residentDetails.phone || 'N/A', // Required field
+                    flatNumber: residentDetails.flatDetails.flatNumber.toString(), // Required field as string
+                    blockNumber: residentDetails.flatDetails.blockName || 'N/A', // Required field
+                    floorNumber: (residentDetails.flatDetails.floorIndex)?.toString() || '0' // Required field as string
+                },
+                notes: `Approved by resident: ${residentDetails.name || 'Unknown'} at ${new Date().toLocaleString()}`
+            };
+
+            // Validate required fields before sending
+            if (!visitorData.visitorName || !visitorData.purpose || !visitorData.entryTime || !visitorData.expectedExitTime) {
+                throw new Error('Missing required visitor fields');
+            }
+
+            if (!visitorData.residentDetails.personId || !visitorData.residentDetails.name || !visitorData.residentDetails.flatNumber) {
+                throw new Error('Missing required resident details');
+            }
+
+            console.log('Sending visitor data to DailyAttendance API:', {
+                societyId: residentDetails.societyId,
+                visitorData: visitorData
+            });
+
+            // Call the create-attendance API
+            const attendanceResponse = await fetch('/api/DailyAttendance-Api/create-attendance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    societyId: residentDetails.societyId,
+                    visitorData: visitorData
+                }),
+            });
+
+            if (!attendanceResponse.ok) {
+                const errorData = await attendanceResponse.json();
+                console.error('API Error Response:', errorData);
+                throw new Error(errorData.message || `Failed to create attendance record: ${attendanceResponse.status}`);
+            }
+
+            const responseData = await attendanceResponse.json();
+            console.log('Daily attendance record created successfully:', responseData);
+            
+            // Show success notification
+            showNotification('Visitor approved and attendance record created', 'success');
+        } catch (error) {
+            console.error('Error creating daily attendance record:', error);
+            // Don't throw the error to prevent blocking the main approval flow
+            // Just log it and show a warning notification
+            showNotification(`Visitor approved but attendance failed: ${error.message}`, 'error');
         }
     };
 

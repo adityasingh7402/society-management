@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
@@ -7,7 +8,7 @@ import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 
 const { 
-  Heart, ArrowLeft, Share, Flag, MessageCircle, Send, Phone, 
+  Heart, ChevronLeft, Share, Flag, MessageCircle, Send, Phone, 
   Calendar, Tag, MapPin, Package, X, CheckCircle, Facebook, 
   Twitter, Linkedin, Copy, Check, WhatsApp 
 } = LucideIcons;
@@ -334,19 +335,27 @@ const ProductDetail = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 border-solid mx-auto"></div>
-          <p className="mt-4 text-gray-700 text-lg">Loading product details...</p>
+      <motion.div
+        className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-indigo-700 font-medium">Loading product details...</p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   if (!product) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center max-w-lg">
+      <motion.div
+        className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        <div className="text-center max-w-lg bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
           <div className="w-20 h-20 mx-auto mb-4 text-red-500">
             <X size={80} className="mx-auto" />
           </div>
@@ -354,43 +363,70 @@ const ProductDetail = () => {
           <p className="text-gray-600 mb-6">
             Sorry, the product you're looking for doesn't exist or may have been removed.
           </p>
-          <button
+          <motion.button
             onClick={goBack}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-200 font-medium"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             Go Back
-          </button>
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-12">
-      {/* Header */}
-      <div className="bg-white shadow-md py-4 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="p-2">
-            <button
-              onClick={goBack}
-              className="flex items-center space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors"
-            >
-              <ArrowLeft size={18} />
-              <span className="text-base">Back</span>
-            </button>
-          </div>
-          <h1 className="text-xl font-semibold text-gray-800 mt-2">
-            {product.title}
-          </h1>
-        </div>
+    <motion.div
+      className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 relative"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Background pattern overlay */}
+      <div className="absolute inset-0 z-0 opacity-10"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236366F1' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundSize: '60px 60px'
+        }}>
       </div>
+      
+      {/* Header */}
+      <motion.div
+        className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-4 px-4 shadow-lg relative z-10"
+        initial={{ y: -50 }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", stiffness: 100 }}
+      >
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between">
+            <motion.button
+              onClick={goBack}
+              className="flex items-center space-x-2 text-white bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 hover:bg-white/30 transition-colors transform hover:scale-105 duration-200"
+              whileTap={{ scale: 0.95 }}
+            >
+              <ChevronLeft size={20} />
+              <span className="text-base font-medium">Back</span>
+            </motion.button>
+            
+            <motion.h1
+              className="text-2xl font-bold"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              Product Details
+            </motion.h1>
+          </div>
+        </div>
+      </motion.div>
 
       <div className="max-w-6xl mx-auto px-4 mt-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Product Images and Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Product Images */}
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-indigo-50 overflow-hidden">
               <div className="relative h-64 md:h-80 lg:h-96 bg-gray-200">
                 {product.images && product.images.length > 0 ? (
                   <img
@@ -443,8 +479,8 @@ const ProductDetail = () => {
             </div>
             
             {/* Product Description */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Description</h2>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">{product.title}</h2>
               <p className="text-gray-700 whitespace-pre-line">{product.description}</p>
               
               <div className="grid grid-cols-2 gap-4 mt-6">
@@ -483,7 +519,7 @@ const ProductDetail = () => {
             </div>
             
             {/* Comments Section */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">
                 Comments ({product.comments.length})
               </h2>
@@ -575,7 +611,7 @@ const ProductDetail = () => {
           {/* Price, Actions, and Seller Info */}
           <div className="space-y-4">
             {/* Price and Status */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-blue-600">{formatPrice(product.price)}</h2>
                 <div className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -711,7 +747,7 @@ const ProductDetail = () => {
             </div>
             
             {/* Seller Info */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">Seller Information</h2>
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -750,7 +786,7 @@ const ProductDetail = () => {
             </div>
             
             {/* Similar Products Suggestion */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-2">Safety Tips</h2>
               <ul className="text-sm text-gray-700 space-y-2">
                 <li className="flex items-start">
@@ -770,7 +806,7 @@ const ProductDetail = () => {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
