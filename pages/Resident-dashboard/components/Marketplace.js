@@ -1,28 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import { Plus, Filter, Search, Tag, ShoppingCart, Bell, ArrowLeft, Heart, MessageCircle, Trash2, AlertTriangle, X, ChevronDown, RefreshCw } from 'lucide-react';
+import { Plus, Filter, Search, Tag, ShoppingCart, Bell, ChevronLeft, Heart, MessageCircle, Trash2, AlertTriangle, X, ChevronDown, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
-
-// Define CSS animations
-const animationStyles = `
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.3s ease-out;
-}
-`;
 
 const Marketplace = () => {
   const router = useRouter();
@@ -46,6 +29,50 @@ const Marketplace = () => {
   const [myListings, setMyListings] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { type: "spring", stiffness: 100 }
+    }
+  };
+
+  const cardVariants = {
+    hidden: { scale: 0.9, opacity: 0 },
+    visible: {
+      scale: 1,
+      opacity: 1,
+      transition: { type: "spring", stiffness: 100 }
+    },
+    hover: {
+      y: -5,
+      scale: 1.02,
+      transition: { type: "spring", stiffness: 300 }
+    }
+  };
+
+  const modalVariants = {
+    hidden: { scale: 0.8, opacity: 0 },
+    visible: {
+      scale: 1,
+      opacity: 1,
+      transition: { type: "spring", damping: 25, stiffness: 300 }
+    },
+    exit: { scale: 0.8, opacity: 0 }
+  };
 
   useEffect(() => {
     if (router.isReady) {
@@ -74,18 +101,14 @@ const Marketplace = () => {
 
   // Add hash change listener and initialize from URL
   useEffect(() => {
-    // Function to set active tab from hash
     const setTabFromHash = () => {
-      const hash = window.location.hash.slice(1); // Remove the # symbol
+      const hash = window.location.hash.slice(1);
       if (['all', 'my-listings', 'responses'].includes(hash)) {
         setActiveTab(hash);
       }
     };
 
-    // Set initial tab from URL hash
     setTabFromHash();
-
-    // Listen for hash changes
     window.addEventListener('hashchange', setTabFromHash);
 
     return () => {
@@ -113,10 +136,9 @@ const Marketplace = () => {
 
       const data = await response.json();
       setResidentData(data);
-      
-      // Fetch products after resident data is loaded
+
       if (data.societyId) {
-      fetchProducts(data.societyId);
+        fetchProducts(data.societyId);
       }
     } catch (error) {
       toast.error('Error fetching resident details');
@@ -179,25 +201,21 @@ const Marketplace = () => {
   const applyFilters = (search = searchQuery, filterValues = filters) => {
     let filtered = [...products];
 
-    // Apply search query
     if (search) {
-      filtered = filtered.filter(product => 
-        product.title.toLowerCase().includes(search.toLowerCase()) || 
+      filtered = filtered.filter(product =>
+        product.title.toLowerCase().includes(search.toLowerCase()) ||
         product.description.toLowerCase().includes(search.toLowerCase())
       );
     }
 
-    // Apply category filter
     if (filterValues.category) {
       filtered = filtered.filter(product => product.category === filterValues.category);
     }
 
-    // Apply condition filter
     if (filterValues.condition) {
       filtered = filtered.filter(product => product.condition === filterValues.condition);
     }
 
-    // Apply price filters
     if (filterValues.minPrice) {
       filtered = filtered.filter(product => product.price >= parseFloat(filterValues.minPrice));
     }
@@ -230,7 +248,7 @@ const Marketplace = () => {
 
     try {
       const token = localStorage.getItem('Resident');
-      const response = await axios.post('/api/Product-Api/like-product', 
+      const response = await axios.post('/api/Product-Api/like-product',
         {
           productId,
           residentId: residentData._id
@@ -243,16 +261,15 @@ const Marketplace = () => {
         }
       );
 
-      // Update products state with updated like status
-      const updateProducts = (prevProducts) => 
-        prevProducts.map(product => 
-          product._id === productId 
-            ? { 
-                ...product, 
-                likes: response.data.liked 
-                  ? [...product.likes, residentData._id]
-                  : product.likes.filter(id => id !== residentData._id)
-              } 
+      const updateProducts = (prevProducts) =>
+        prevProducts.map(product =>
+          product._id === productId
+            ? {
+              ...product,
+              likes: response.data.liked
+                ? [...product.likes, residentData._id]
+                : product.likes.filter(id => id !== residentData._id)
+            }
             : product
         );
 
@@ -271,8 +288,8 @@ const Marketplace = () => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-IN', { 
-      day: 'numeric', 
+    return new Intl.DateTimeFormat('en-IN', {
+      day: 'numeric',
       month: 'short',
       year: 'numeric'
     }).format(date);
@@ -297,7 +314,7 @@ const Marketplace = () => {
   const handleDeleteProduct = async (productId) => {
     try {
       const token = localStorage.getItem('Resident');
-      
+
       await axios.delete(`/api/Product-Api/delete-product?productId=${productId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -306,7 +323,7 @@ const Marketplace = () => {
 
       setProducts(prevProducts => prevProducts.filter(product => product._id !== productId));
       setFormattedProducts(prevProducts => prevProducts.filter(product => product._id !== productId));
-      
+
       setShowDeleteModal(false);
       setProductToDelete(null);
       toast.success('Product deleted successfully');
@@ -340,7 +357,7 @@ const Marketplace = () => {
     } else if (tabId === 'all') {
       setFormattedProducts(products);
     } else if (tabId === 'responses') {
-      fetchMessages(); // Fetch messages when switching to responses tab
+      fetchMessages();
     }
   };
 
@@ -360,17 +377,14 @@ const Marketplace = () => {
         return;
       }
 
-      // Get all messages for the user
       const response = await axios.get('/api/Product-Api/get-messages', {
         headers: {
           Authorization: `Bearer ${token}`,
         }
       });
-      
-      // Reset unread messages state
+
       setUnreadMessages({});
-      
-      // Group messages by unique conversation (product + other user combination)
+
       const conversations = {};
       const unreadCounts = {};
 
@@ -378,10 +392,9 @@ const Marketplace = () => {
         const isUserSender = msg.senderId === residentData._id;
         const otherUserId = isUserSender ? msg.receiverId : msg.senderId;
         const conversationKey = `${msg.productId}-${otherUserId}`;
-        
-        // Only update the conversation if this message is newer
-        if (!conversations[conversationKey] || 
-            new Date(msg.createdAt) > new Date(conversations[conversationKey].createdAt)) {
+
+        if (!conversations[conversationKey] ||
+          new Date(msg.createdAt) > new Date(conversations[conversationKey].createdAt)) {
           conversations[conversationKey] = {
             otherUser: {
               id: otherUserId,
@@ -398,7 +411,6 @@ const Marketplace = () => {
           };
         }
 
-        // Track unread messages per product
         if (!msg.isRead && msg.receiverId === residentData._id) {
           if (!unreadCounts[msg.productId]) {
             unreadCounts[msg.productId] = 0;
@@ -407,13 +419,11 @@ const Marketplace = () => {
         }
       });
 
-      // Update unread counts state
       setUnreadMessages(unreadCounts);
-      
-      // Convert to array and sort by latest message
+
       const sortedMessages = Object.values(conversations)
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      
+
       setMessages(sortedMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -426,7 +436,6 @@ const Marketplace = () => {
     }
   };
 
-  // Add effect to handle initial loading of messages when on responses tab
   useEffect(() => {
     const loadMessages = async () => {
       if (activeTab === 'responses' && residentData?._id) {
@@ -436,340 +445,163 @@ const Marketplace = () => {
     loadMessages();
   }, [activeTab, residentData]);
 
-  // Filter products based on active tab
   const getFilteredProducts = () => {
     if (activeTab === 'my-listings') {
       return formattedProducts.filter(prop => prop.sellerId === residentData?._id);
     } else if (activeTab === 'responses') {
       if (messagesLoading) {
-        return []; // Return empty array while loading
+        return [];
       }
       return messages;
     } else {
-      // Show all products in the Products tab
       return formattedProducts;
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
+      <motion.div
+        className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-indigo-700 font-medium">Loading marketplace...</p>
+        </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-10">
-      <Head>
-        <style>{animationStyles}</style>
-      </Head>
-      
+    <motion.div
+      className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 relative"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Background pattern overlay */}
+      <div className="absolute inset-0 z-0 opacity-10"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236366F1' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundSize: '60px 60px'
+        }}>
+      </div>
+
       {/* Header */}
-      <div className="bg-white z-20 shadow-md py-4 sticky top-0">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="p-2">
-            <button
+      <motion.div
+        className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-4 px-4 shadow-lg relative z-10"
+        initial={{ y: -50 }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", stiffness: 100 }}
+      >
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-4">
+            <motion.button
               onClick={() => router.push('/Resident-dashboard')}
-              className="flex items-center space-x-2 text-blue-500 hover:text-blue-600 font-semibold transition-colors"
+              className="flex items-center space-x-2 text-white bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 hover:bg-white/30 transition-colors transform hover:scale-105 duration-200"
+              whileTap={{ scale: 0.95 }}
             >
-              <ArrowLeft size={18} />
-              <span className="text-base">Back</span>
-            </button>
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <h1 className="text-2xl font-bold text-gray-800">Marketplace</h1>
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={handleAddNew}
-                className="bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center hover:bg-blue-700 transition-colors"
-              >
-                <Plus size={24} className="" />
-              </button>
-            </div>
+              <ChevronLeft size={20} />
+              <span className="text-base font-medium">Back</span>
+            </motion.button>
+
+            <motion.h1
+              className="text-2xl font-bold"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              Marketplace
+            </motion.h1>
           </div>
 
           {/* Tabs */}
-          <div className="flex mt-6 border-b">
-            <button
-              onClick={() => handleTabChange('all')}
-              className={`flex-1 px-4 py-2 text-sm font-medium ${
-                activeTab === 'all'
-                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Products
-            </button>
-            <button
-              onClick={() => handleTabChange('my-listings')}
-              className={`flex-1 px-4 py-2 text-sm font-medium ${
-                activeTab === 'my-listings'
-                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              My Listings
-            </button>
-            <button
-              onClick={() => handleTabChange('responses')}
-              className={`flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center relative ${
-                activeTab === 'responses'
-                  ? 'bg-white text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <div className="relative">
-                <Bell width={20} height={20}/>
-                {Object.values(unreadMessages).reduce((a, b) => a + b, 0) > 0 && 
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
+          <motion.div
+            className="flex bg-white/10 backdrop-blur-sm rounded-xl p-1"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            {[
+              { id: 'all', label: 'Products', icon: ShoppingCart },
+              { id: 'my-listings', label: 'My Listings', icon: Tag },
+              { id: 'responses', label: 'Messages', icon: Bell }
+            ].map((tab) => (
+              <motion.button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-all duration-200 ${activeTab === tab.id
+                  ? 'bg-white text-indigo-600 shadow-lg'
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                variants={itemVariants}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <tab.icon size={18} />
+                <span>{tab.label}</span>
+                {tab.id === 'responses' && Object.values(unreadMessages).reduce((a, b) => a + b, 0) > 0 && (
+                  <span className="bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full ml-1">
                     {Object.values(unreadMessages).reduce((a, b) => a + b, 0)}
                   </span>
-                }
-              </div>
-            </button>
-          </div>
+                )}
+              </motion.button>
+            ))}
+          </motion.div>
 
           {/* Search and Filter - Only show for 'all' and 'my-listings' tabs */}
           {activeTab !== 'responses' && (
-            <>
-          <div className="mt-4 flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <Search size={18} className="absolute left-3 top-2.5 text-gray-400" />
-            </div>
-            <button
-              onClick={toggleFilters}
-              className="flex items-center space-x-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+            <motion.div
+              className="mt-4 flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-3"
+              variants={itemVariants}
+              initial="hidden"
+              animate="visible"
             >
-              <Filter size={18} />
-              <span>Filters</span> 
-              <ChevronDown size={16} className={`transform transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-            </button>
-          </div>
-            </>
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  className="w-full pl-12 pr-4 py-3 text-sm bg-white/90 backdrop-blur-sm border border-white/20 rounded-xl outline-none focus:ring-2 focus:ring-white focus:border-transparent transition-all duration-200 text-gray-700 placeholder-gray-500"
+                />
+                <Search size={20} className="absolute left-4 top-3.5 text-gray-400" />
+              </div>
+              <motion.button
+                onClick={toggleFilters}
+                className="flex items-center text-sm space-x-2 px-6 py-3 bg-white/20 backdrop-blur-sm border border-white/20 rounded-xl hover:bg-white/30 transition-all duration-200 shadow-lg text-white"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Filter size={18} />
+                <span>Filters</span>
+                <ChevronDown size={16} className={`transform transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+              </motion.button>
+            </motion.div>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Content Area */}
-      <div className="max-w-4xl mx-auto">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          </div>
-        ) : getFilteredProducts().length === 0 && !messagesLoading ? (
-          <div className="text-center py-12">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {activeTab === 'responses' ? 'No messages yet' : 'No products found'}
-            </h3>
-            <p className="text-gray-500 mb-6">
-              {activeTab === 'my-listings'
-                ? "You haven't listed any products yet"
-                : activeTab === 'responses'
-                ? "When you receive messages about products, they'll appear here"
-                : "There are no products available in your society yet"}
-            </p>
-            {activeTab !== 'responses' && (
-              <button
-                onClick={handleAddNew}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                List a Product
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="w-full mx-auto px-1 mt-3">
-            {activeTab === 'responses' ? (
-              // Messages View
-              <div className="bg-white rounded-lg shadow">
-                {messagesLoading ? (
-                  <div className="text-center py-10">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid mx-auto mb-4"></div>
-                    <p className="text-gray-500">Loading messages...</p>
-                  </div>
-                ) : messages.length === 0 ? (
-                  <div className="text-center py-10">
-                    <MessageCircle size={48} className="mx-auto text-gray-400 mb-4" />
-                    <h2 className="text-xl font-semibold text-gray-700 mb-2">No messages yet</h2>
-                    <p className="text-gray-500">When you receive messages about products, they'll appear here.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {messages.map((conversation) => {
-                      const { otherUser, product, message, createdAt } = conversation;
-                      
-                      return (
-                        <Link
-                          key={`${product.id}-${otherUser.id}`}
-                          href={`/Resident-dashboard/components/ProductChat?buyerId=${otherUser.id}&productId=${product.id}`}
-                          className="block p-4 hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex items-center space-x-3">
-                            {otherUser.image ? (
-                              <img src={otherUser.image} alt={otherUser.name} className="w-10 h-10 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                <span className="text-blue-600 font-medium">{otherUser.name?.[0]}</span>
-                              </div>
-                            )}
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <h3 className="font-medium text-gray-900">{otherUser.name}</h3>
-                                <span className="text-sm text-gray-500">
-                                  {new Date(createdAt).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-600 mt-1">{product.title}</p>
-                              <p className="text-sm text-gray-500 mt-1">{truncateMessage(message)}</p>
-                            </div>
-                            {unreadMessages[product.id] > 0 && (
-                              <div className="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-medium">
-                                {unreadMessages[product.id]}
-                              </div>
-                            )}
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : (
-              // Regular Products Grid
-              <div className="grid grid-cols-2 gap-1 auto-rows-fr">
-                {getFilteredProducts().map((product, index) => (
-                  <Link 
-                    key={product._id} 
-                    href={`/Resident-dashboard/components/ProductDetail?id=${product._id}`}
-                    className="block bg-white rounded-xl overflow-hidden shadow hover:shadow-lg transition-all duration-300 cursor-pointer h-full transform hover:-translate-y-1"
-                    style={{ order: index + 1 }}
-                  >
-                    {/* Product Image */}
-                    <div className="relative w-full h-40">
-                      {/* Delete button - only show for the product owner */}
-                      {residentData && product.sellerId === residentData._id && (
-                        <button 
-                          onClick={(e) => openDeleteModal(e, product)} 
-                          className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow-md hover:bg-red-100 transition-colors z-10"
-                          title="Delete product"
-                        >
-                          <Trash2 size={16} className="text-red-500" />
-                        </button>
-                      )}
-                      
-                      {product.images && product.images.length > 0 ? (
-                        <img
-                          src={product.images[0]}
-                          alt={product.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                          <Tag size={28} className="text-gray-400" />
-                        </div>
-                      )}
-                      
-                      {/* Status Tag */}
-                      <div className="absolute top-2 left-2 px-3 py-1 text-xs font-medium rounded-full bg-green-500 text-white">
-                        Available
-                      </div>
-                    </div>
-                    
-                    {/* Product Info */}
-                    <div className="p-3">
-                      <h3 className="text-base font-semibold text-gray-800 hover:text-blue-600 line-clamp-1">
-                        {product.title}
-                      </h3>
-                      
-                      <div className="mt-1">
-                        <span className="text-lg font-bold text-blue-600">₹{formatPrice(product.price)}</span>
-                      </div>
-                      
-                      <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
-                        <div className="flex items-center text-gray-600">
-                          <span>{product.category}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <span>{product.condition}</span>
-                        </div>
-                      </div>
-                      
-                      <p className="mt-1.5 text-xs text-gray-600 line-clamp-2">{product.description}</p>
-                      
-                      {/* Seller Info */}
-                      <div className="mt-2 flex items-center justify-between border-t pt-2">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0">
-                            {product.sellerImage ? (
-                              <img
-                                src={product.sellerImage}
-                                alt={product.sellerName}
-                                className="h-5 w-5 rounded-full"
-                              />
-                            ) : (
-                              <div className="h-5 w-5 rounded-full bg-gray-200 flex items-center justify-center">
-                                <span className="text-xs font-medium text-gray-500">
-                                  {product.sellerName.charAt(0)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="ml-1.5">
-                            <p className="text-xs text-gray-500 line-clamp-1">{product.sellerName}</p>
-                            <p className="text-[10px] text-gray-400">{formatDate(product.createdAt)}</p>
-                          </div>
-                        </div>
-                        
-                        {/* Actions */}
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={(e) => handleLike(product._id)}
-                            className={`flex items-center space-x-1 ${
-                              isLikedByUser(product) ? 'text-red-500' : 'text-gray-500'
-                            }`}
-                          >
-                            <Heart size={12} fill={isLikedByUser(product) ? 'currentColor' : 'none'} />
-                            <span className="text-[10px]">{product.likes.length}</span>
-                          </button>
-                          {unreadMessages[product._id] > 0 && (
-                            <div className="flex items-center space-x-1">
-                              <MessageCircle size={12} className="text-blue-500" />
-                              <span className="text-[10px] text-blue-500 font-medium">
-                                {unreadMessages[product._id]}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Filter Modal */}
-          {showFilters && (
-            <div className="mt-4 bg-white p-4 border rounded-lg shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Filter Panel */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            className="bg-white/90 backdrop-blur-sm shadow-lg border-b border-indigo-100 relative z-10"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="max-w-6xl mx-auto p-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Category</label>
+                  <label className="block text-xs font-medium text-gray-700">Category</label>
                   <select
                     name="category"
                     value={filters.category}
                     onChange={handleFilterChange}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 border border-gray-200 text-sm rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                   >
                     <option value="">All Categories</option>
                     <option value="Electronics">Electronics</option>
@@ -783,12 +615,12 @@ const Marketplace = () => {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Condition</label>
+                  <label className="block text-xs font-medium text-gray-700">Condition</label>
                   <select
                     name="condition"
                     value={filters.condition}
                     onChange={handleFilterChange}
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 border border-gray-200 text-sm rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                   >
                     <option value="">Any Condition</option>
                     <option value="New">New</option>
@@ -799,100 +631,368 @@ const Marketplace = () => {
                   </select>
                 </div>
                 <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Min Price</label>
-              <div className="flex space-x-2">
+                  <label className="block text-xs font-medium text-gray-700">Min Price</label>
                   <input
                     type="number"
                     name="minPrice"
                     value={filters.minPrice}
                     onChange={handleFilterChange}
-                  placeholder="Amount"
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="₹ 0"
+                    className="w-full p-3 border border-gray-200 text-sm rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                   />
-                <select
-                  name="minPriceUnit"
-                  className="w-24 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="lakh">Lakh</option>
-                  <option value="crore">Crore</option>
-                </select>
-              </div>
                 </div>
                 <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Max Price</label>
-              <div className="flex space-x-2">
+                  <label className="block text-xs font-medium text-gray-700">Max Price</label>
                   <input
                     type="number"
                     name="maxPrice"
                     value={filters.maxPrice}
                     onChange={handleFilterChange}
-                  placeholder="Amount"
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="₹ 999999"
+                    className="w-full p-3 border border-gray-200 text-sm rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                   />
-                <select
-                  name="maxPriceUnit"
-                  className="w-24 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="lakh">Lakh</option>
-                  <option value="crore">Crore</option>
-                </select>
-              </div>
                 </div>
               </div>
-              <div className="mt-4 flex justify-end space-x-2">
-                <button
+              <div className="mt-6 flex justify-end space-x-3">
+                <motion.button
                   onClick={resetFilters}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-700"
+                  className="px-6 py-3 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   Reset
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   onClick={applyFilters}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-6 py-3 text-sm bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:shadow-lg transition-all duration-200"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   Apply Filters
-                </button>
+                </motion.button>
               </div>
             </div>
-          )}
-      
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && productToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div 
-            className="bg-white rounded-lg max-w-md w-full p-5 transform transition-all animate-fade-in-up"
-            style={{animation: 'fadeInUp 0.3s ease-out'}}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Content Area */}
+      <div className="fixed bottom-10 right-5 z-50">
+        <button
+          onClick={handleAddNew}
+          className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transform transition-all duration-300 active:scale-95 hover:scale-110 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 animated-gradient`}
+        >
+          <Plus className="w-7 h-7 text-white" />
+
+          <span className="absolute w-full h-full rounded-full border-4 border-indigo-400/30 animate-ping"></span>
+          <span className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-400/20 to-purple-400/20 blur-md"></span>
+        </button>
+      </div>
+      <main className="max-w-6xl mx-auto px-4 py-4 relative z-10">
+        {getFilteredProducts().length === 0 && !messagesLoading ? (
+          <motion.div
+            className="text-center py-16"
+            variants={itemVariants}
+            initial="hidden"
+            animate="visible"
           >
-            <div className="text-center mb-4">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
-                <AlertTriangle size={32} className="text-red-600" />
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-12 shadow-xl border border-indigo-50">
+              <div className="w-24 h-24 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                {activeTab === 'responses' ? (
+                  <MessageCircle size={40} className="text-indigo-600" />
+                ) : (
+                  <ShoppingCart size={40} className="text-indigo-600" />
+                )}
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Product</h3>
-              <p className="text-sm text-gray-500">
-                Are you sure you want to delete <span className="font-medium">"{productToDelete.title}"</span>? 
-                This action cannot be undone.
+              <h3 className="text-2xl font-semibold text-gray-800 mb-3">
+                {activeTab === 'responses' ? 'No messages yet' : 'No products found'}
+              </h3>
+              <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                {activeTab === 'my-listings'
+                  ? "You haven't listed any products yet. Start by adding your first item!"
+                  : activeTab === 'responses'
+                    ? "When you receive messages about products, they'll appear here"
+                    : "There are no products available in your society yet. Be the first to list something!"}
               </p>
+              {activeTab !== 'responses' && (
+                <motion.button
+                  onClick={handleAddNew}
+                  className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 font-medium text-lg"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  List a Product
+                </motion.button>
+              )}
             </div>
-            
-            <div className="flex justify-center space-x-10 mt-5">
-              <button
-                onClick={closeDeleteModal}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDeleteProduct(productToDelete._id)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            className="w-full"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            {activeTab === 'responses' ? (
+              // Messages View
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-indigo-50 overflow-hidden">
+                {messagesLoading ? (
+                  <div className="text-center py-16">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
+                    <p className="text-gray-600 font-medium">Loading messages...</p>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center py-16">
+                    <MessageCircle size={48} className="mx-auto text-gray-400 mb-4" />
+                    <h2 className="text-xl font-semibold text-gray-700 mb-2">No messages yet</h2>
+                    <p className="text-gray-500">When you receive messages about products, they'll appear here.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {messages.map((conversation, index) => {
+                      const { otherUser, product, message, createdAt } = conversation;
+
+                      return (
+                        <motion.div
+                          key={`${product.id}-${otherUser.id}`}
+                          variants={itemVariants}
+                          initial="hidden"
+                          animate="visible"
+                          transition={{ delay: index * 0.1 }}
+                        >
+                          <Link
+                            href={`/Resident-dashboard/components/ProductChat?buyerId=${otherUser.id}&productId=${product.id}`}
+                            className="block p-6 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200"
+                          >
+                            <div className="flex items-center space-x-4">
+                              {otherUser.image ? (
+                                <img
+                                  src={otherUser.image}
+                                  alt={otherUser.name}
+                                  className="w-12 h-12 rounded-full object-cover border-2 border-indigo-100"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 flex items-center justify-center border-2 border-indigo-200">
+                                  <span className="text-indigo-600 font-semibold text-lg">{otherUser.name?.[0]}</span>
+                                </div>
+                              )}
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-1">
+                                  <h3 className="font-semibold text-gray-800">{otherUser.name}</h3>
+                                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                                    {new Date(createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-indigo-600 font-medium mb-1">{product.title}</p>
+                                <p className="text-xs text-gray-600">{truncateMessage(message)}</p>
+                              </div>
+                              {unreadMessages[product.id] > 0 && (
+                                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
+                                  {unreadMessages[product.id]}
+                                </div>
+                              )}
+                            </div>
+                          </Link>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Regular Products Grid
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {getFilteredProducts().map((product, index) => (
+                  <motion.div
+                    key={product._id}
+                    variants={cardVariants}
+                    initial="hidden"
+                    animate="visible"
+                    whileHover="hover"
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Link
+                      href={`/Resident-dashboard/components/ProductDetail?id=${product._id}`}
+                      className="block"
+                    >
+                      <div className="bg-white/90 backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-indigo-50 h-full">
+                        {/* Product Image */}
+                        <div className="relative w-full h-48">
+                          {/* Delete button - only show for the product owner */}
+                          {residentData && product.sellerId === residentData._id && (
+                            <motion.button
+                              onClick={(e) => openDeleteModal(e, product)}
+                              className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-lg hover:bg-red-50 hover:shadow-xl transition-all duration-200 z-10"
+                              title="Delete product"
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                            >
+                              <Trash2 size={16} className="text-red-500" />
+                            </motion.button>
+                          )}
+
+                          {product.images && product.images.length > 0 ? (
+                            <img
+                              src={product.images[0]}
+                              alt={product.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-indigo-100 to-purple-100">
+                              <Tag size={40} className="text-indigo-400" />
+                            </div>
+                          )}
+
+                          {/* Status Tag */}
+                          <div className="absolute top-3 left-3 px-3 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg">
+                            Available
+                          </div>
+
+                          {/* Like Button */}
+                          <motion.button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleLike(product._id);
+                            }}
+                            className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <Heart
+                              size={16}
+                              className={isLikedByUser(product) ? 'text-red-500' : 'text-gray-500'}
+                              fill={isLikedByUser(product) ? 'currentColor' : 'none'}
+                            />
+                          </motion.button>
+                        </div>
+
+                        {/* Product Info */}
+                        <div className="p-5">
+                          <h3 className="text-lg font-semibold text-gray-800 hover:text-indigo-600 line-clamp-1 mb-2">
+                            {product.title}
+                          </h3>
+
+                          <div className="mb-3">
+                            <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                              {formatPrice(product.price)}
+                            </span>
+                          </div>
+
+                          <div className="mb-3 flex gap-2">
+                            <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
+                              {product.category}
+                            </span>
+                            <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                              {product.condition}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-gray-600 line-clamp-2 mb-4">{product.description}</p>
+
+                          {/* Seller Info */}
+                          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                            <div className="flex items-center space-x-2">
+                              <div className="flex-shrink-0">
+                                {product.sellerImage ? (
+                                  <img
+                                    src={product.sellerImage}
+                                    alt={product.sellerName}
+                                    className="h-8 w-8 rounded-full border-2 border-indigo-100"
+                                  />
+                                ) : (
+                                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 flex items-center justify-center border-2 border-indigo-200">
+                                    <span className="text-xs font-medium text-indigo-600">
+                                      {product.sellerName.charAt(0)}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-gray-700">{product.sellerName}</p>
+                                <p className="text-xs text-gray-500">{formatDate(product.createdAt)}</p>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center space-x-3">
+                              <div className="flex items-center space-x-1 text-gray-500">
+                                <Heart size={14} />
+                                <span className="text-xs font-medium">{product.likes.length}</span>
+                              </div>
+                              {unreadMessages[product._id] > 0 && (
+                                <div className="flex items-center space-x-1">
+                                  <MessageCircle size={14} className="text-indigo-500" />
+                                  <span className="text-xs font-medium text-indigo-500">
+                                    {unreadMessages[product._id]}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </main>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && productToDelete && (
+          <motion.div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-indigo-50"
+              variants={modalVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
+                  <AlertTriangle size={32} className="text-red-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Delete Product</h3>
+                <p className="text-gray-600 mb-8">
+                  Are you sure you want to delete <span className="font-semibold text-gray-800">"{productToDelete.title}"</span>?
+                  This action cannot be undone.
+                </p>
+              </div>
+
+              <div className="flex space-x-4">
+                <motion.button
+                  onClick={closeDeleteModal}
+                  className="flex-1 px-6 py-3 border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  onClick={() => handleDeleteProduct(productToDelete._id)}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 font-medium"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Delete
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 
-export default Marketplace; 
+export default Marketplace;

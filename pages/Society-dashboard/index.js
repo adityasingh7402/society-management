@@ -29,6 +29,7 @@ import { CiLogout } from "react-icons/ci";
 import React from "react";
 import { motion } from "framer-motion";
 import { PermissionsContext } from "../../components/PermissionsContext";
+import DailyAttendanceProfile from './components/DailyAttendanceProfile';
 
 // Sidebar navigation model
 const NAV_SECTIONS = [
@@ -78,6 +79,7 @@ const NAV_SECTIONS = [
     section: "Security & Access Control",
     items: [
       { label: "Security Personnel", component: "SecurityProfile", icon: <FaUserShield className="mr-3" />, requiredPermissions: ["manage_security"] },
+      { label: "Daily Attendance", component: "DailyAttendanceProfile", icon: <FaUsers className="mr-3" />, requiredPermissions: ["manage_security"] },
       { label: "Visitor Management", component: "VisitorEntry", icon: <FaUserShield className="mr-3" />, requiredPermissions: ["manage_security"] },
       { label: "Delivery Tracking", component: "DeliveryManagement", icon: <FaBox className="mr-3" />, requiredPermissions: ["manage_security"] },
       { label: "Emergency Management", component: "EmergencyAlerts", icon: <FaExclamationTriangle className="mr-3" />, requiredPermissions: ["manage_security"] },
@@ -221,6 +223,8 @@ export default function Home() {
                 return <ScheduledBills />;
             case "ManageMembers":
                 return <ManageMembers />;
+            case "DailyAttendanceProfile":
+                return <DailyAttendanceProfile />;
             default:
                 return <DashboardDefault />;
         }

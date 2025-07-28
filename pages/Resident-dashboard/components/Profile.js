@@ -214,35 +214,33 @@ export default function Profile() {
             </motion.div>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 py-6 relative z-10">
+            <main className="max-w-4xl mx-auto px-4 py-8 relative z-10">
                 {/* Profile Form */}
                 <motion.div 
-                    className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-indigo-50"
+                    className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-indigo-50"
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
                 >
-                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4 border-b border-indigo-100">
+                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-8 py-6 border-b border-indigo-100">
                         <h2 className="text-xl font-semibold text-indigo-800 flex items-center">
-                            <User size={20} className="mr-2 text-indigo-600" />
+                            <User size={24} className="mr-3 text-indigo-600" />
                             Edit Resident Profile
                         </h2>
                     </div>
                     
-                    <form onSubmit={handlePreviewSubmit} className="p-6 space-y-8">
+                    <form onSubmit={handlePreviewSubmit} className="px-8 py-8">
                         <motion.div 
-                            className="space-y-8"
+                            className="space-y-10"
                             variants={containerVariants}
                         >
-                            {/* Personal Information Section */}
-                            <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
-                                    <h2 className="text-lg font-semibold text-white flex items-center">
-                                        <User size={20} className="mr-2" />
-                                        Personal Information
-                                    </h2>
-                                </div>
-                                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Personal Information */}
+                            <motion.div variants={itemVariants} className="space-y-6">
+                                <h3 className="text-base font-semibold text-indigo-700 flex items-center border-b border-indigo-100 pb-3">
+                                    <User size={20} className="mr-2" />
+                                    Personal Information
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="block text-sm font-medium text-gray-700">Name</label>
                                         <input
@@ -250,7 +248,7 @@ export default function Profile() {
                                             name="name"
                                             value={formData.name}
                                             onChange={handleChange}
-                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                                             required
                                         />
                                     </div>
@@ -261,22 +259,20 @@ export default function Profile() {
                                             name="email"
                                             value={formData.email}
                                             onChange={handleChange}
-                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                                             required
                                         />
                                     </div>
                                 </div>
                             </motion.div>
 
-                            {/* Contact Information Section */}
-                            <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
-                                    <h2 className="text-lg font-semibold text-white flex items-center">
-                                        <Phone size={20} className="mr-2" />
-                                        Contact Information
-                                    </h2>
-                                </div>
-                                <div className="p-6 space-y-6">
+                            {/* Contact Information */}
+                            <motion.div variants={itemVariants} className="space-y-6">
+                                <h3 className="text-base font-semibold text-indigo-700 flex items-center border-b border-indigo-100 pb-3">
+                                    <Phone size={20} className="mr-2" />
+                                    Contact Information
+                                </h3>
+                                <div className="space-y-6">
                                     <div className="space-y-2">
                                         <label className="block text-sm font-medium text-gray-700">Primary Phone</label>
                                         <input
@@ -284,7 +280,7 @@ export default function Profile() {
                                             name="phone"
                                             value={formData.phone}
                                             onChange={handleChange}
-                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                                             required
                                         />
                                     </div>
@@ -300,7 +296,7 @@ export default function Profile() {
                                                     type="text"
                                                     value={number}
                                                     onChange={(e) => handleAdditionalNumberChange(index, e.target.value)}
-                                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                                    className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                                                 />
                                                 <motion.button
                                                     type="button"
@@ -330,15 +326,13 @@ export default function Profile() {
                                 </div>
                             </motion.div>
 
-                            {/* Address Information Section */}
-                            <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
-                                    <h2 className="text-lg font-semibold text-white flex items-center">
-                                        <MapPin size={20} className="mr-2" />
-                                        Address Information
-                                    </h2>
-                                </div>
-                                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Address Information */}
+                            <motion.div variants={itemVariants} className="space-y-6">
+                                <h3 className="text-base font-semibold text-indigo-700 flex items-center border-b border-indigo-100 pb-3">
+                                    <MapPin size={20} className="mr-2" />
+                                    Address Information
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="block text-sm font-medium text-gray-700">Street</label>
                                         <input
@@ -346,7 +340,7 @@ export default function Profile() {
                                             name="street"
                                             value={formData.address.street}
                                             onChange={handleAddressChange}
-                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none bg-gray-50 cursor-not-allowed"
                                             disabled
                                         />
                                     </div>
@@ -357,7 +351,7 @@ export default function Profile() {
                                             name="city"
                                             value={formData.address.city}
                                             onChange={handleAddressChange}
-                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none bg-gray-50 cursor-not-allowed"
                                             disabled
                                         />
                                     </div>
@@ -368,7 +362,7 @@ export default function Profile() {
                                             name="state"
                                             value={formData.address.state}
                                             onChange={handleAddressChange}
-                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none bg-gray-50 cursor-not-allowed"
                                             disabled
                                         />
                                     </div>
@@ -379,22 +373,20 @@ export default function Profile() {
                                             name="pinCode"
                                             value={formData.address.pinCode}
                                             onChange={handleAddressChange}
-                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                            className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none bg-gray-50 cursor-not-allowed"
                                             disabled
                                         />
                                     </div>
                                 </div>
                             </motion.div>
 
-                            {/* Society Information Section */}
-                            <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
-                                    <h2 className="text-lg font-semibold text-white flex items-center">
-                                        <Building size={20} className="mr-2" />
-                                        Society Information
-                                    </h2>
-                                </div>
-                                <div className="p-6 space-y-6">
+                            {/* Society Information */}
+                            <motion.div variants={itemVariants} className="space-y-6">
+                                <h3 className="text-base font-semibold text-indigo-700 flex items-center border-b border-indigo-100 pb-3">
+                                    <Building size={20} className="mr-2" />
+                                    Society Information
+                                </h3>
+                                <div className="space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
                                             <label className="block text-sm font-medium text-gray-700">Society Code</label>
@@ -403,7 +395,7 @@ export default function Profile() {
                                                 name="societyCode"
                                                 value={formData.societyCode}
                                                 onChange={handleChange}
-                                                className="block w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                                className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                                                 required
                                             />
                                         </div>
@@ -414,7 +406,7 @@ export default function Profile() {
                                                 name="societyName"
                                                 value={formData.societyName}
                                                 onChange={handleChange}
-                                                className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                                className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none bg-gray-50 cursor-not-allowed"
                                                 disabled
                                             />
                                         </div>
@@ -427,7 +419,7 @@ export default function Profile() {
                                                 name="residentId"
                                                 value={formData.residentId}
                                                 onChange={handleChange}
-                                                className="block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 cursor-not-allowed"
+                                                className="block w-full px-4 py-3 rounded-lg border border-gray-200 outline-none bg-gray-50 cursor-not-allowed"
                                                 disabled
                                             />
                                             <motion.button
@@ -445,7 +437,7 @@ export default function Profile() {
                             </motion.div>
 
                             {/* Submit Button */}
-                            <motion.div variants={itemVariants} className="pt-4">
+                            <motion.div variants={itemVariants} className="pt-6">
                                 <motion.button
                                     type="submit"
                                     className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 text-lg font-medium"
