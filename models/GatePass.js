@@ -65,6 +65,9 @@ const gatePassSchema = new mongoose.Schema({
       default: ''
     }
   },
+  guestImage: {
+    type: String // URL of uploaded guest image
+  },
   status: {
     type: String,
     enum: ['Active', 'Expired'],

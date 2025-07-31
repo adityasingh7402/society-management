@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import { 
   Car, Bike, Truck, Calendar, Filter, Search, 
   Plus, RefreshCw, Trash2, AlertTriangle, ArrowLeft,
-  CheckCircle, XCircle, Clock, X, ChevronDown, ChevronUp
+  CheckCircle, XCircle, Clock, X, ChevronDown, ChevronUp,
+  Camera, Upload, Image as ImageIcon
 } from 'lucide-react';
 import { FaMotorcycle } from "react-icons/fa";
 import Head from 'next/head';
@@ -85,6 +86,14 @@ const VehicleTagRequest = () => {
     validUntil: ''
   });
   const [formLoading, setFormLoading] = useState(false);
+  
+  // Image capture states
+  const [showCamera, setShowCamera] = useState(false);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Add a new state to store QR data
   const [qrDataMap, setQrDataMap] = useState({});
@@ -183,6 +192,10 @@ const VehicleTagRequest = () => {
         registrationNumber: '',
         validUntil: ''
       });
+      // Reset image states
+      setCapturedImage(null);
+      setImageFile(null);
+      setShowCamera(false);
     }
   };
 
@@ -249,6 +262,109 @@ const VehicleTagRequest = () => {
     setShowFilters(false);
   };
 
+  // Image capture functions
+  const startCamera = async () => {
+    try {
+      console.log('Starting camera...');
+      
+      // Check if camera is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera not supported on this device/browser');
+      }
+      
+      setShowCamera(true); // Show modal immediately
+      console.log('Camera modal should be visible now');
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 1280 }, 
+          height: { ideal: 720 },
+          facingMode: 'environment' // Use back camera if available
+        } 
+      });
+      
+      console.log('Camera stream obtained');
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        console.log('Video stream assigned to video element');
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setShowCamera(false); // Hide modal on error
+      
+      // More detailed error messages
+      if (error.name === 'NotAllowedError') {
+        alert('Camera access denied. Please allow camera permissions and try again.');
+      } else if (error.name === 'NotFoundError') {
+        alert('No camera found on this device.');
+      } else if (error.name === 'NotSupportedError') {
+        alert('Camera not supported on this browser.');
+      } else {
+        alert(`Camera error: ${error.message}`);
+      }
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setShowCamera(false);
+  };
+
+  const captureImage = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0);
+      
+      canvas.toBlob((blob) => {
+        setCapturedImage(canvas.toDataURL('image/jpeg', 0.8));
+        setImageFile(blob);
+        stopCamera();
+      }, 'image/jpeg', 0.8);
+    }
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB');
+        return;
+      }
+      
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setCapturedImage(e.target.result);
+        setImageFile(file);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setCapturedImage(null);
+    setImageFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormLoading(true);
@@ -256,27 +372,61 @@ const VehicleTagRequest = () => {
     try {
       const token = localStorage.getItem('Resident');
 
-      // First create the vehicle tag and get the PIN
-      const createResponse = await axios.post('/api/VehicleTag-Api/create-tag', 
-        {
-          residentId: residentData._id,
-          societyId: residentData.societyId,
-          vehicleType: formData.vehicleType,
-          brand: formData.brand,
-          model: formData.model,
-          color: formData.color,
-          registrationNumber: formData.registrationNumber,
-          validUntil: formData.validUntil
-        },
-        {
+      // Prepare form data for multipart upload if image exists
+      let createResponse;
+      if (imageFile) {
+        const formDataToSend = new FormData();
+        formDataToSend.append('residentId', residentData._id);
+        formDataToSend.append('societyId', residentData.societyId);
+        formDataToSend.append('vehicleType', formData.vehicleType);
+        formDataToSend.append('vehicleBrand', formData.brand);
+        formDataToSend.append('vehicleModel', formData.model);
+        formDataToSend.append('vehicleColor', formData.color);
+        formDataToSend.append('registrationNumber', formData.registrationNumber);
+        formDataToSend.append('validUntil', formData.validUntil);
+        formDataToSend.append('vehicleImage', imageFile);
+        
+        createResponse = await axios.post('/api/VehicleTag-Api/create-tag-with-image', formDataToSend, {
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'multipart/form-data',
             Authorization: `Bearer ${token}`,
           }
-        }
-      );
+        });
+      } else {
+        // Create without image (existing flow)
+        createResponse = await axios.post('/api/VehicleTag-Api/create-tag', 
+          {
+            residentId: residentData._id,
+            societyId: residentData.societyId,
+            vehicleType: formData.vehicleType,
+            brand: formData.brand,
+            model: formData.model,
+            color: formData.color,
+            registrationNumber: formData.registrationNumber,
+            validUntil: formData.validUntil
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            }
+          }
+        );
+      }
 
-      const { pinCode, data: vehicleTag } = createResponse.data;
+      // Handle different response structures for the two API endpoints
+      let vehicleTag, pinCode;
+      if (imageFile) {
+        // For create-tag-with-image API: returns { vehicleTag, pinCode }
+        const response = createResponse.data;
+        vehicleTag = response.vehicleTag;
+        pinCode = response.pinCode;
+      } else {
+        // For create-tag API: returns { data, pinCode }
+        const response = createResponse.data;
+        vehicleTag = response.data;
+        pinCode = response.pinCode;
+      }
 
       try {
               // Ensure we only use the societyId string
@@ -346,6 +496,9 @@ const VehicleTagRequest = () => {
           registrationNumber: '',
           validUntil: ''
         });
+        setCapturedImage(null);
+        setImageFile(null);
+        setShowCamera(false);
         setShowForm(false);
 
       } catch (qrError) {
@@ -583,6 +736,86 @@ const VehicleTagRequest = () => {
               </div>
             </div>
 
+            {/* Vehicle Image Upload Section */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">Vehicle Image (Optional)</label>
+              
+              {!capturedImage ? (
+                <div className="space-y-4">
+                  {/* Image Upload Options */}
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      <Camera className="w-4 h-4" />
+                      Take Picture
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Image
+                    </button>
+                  </div>
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  
+                  <p className="text-xs text-gray-500">
+                    You can capture or upload a photo of your vehicle (optional, max 5MB)
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Image Preview */}
+                  <div className="relative inline-block">
+                    <img
+                      src={capturedImage}
+                      alt="Vehicle"
+                      className="w-48 h-36 object-cover rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="flex items-center gap-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                    >
+                      <Camera className="w-3 h-3" />
+                      Retake
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-2 px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                    >
+                      <Upload className="w-3 h-3" />
+                      Replace
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Submit Button */}
             <button
               type="submit"
@@ -596,6 +829,71 @@ const VehicleTagRequest = () => {
               {formLoading ? 'Submitting...' : 'Submit Request'}
             </button>
           </form>
+        </div>
+      )}
+
+      {/* Camera Modal */}
+      {showCamera && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4" 
+          style={{ zIndex: 9999 }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl mx-auto border-4 border-blue-500">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Capture Vehicle Image</h3>
+              <button
+                onClick={() => {
+                  console.log('Close camera button clicked');
+                  stopCamera();
+                }}
+                className="text-gray-500 hover:text-gray-700 bg-red-100 p-2 rounded-full"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="text-center mb-4">
+              <p className="text-sm text-gray-600">
+                Camera Status: {showCamera ? 'Active' : 'Inactive'}
+              </p>
+            </div>
+            
+            <div className="relative">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className="w-full h-64 object-cover rounded-lg bg-gray-100 border-2 border-gray-300"
+                onLoadedMetadata={() => console.log('Video metadata loaded')}
+                onPlay={() => console.log('Video started playing')}
+              />
+              
+              <div className="mt-4 flex justify-center gap-4">
+                <button
+                  onClick={() => {
+                    console.log('Capture image button clicked');
+                    captureImage();
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  <Camera className="w-5 h-5" />
+                  Capture Image
+                </button>
+                
+                <button
+                  onClick={() => {
+                    console.log('Cancel camera button clicked');
+                    stopCamera();
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+            
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
         </div>
       )}
 

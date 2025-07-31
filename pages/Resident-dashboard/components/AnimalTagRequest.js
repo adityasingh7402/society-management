@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import { 
   Dog, Cat, Bird, Search, Plus, RefreshCw, Trash2, AlertTriangle, ArrowLeft,
-  CheckCircle, XCircle, Clock, X, ChevronDown, ChevronUp, Upload, Filter
+  CheckCircle, XCircle, Clock, X, ChevronDown, ChevronUp, Upload, Filter, Camera, FileImage
 } from 'lucide-react';
 import { FaFish, FaOtter } from "react-icons/fa";
 import Head from 'next/head';
@@ -57,6 +57,10 @@ const animationStyles = `
 
 const AnimalTagRequest = () => {
   const router = useRouter();
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
+  
   const [animalTags, setAnimalTags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [residentData, setResidentData] = useState(null);
@@ -72,6 +76,11 @@ const AnimalTagRequest = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [tagToDelete, setTagToDelete] = useState(null);
   const [zoomedQR, setZoomedQR] = useState(null);
+  
+  // Image capture states
+  const [showCamera, setShowCamera] = useState(false);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -217,6 +226,8 @@ const AnimalTagRequest = () => {
         medicalHistory: '',
         documents: []
       });
+      // Reset image state when closing form
+      removeImage();
     }
   };
 
@@ -271,6 +282,137 @@ const AnimalTagRequest = () => {
     setShowFilters(false);
   };
 
+  // Camera and image functions
+  const startCamera = async () => {
+    console.log('Starting camera...');
+    try {
+      // Check if browser supports getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('Camera not supported in this browser');
+        alert('Camera access is not supported in this browser. Please use a modern browser.');
+        return;
+      }
+
+      console.log('Requesting camera permission...');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      
+      console.log('Camera permission granted, setting up video stream...');
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        console.log('Video stream assigned to videoRef');
+      }
+      
+      setShowCamera(true);
+      console.log('Camera modal should now be visible');
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      let errorMessage = 'Unable to access camera. ';
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage += 'Please allow camera access and try again.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage += 'No camera device found.';
+      } else if (error.name === 'NotSupportedError') {
+        errorMessage += 'Camera is not supported on this device.';
+      } else {
+        errorMessage += 'Please check your camera settings and try again.';
+      }
+      
+      alert(errorMessage);
+    }
+  };
+
+  const stopCamera = () => {
+    console.log('Stopping camera...');
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+      console.log('Camera stopped and video stream cleared');
+    }
+    setShowCamera(false);
+  };
+
+  const captureImage = () => {
+    console.log('Capturing image...');
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      
+      // Set canvas dimensions to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw the video frame to canvas
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Convert to blob
+      canvas.toBlob((blob) => {
+        if (blob) {
+          console.log('Image captured successfully, blob size:', blob.size);
+          setCapturedImage(URL.createObjectURL(blob));
+          setImageFile(blob);
+          stopCamera();
+        } else {
+          console.error('Failed to capture image');
+          alert('Failed to capture image. Please try again.');
+        }
+      }, 'image/jpeg', 0.9);
+    } else {
+      console.error('Video or canvas ref not available');
+      alert('Camera not ready. Please try again.');
+    }
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      console.log('File selected:', file.name, 'Size:', file.size);
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file.');
+        return;
+      }
+      
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB.');
+        return;
+      }
+      
+      console.log('File validation passed');
+      setCapturedImage(URL.createObjectURL(file));
+      setImageFile(file);
+    }
+  };
+
+  const removeImage = () => {
+    console.log('Removing image...');
+    if (capturedImage) {
+      URL.revokeObjectURL(capturedImage);
+    }
+    setCapturedImage(null);
+    setImageFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    console.log('Image removed successfully');
+  };
+
+  const retakeImage = () => {
+    console.log('Retaking image...');
+    removeImage();
+    startCamera();
+  };
+
   const getAnimalIcon = (type) => {
     switch (type) {
       case 'Dog':
@@ -320,33 +462,73 @@ const AnimalTagRequest = () => {
     try {
       const token = localStorage.getItem('Resident');
 
-      // First create the animal tag and get the PIN
-      const createResponse = await axios.post('/api/AnimalTag-Api/create-tag', 
-        {
-          residentId: residentData._id,
-          societyId: residentData.societyId,
-          animalType: formData.animalType,
-          name: formData.name,
-          breed: formData.breed,
-          color: formData.color,
-          age: formData.age,
-          gender: formData.gender,
-          identificationMark: formData.identificationMark,
-          vaccinated: formData.vaccinated,
-          lastVaccinationDate: formData.lastVaccinationDate,
-          nextVaccinationDue: formData.nextVaccinationDue,
-          medicalHistory: formData.medicalHistory,
-          documents: formData.documents
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          }
-        }
-      );
+      let createResponse;
+      
+      // Check if we have an image to upload
+      if (imageFile) {
+        // Create FormData for multipart upload
+        const formDataToSend = new FormData();
+        formDataToSend.append('residentId', residentData._id);
+        formDataToSend.append('societyId', residentData.societyId);
+        formDataToSend.append('animalType', formData.animalType);
+        formDataToSend.append('name', formData.name);
+        formDataToSend.append('breed', formData.breed);
+        formDataToSend.append('color', formData.color);
+        formDataToSend.append('age', formData.age);
+        formDataToSend.append('gender', formData.gender);
+        formDataToSend.append('identificationMark', formData.identificationMark);
+        formDataToSend.append('vaccinated', formData.vaccinated);
+        formDataToSend.append('lastVaccinationDate', formData.lastVaccinationDate);
+        formDataToSend.append('nextVaccinationDue', formData.nextVaccinationDue);
+        formDataToSend.append('medicalHistory', formData.medicalHistory);
+        formDataToSend.append('animalImage', imageFile);
 
-      const { pinCode, data: animalTag } = createResponse.data;
+        // Use the create-tag-with-image endpoint
+        createResponse = await axios.post('/api/AnimalTag-Api/create-tag-with-image', 
+          formDataToSend,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              Authorization: `Bearer ${token}`,
+            }
+          }
+        );
+      } else {
+        // Use the regular create-tag endpoint without image
+        createResponse = await axios.post('/api/AnimalTag-Api/create-tag', 
+          {
+            residentId: residentData._id,
+            societyId: residentData.societyId,
+            animalType: formData.animalType,
+            name: formData.name,
+            breed: formData.breed,
+            color: formData.color,
+            age: formData.age,
+            gender: formData.gender,
+            identificationMark: formData.identificationMark,
+            vaccinated: formData.vaccinated,
+            lastVaccinationDate: formData.lastVaccinationDate,
+            nextVaccinationDue: formData.nextVaccinationDue,
+            medicalHistory: formData.medicalHistory,
+            documents: formData.documents
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            }
+          }
+        );
+      }
+
+      // Handle different response structures from the two APIs
+      const { pinCode } = createResponse.data;
+      const animalTag = createResponse.data.data || createResponse.data.animalTag;
+      
+      // Validate that we got the animal tag data
+      if (!animalTag || !animalTag._id) {
+        throw new Error('Invalid response: Animal tag data not found');
+      }
 
       try {
         // Ensure we only use the societyId string
@@ -655,6 +837,75 @@ const AnimalTagRequest = () => {
                 rows="3"
                 placeholder="Any medical conditions or history"
               />
+            </div>
+
+            {/* Animal Image Section */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Animal Image (Optional)</label>
+              
+              {/* Image Preview */}
+              {capturedImage && (
+                <div className="mb-4 relative inline-block">
+                  <img 
+                    src={capturedImage} 
+                    alt="Animal preview" 
+                    className="w-32 h-32 object-cover rounded-lg border-2 border-gray-300"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={retakeImage}
+                      className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      <Camera className="w-4 h-4" />
+                      Retake
+                    </button>
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="flex items-center gap-1 px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Upload Buttons */}
+              {!capturedImage && (
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    <Camera className="w-5 h-5" />
+                    Take Photo
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  >
+                    <FileImage className="w-5 h-5" />
+                    Upload Image
+                  </button>
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </div>
+              )}
+              
+              <p className="text-xs text-gray-500 mt-2">
+                Upload a clear photo of your animal. Maximum size: 5MB. Supported formats: JPG, PNG, GIF.
+              </p>
             </div>
 
             {/* Submit Button */}

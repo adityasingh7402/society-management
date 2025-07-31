@@ -63,6 +63,9 @@ const VehicleTagSchema = new mongoose.Schema({
   qrData: {
     type: String
   },
+  vehicleImage: {
+    type: String // URL of uploaded vehicle image
+  },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Society'

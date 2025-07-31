@@ -40,6 +40,9 @@ const ServicePassSchema = new mongoose.Schema({
       required: function() {
         return this.personnelDetails.serviceType === 'Other';
       }
+    },
+    personnelImage: {
+      type: String // URL to the uploaded image
     }
   },
   passType: {

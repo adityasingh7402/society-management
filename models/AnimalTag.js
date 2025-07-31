@@ -56,6 +56,9 @@ const animalTagSchema = new mongoose.Schema({
   qrCode: {
     type: String // URL or base64 of QR code
   },
+  animalImage: {
+    type: String // URL of uploaded animal image
+  },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Society'

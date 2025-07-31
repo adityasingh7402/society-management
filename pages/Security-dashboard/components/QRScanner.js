@@ -20,7 +20,7 @@ const getFloorSuffix = (floor) => {
   }
 };
 
-const QRScanner = () => {
+function QRScanner() {
   const [scanResult, setScanResult] = useState(null);
   const [error, setError] = useState(null);
   const [scanner, setScanner] = useState(null);
@@ -32,6 +32,8 @@ const QRScanner = () => {
   const [scannedQRData, setScannedQRData] = useState(null);
   const [selectedType, setSelectedType] = useState('vehicle');
   const [isScanning, setIsScanning] = useState(false);
+  const [scannerStatus, setScannerStatus] = useState('idle'); // idle, scanning, processing, success
+  const [errorDisplayTimeout, setErrorDisplayTimeout] = useState(null);
   const hasProcessedRef = React.useRef(false);
   const scannerRef = React.useRef(null);
   const router = useRouter();
@@ -66,6 +68,21 @@ const QRScanner = () => {
 
     fetchSecurityDetails();
   }, []);
+
+  // Set scanner status when modal opens/closes
+  useEffect(() => {
+    if (showScanModal) {
+      setScannerStatus('scanning');
+      setError(null); // Clear any existing errors when starting to scan
+    } else {
+      setScannerStatus('idle');
+      // Clear error timeout when closing modal
+      if (errorDisplayTimeout) {
+        clearTimeout(errorDisplayTimeout);
+        setErrorDisplayTimeout(null);
+      }
+    }
+  }, [showScanModal]);
 
   // Initialize scanner after camera permission is granted
   useEffect(() => {
@@ -175,7 +192,17 @@ const QRScanner = () => {
     // Prevent multiple scans using ref
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
+    
+    // Immediately set status to processing and clear any errors
+    setScannerStatus('processing');
+    setError(null);
     setIsScanning(true);
+    
+    // Clear error timeout if it exists
+    if (errorDisplayTimeout) {
+      clearTimeout(errorDisplayTimeout);
+      setErrorDisplayTimeout(null);
+    }
     
     try {
       // Immediately cleanup and stop scanner
@@ -232,14 +259,17 @@ const QRScanner = () => {
         }
 
         setScanResult(data.data);
+        setScannerStatus('success');
         setError(null);
         setScannedQRData(null);
       } else {
         // If no pinCode in QR data, show PIN entry modal
         setShowPinModal(true);
+        setScannerStatus('success');
       }
     } catch (err) {
       console.error('Scan error:', err);
+      setScannerStatus('idle');
       setError(err.message || 'Invalid QR code format');
       
       if (err.message.toLowerCase().includes('authentication') || 

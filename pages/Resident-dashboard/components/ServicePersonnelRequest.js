@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import { 
   ArrowLeft, Search, Filter, Plus, X, Clock, 
   CheckCircle, XCircle, ChevronDown, ChevronUp,
-  Trash2, AlertTriangle, Share2, Download,Calendar 
+  Trash2, AlertTriangle, Share2, Download, Calendar,
+  Camera, Upload, Image as ImageIcon
 } from 'lucide-react';
 import Head from 'next/head';
 import QRCode from 'react-qr-code';
@@ -128,6 +129,14 @@ const ServicePersonnelRequest = () => {
 
   // Add a new state to store QR data
   const [qrDataMap, setQrDataMap] = useState({});
+  
+  // Image capture states (similar to GuestPassRequest)
+  const [showCamera, setShowCamera] = useState(false);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchResidentData();
@@ -414,25 +423,52 @@ const ServicePersonnelRequest = () => {
     try {
       const token = localStorage.getItem('Resident');
 
-      // First create the service pass
-      const response = await axios.post('/api/ServicePass-Api/create-pass', 
-        {
-          residentId: residentData._id,
-          societyId: residentData.societyId,
-          societyName: residentData.societyName,
-          flatDetails: residentData.flatDetails,
-          personnelDetails: formData.personnelDetails,
-          passType: formData.passType,
-          duration: formData.duration,
-          workingHours: formData.workingHours
-        },
-        {
+      // Use different API endpoints based on whether image is present
+      let response;
+      if (imageFile) {
+        // Use FormData for image upload
+        const formDataToSend = new FormData();
+        formDataToSend.append('residentId', residentData._id);
+        formDataToSend.append('societyId', residentData.societyId);
+        formDataToSend.append('societyName', residentData.societyName);
+        formDataToSend.append('flatNumber', residentData.flatDetails.flatNumber || '');
+        formDataToSend.append('personnelName', formData.personnelDetails.name);
+        formDataToSend.append('personnelPhone', formData.personnelDetails.phone);
+        formDataToSend.append('serviceType', formData.personnelDetails.serviceType);
+        formDataToSend.append('otherServiceType', formData.personnelDetails.otherServiceType);
+        formDataToSend.append('passType', formData.passType);
+        formDataToSend.append('startDate', formData.duration.startDate);
+        formDataToSend.append('endDate', formData.duration.endDate);
+        formDataToSend.append('startTime', formData.workingHours.startTime);
+        formDataToSend.append('endTime', formData.workingHours.endTime);
+        formDataToSend.append('personnelImage', imageFile);
+        
+        response = await axios.post('/api/ServicePass-Api/create-pass-with-image', formDataToSend, {
           headers: {
-            'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
+          },
+        });
+      } else {
+        // Use regular JSON API for without image
+        response = await axios.post('/api/ServicePass-Api/create-pass',
+          {
+            residentId: residentData._id,
+            societyId: residentData.societyId,
+            societyName: residentData.societyName,
+            flatDetails: residentData.flatDetails,
+            personnelDetails: formData.personnelDetails,
+            passType: formData.passType,
+            duration: formData.duration,
+            workingHours: formData.workingHours
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            }
           }
-        }
-      );
+        );
+      }
 
       const { pinCode, data: servicePass } = response.data;
 
@@ -501,7 +537,7 @@ const ServicePersonnelRequest = () => {
         setServicePasses(prev => [updatedPass, ...prev]);
         setFormattedPasses(prev => [updatedPass, ...prev]);
         
-        // Reset form and close it
+        // Reset form and image states, then close it
         setFormData({
           personnelDetails: {
             name: '',
@@ -519,6 +555,9 @@ const ServicePersonnelRequest = () => {
             endTime: '17:00'
           }
         });
+        setCapturedImage(null);
+        setImageFile(null);
+        setShowCamera(false);
         setShowForm(false);
 
         // Show the share modal for the new pass
@@ -618,6 +657,123 @@ const ServicePersonnelRequest = () => {
     }
   };
 
+  // Image capture functions (copied from GuestPassRequest)
+  const startCamera = async () => {
+    try {
+      console.log('Starting camera...');
+      
+      // Check if camera is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera not supported on this device/browser');
+      }
+      
+      setShowCamera(true); // Show modal immediately
+      console.log('Camera modal should be visible now');
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 1280 }, 
+          height: { ideal: 720 },
+          facingMode: 'environment' // Use back camera if available
+        } 
+      });
+      
+      console.log('Camera stream obtained');
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        console.log('Video stream assigned to video element');
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setShowCamera(false); // Hide modal on error
+      
+      // More detailed error messages
+      if (error.name === 'NotAllowedError') {
+        alert('Camera access denied. Please allow camera permissions and try again.');
+      } else if (error.name === 'NotFoundError') {
+        alert('No camera found on this device.');
+      } else if (error.name === 'NotSupportedError') {
+        alert('Camera not supported on this browser.');
+      } else {
+        alert(`Camera error: ${error.message}`);
+      }
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setShowCamera(false);
+  };
+
+  const captureImage = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0);
+      
+      canvas.toBlob((blob) => {
+        setCapturedImage(canvas.toDataURL('image/jpeg', 0.8));
+        setImageFile(blob);
+        stopCamera();
+      }, 'image/jpeg', 0.8);
+    }
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB');
+        return;
+      }
+      
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setCapturedImage(e.target.result);
+        setImageFile(file);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setCapturedImage(null);
+    setImageFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Toggle form with image state clearing
+  const toggleForm = () => {
+    if (showForm) {
+      // Clear image states when closing form
+      setCapturedImage(null);
+      setImageFile(null);
+      setShowCamera(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+    setShowForm(!showForm);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <Head>
@@ -640,7 +796,7 @@ const ServicePersonnelRequest = () => {
         <h1 className="text-2xl md:text-3xl text-center font-bold text-blue-600 mb-6">Service Personnel Passes</h1>
         <div className="flex justify-end mb-2">
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={toggleForm}
             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
             {showForm ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
@@ -735,6 +891,75 @@ const ServicePersonnelRequest = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
+              </div>
+            </div>
+
+            {/* Personnel Image Upload */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-3">Personnel Image (Optional)</h3>
+              <div className="space-y-4">
+                {!capturedImage ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all"
+                    >
+                      <Camera className="w-6 h-6 text-gray-400" />
+                      <span className="text-gray-600">Take Photo</span>
+                    </button>
+                    
+                    <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer">
+                      <Upload className="w-6 h-6 text-gray-400" />
+                      <span className="text-gray-600">Upload Image</span>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="relative inline-block">
+                      <img
+                        src={capturedImage}
+                        alt="Personnel"
+                        className="w-full max-w-xs h-48 object-cover rounded-lg border"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={startCamera}
+                        className="flex items-center gap-2 px-4 py-2 text-blue-500 hover:bg-blue-50 rounded-lg"
+                      >
+                        <Camera className="w-4 h-4" />
+                        Retake Photo
+                      </button>
+                      <label className="flex items-center gap-2 px-4 py-2 text-blue-500 hover:bg-blue-50 rounded-lg cursor-pointer">
+                        <Upload className="w-4 h-4" />
+                        Upload Different Image
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1218,8 +1443,55 @@ const ServicePersonnelRequest = () => {
           </div>
         </div>
       )}
+
+      {/* Camera Modal */}
+      {showCamera && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-50">
+          <div className="relative bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full animate-fade-in-up">
+            <button
+              onClick={stopCamera}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 z-10"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="flex flex-col items-center">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Take Personnel Photo</h3>
+              
+              <div className="relative mb-4">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full max-w-md h-64 object-cover rounded-lg border"
+                />
+                <canvas
+                  ref={canvasRef}
+                  className="hidden"
+                />
+              </div>
+              
+              <div className="flex gap-4">
+                <button
+                  onClick={captureImage}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  <Camera className="w-5 h-5" />
+                  Capture Photo
+                </button>
+                <button
+                  onClick={stopCamera}
+                  className="flex items-center gap-2 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default ServicePersonnelRequest; 
+export default ServicePersonnelRequest;

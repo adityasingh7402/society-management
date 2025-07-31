@@ -1,5 +1,6 @@
 import connectToDatabase from '../../../lib/mongodb';
 import PropertyMessage from '../../../models/PropertyMessage';
+import Property from '../../../models/Property';
 import jwt from 'jsonwebtoken';
 import Resident from '../../../models/Resident';
 import mongoose from 'mongoose';
@@ -96,7 +97,7 @@ export default async function handler(req, res) {
     const populatedMessages = await Promise.all(messages.map(async (msg) => {
       try {
         // Get property details
-        const property = await mongoose.model('Property').findById(msg.propertyId).select('title').lean();
+        const property = await Property.findById(msg.propertyId).select('title').lean();
         
         // Get sender details
         const sender = await Resident.findById(msg.senderId).select('name userImage').lean();
