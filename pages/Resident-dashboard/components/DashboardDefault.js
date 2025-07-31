@@ -1219,9 +1219,9 @@ const AndroidDashboard = ({ onLoaded }) => {
                     <h3 className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">{category.title}</h3>
                     <p className="text-xs text-gray-500 mt-1">
                       {/* Pill badge for services count */}
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                      {/* <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
                         {category.items.length} services
-                      </span>
+                      </span> */}
                     </p>
                   </div>
                 </button>

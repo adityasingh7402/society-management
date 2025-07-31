@@ -55,7 +55,7 @@ export default async function handler(req, res) {
         }
         
         const vehicleTag = await VehicleTag.findOne(query)
-        .populate('residentId', 'name flatDetails')
+        .populate('residentId', 'name phone flatDetails')
         .populate('societyId', 'societyName')
         .lean();
 
@@ -78,7 +78,8 @@ export default async function handler(req, res) {
           resident: vehicleTag.residentId,
           society: vehicleTag.societyId,
           validFrom: vehicleTag.validFrom,
-          validUntil: vehicleTag.validUntil
+          validUntil: vehicleTag.validUntil,
+          vehicleImage: vehicleTag.vehicleImage
         };
         break;
       }
@@ -95,7 +96,7 @@ export default async function handler(req, res) {
         }
         
         const animalTag = await AnimalTag.findOne(query)
-        .populate('residentId', 'name flatDetails')
+        .populate('residentId', 'name phone flatDetails')
         .populate('societyId', 'societyName')
         .lean();
 
@@ -110,7 +111,8 @@ export default async function handler(req, res) {
           animalDetails: animalTag.animalDetails,
           resident: animalTag.residentId,
           society: animalTag.societyId,
-          registrationDate: animalTag.registrationDate
+          registrationDate: animalTag.registrationDate,
+          animalImage: animalTag.animalImage
         };
         break;
       }
@@ -127,7 +129,7 @@ export default async function handler(req, res) {
         }
         
         const gatePass = await GatePass.findOne(query)
-        .populate('residentId', 'name flatDetails')
+        .populate('residentId', 'name phone flatDetails')
         .populate('societyId', 'societyName')
         .lean();
 
@@ -151,7 +153,8 @@ export default async function handler(req, res) {
           validFrom: gatePass.duration.startDate,
           validUntil: gatePass.duration.endDate,
           hasVehicle: gatePass.hasVehicle,
-          vehicleDetails: gatePass.vehicleDetails
+          vehicleDetails: gatePass.vehicleDetails,
+          guestImage: gatePass.guestImage
         };
         break;
       }
@@ -168,7 +171,7 @@ export default async function handler(req, res) {
         }
         
         const servicePass = await ServicePass.findOne(query)
-        .populate('residentId', 'name flatDetails')
+        .populate('residentId', 'name phone flatDetails')
         .populate('societyId', 'societyName')
         .lean();
 
@@ -191,7 +194,8 @@ export default async function handler(req, res) {
           society: servicePass.societyId,
           validFrom: servicePass.duration.startDate,
           validUntil: servicePass.duration.endDate,
-          workingHours: servicePass.workingHours
+          workingHours: servicePass.workingHours,
+          personnelImage: servicePass.personnelDetails?.personnelImage
         };
         break;
       }

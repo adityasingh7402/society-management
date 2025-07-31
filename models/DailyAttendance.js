@@ -47,6 +47,17 @@ const DailyAttendanceSchema = new mongoose.Schema(
           guardName: { type: String, required: true },
           guardPhone: { type: String, required: true }
         },
+        exitMarkedBy: {
+          personId: { type: String },
+          personType: { 
+            type: String, 
+            enum: ['Security', 'Society', 'Admin', 'manager', 'security_admin'],
+            default: null
+          },
+          personName: { type: String },
+          personPhone: { type: String },
+          exitTime: { type: Date }
+        },
         residentDetails: {
           personId: { 
             type: mongoose.Schema.Types.ObjectId, 

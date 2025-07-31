@@ -10,6 +10,16 @@ export default async function handler(req, res) {
     await connectToDatabase();
 
     const { societyId, visitorId, actualExitTime } = req.body;
+    const token = req.headers.authorization.split(' ')[1];
+    const decodedToken = JSON.parse(atob(token.split('.')[1]));
+    const isGuard = decodedToken.guardName && decodedToken.guardPhone;
+
+    const exitMarker = {
+      personId: decodedToken.id,
+      personType: isGuard ? 'Security' : decodedToken.role || 'Unknown',
+      personName: isGuard ? decodedToken.guardName : decodedToken.name,
+      personPhone: isGuard ? decodedToken.guardPhone : decodedToken.phone
+    };
 
     // Get today's date (midnight)
     const today = new Date();
@@ -37,8 +47,13 @@ export default async function handler(req, res) {
 
     // Update exit time and status
     visitor.actualExitTime = actualExitTime || new Date();
-    
-    // Check if visitor has overstayed
+
+    // Record who marked the exit
+    visitor.exitMarkedBy = {
+      ...exitMarker,
+      exitTime: visitor.actualExitTime
+    };
+
     const expectedExitTime = new Date(visitor.expectedExitTime);
     const exitTime = new Date(visitor.actualExitTime);
     visitor.status = exitTime > expectedExitTime ? 'Overstayed' : 'Left';

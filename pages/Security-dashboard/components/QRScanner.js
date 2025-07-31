@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import { 
   X, Camera, Keyboard, AlertCircle, CheckCircle2,
   Car, Bike, Clock, CheckCircle, XCircle, ArrowLeft,
-  Loader2
+  Loader2, User, ImageIcon
 } from 'lucide-react';
 import { FaMotorcycle } from "react-icons/fa";
 
@@ -32,8 +32,10 @@ function QRScanner() {
   const [scannedQRData, setScannedQRData] = useState(null);
   const [selectedType, setSelectedType] = useState('vehicle');
   const [isScanning, setIsScanning] = useState(false);
-  const [scannerStatus, setScannerStatus] = useState('idle'); // idle, scanning, processing, success
+  const [scannerStatus, setScannerStatus] = useState('idle'); // idle, scanning, processing, success, loading
   const [errorDisplayTimeout, setErrorDisplayTimeout] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [zoomedImageUrl, setZoomedImageUrl] = useState(null);
   const hasProcessedRef = React.useRef(false);
   const scannerRef = React.useRef(null);
   const router = useRouter();
@@ -188,6 +190,72 @@ function QRScanner() {
     }
   };
 
+  // Function to check for duplicate attendance records
+  const checkDuplicateAttendance = async (scanData) => {
+    try {
+      // Get unique identifier based on scan type
+      const getUniqueIdentifier = (scanData) => {
+        switch (scanData.type) {
+          case 'guest':
+            return {
+              type: 'guest',
+              visitorName: scanData.guestDetails?.name,
+              visitorPhone: scanData.guestDetails?.phone,
+              residentId: scanData.resident?._id
+            };
+          case 'service':
+            return {
+              type: 'service',
+              visitorName: scanData.personnelDetails?.name,
+              visitorPhone: scanData.personnelDetails?.phone,
+              residentId: scanData.resident?._id
+            };
+          case 'vehicle':
+            return {
+              type: 'vehicle',
+              visitorName: scanData.resident?.name,
+              vehicleNumber: scanData.vehicleDetails?.registrationNumber,
+              residentId: scanData.resident?._id
+            };
+          case 'animal':
+            return {
+              type: 'animal',
+              visitorName: scanData.resident?.name,
+              animalName: scanData.animalDetails?.name,
+              residentId: scanData.resident?._id
+            };
+          default:
+            return null;
+        }
+      };
+
+      const identifier = getUniqueIdentifier(scanData);
+      if (!identifier) return false;
+
+      // Check for existing attendance record today
+      const response = await fetch('/api/DailyAttendance-Api/check-duplicate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          societyId: securityDetails.societyId,
+          identifier
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.isDuplicate;
+      }
+      
+      return false; // If API call fails, allow the record
+    } catch (error) {
+      console.error('Error checking duplicate attendance:', error);
+      return false; // If error occurs, allow the record
+    }
+  };
+
   const handleScanSuccess = async (decodedText) => {
     // Prevent multiple scans using ref
     if (hasProcessedRef.current) return;
@@ -262,6 +330,9 @@ function QRScanner() {
         setScannerStatus('success');
         setError(null);
         setScannedQRData(null);
+        
+        // Record attendance for successful scan
+        await recordAttendance(data.data, token);
       } else {
         // If no pinCode in QR data, show PIN entry modal
         setShowPinModal(true);
@@ -286,6 +357,133 @@ function QRScanner() {
     }
   };
 
+  const recordAttendance = async (scanData, token) => {
+    try {
+      // Only record attendance for Service Personnel and Gate Pass (guest) types
+      if (scanData.type !== 'service' && scanData.type !== 'guest') {
+        console.log(`Skipping attendance record for type: ${scanData.type} - only service and guest types are recorded`);
+        return; // Skip creating attendance record for vehicle and animal tags
+      }
+
+      const decodedToken = JSON.parse(atob(token.split('.')[1]));
+      const guardInfo = {
+        guardName: decodedToken.guardName,
+        guardPhone: decodedToken.guardPhone,
+      };
+
+      // Check for duplicate attendance first
+      const isDuplicate = await checkDuplicateAttendance(scanData);
+      if (isDuplicate) {
+        console.log('Duplicate attendance detected - skipping record creation');
+        return; // Skip creating attendance record
+      }
+
+      // Map scan data type to correct visitorType enum
+      const getVisitorType = (type) => {
+        switch (type) {
+          case 'vehicle': return 'VehicleTag';
+          case 'animal': return 'AnimalTag';
+          case 'guest': return 'GatePass';
+          case 'service': return 'ServicePersonnel';
+          default: return 'GateVisitor';
+        }
+      };
+
+      // Get purpose based on type
+      const getPurpose = (type) => {
+        switch (type) {
+          case 'vehicle': return 'Vehicle Entry';
+          case 'animal': return 'Pet/Animal Entry';
+          case 'guest': return 'Guest Visit';
+          case 'service': return 'Service/Delivery';
+          default: return 'Visit';
+        }
+      };
+
+      // Get visitor information based on scan data type
+      const getVisitorInfo = (scanData) => {
+        switch (scanData.type) {
+          case 'guest':
+            return {
+              name: scanData.guestDetails?.name || 'Guest Visitor',
+              phone: scanData.guestDetails?.phone || 'N/A',
+              image: scanData.guestImage || null
+            };
+          case 'service':
+            return {
+              name: scanData.personnelDetails?.name || 'Service Personnel',
+              phone: scanData.personnelDetails?.phone || 'N/A',
+              image: scanData.personnelImage || null
+            };
+          case 'vehicle':
+            return {
+              name: scanData.resident?.name || 'Unknown Visitor',
+              phone: scanData.resident?.phone || 'N/A',
+              image: scanData.vehicleImage || null
+            };
+          case 'animal':
+            return {
+              name: scanData.resident?.name || 'Unknown Visitor',
+              phone: scanData.resident?.phone || 'N/A',
+              image: scanData.animalImage || null
+            };
+          default:
+            return {
+              name: scanData.resident?.name || 'Unknown Visitor',
+              phone: scanData.resident?.phone || 'N/A',
+              image: null
+            };
+        }
+      };
+
+      const visitorInfo = getVisitorInfo(scanData);
+
+      const visitorData = {
+        visitorName: visitorInfo.name,
+        visitorPhone: visitorInfo.phone,
+        visitorImage: visitorInfo.image, // Add visitor image
+        visitorType: getVisitorType(scanData.type),
+        purpose: getPurpose(scanData.type),
+        entryTime: new Date(),
+        expectedExitTime: new Date(new Date().getTime() + 3600 * 1000),
+        status: 'Inside',
+        approvedBy: {
+          securityId: decodedToken.id,
+          ...guardInfo
+        },
+        residentDetails: {
+          personId: scanData.resident?._id || null,
+          personModel: 'Resident', // Set correct enum value
+          name: scanData.resident?.name || 'Unknown Resident',
+          phone: scanData.resident?.phone || 'N/A',
+          flatNumber: scanData.resident?.flatDetails?.flatNumber?.toString() || 'N/A',
+          blockNumber: scanData.resident?.flatDetails?.blockName || 'N/A',
+          floorNumber: scanData.resident?.flatDetails?.floorIndex?.toString() || '0',
+        }
+      };
+
+      const response = await fetch('/api/DailyAttendance-Api/create-attendance', {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          societyId: securityDetails.societyId,
+          visitorData
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update attendance record");
+      }
+
+      const data = await response.json();
+      console.log('Attendance updated:', data);
+    } catch (error) {
+      console.error('Error recording attendance:', error);
+    }
+  };
+
   const handleScanError = (errorMessage) => {
     const ignoredErrors = [
       'No MultiFormat Readers were able to detect the code',
@@ -300,6 +498,12 @@ function QRScanner() {
 
   const handlePinSubmit = async (e) => {
     e.preventDefault();
+    
+    // Set processing status and close PIN modal
+    setScannerStatus('processing');
+    setShowPinModal(false);
+    setError(null);
+    
     try {
       const token = localStorage.getItem("Security");
       if (!token) {
@@ -370,14 +574,19 @@ function QRScanner() {
       }
 
       setScanResult(data.data);
+      setScannerStatus('success');
       setError(null);
-      setShowPinModal(false);
       setPinCode('');
       setSelectedType('vehicle');
       setScannedQRData(null);
+      
+      // Record attendance for successful PIN verification
+      await recordAttendance(data.data, token);
     } catch (err) {
       console.error('Verification error:', err);
+      setScannerStatus('idle');
       setError(err.message || 'Failed to verify code');
+      setShowPinModal(true); // Reopen PIN modal on error
 
       if (err.message.toLowerCase().includes('authentication') || 
           err.message.includes('society details not found')) {
@@ -397,6 +606,9 @@ function QRScanner() {
     setShowPinModal(false);
     setPinCode('');
     setScannedQRData(null);
+    setShowImageModal(false);
+    setZoomedImageUrl(null);
+    setScannerStatus('idle');
     hasProcessedRef.current = false;
 
     if (scannerRef.current) {
@@ -447,8 +659,66 @@ function QRScanner() {
     const StatusIcon = getStatusIcon(scanResult.status, isExpired);
     const statusColor = getStatusColor(scanResult.status, isExpired);
 
+    // Get the appropriate image based on type
+    const getImageUrl = () => {
+      switch (scanResult.type) {
+        case 'vehicle':
+          return scanResult.vehicleImage;
+        case 'animal':
+          return scanResult.animalImage;
+        case 'guest':
+          return scanResult.guestImage;
+        case 'service':
+          return scanResult.personnelImage;
+        default:
+          return null;
+      }
+    };
+
+    const imageUrl = getImageUrl();
+
+    const handleImageClick = () => {
+      if (imageUrl) {
+        setZoomedImageUrl(imageUrl);
+        setShowImageModal(true);
+      }
+    };
+
     return (
       <div className="bg-white rounded-xl shadow-lg p-6 animate-fade-in-up">
+        {/* Image Section */}
+        {imageUrl && (
+          <div className="mb-6">
+            <div className="flex justify-center">
+              <div 
+                className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200 cursor-pointer hover:border-blue-400 transition-all duration-200 hover:shadow-lg"
+                onClick={handleImageClick}
+              >
+                <img 
+                  src={imageUrl} 
+                  alt={`${scanResult.type} image`}
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gray-100 flex items-center justify-center" style={{display: 'none'}}>
+                  <ImageIcon className="w-8 h-8 text-gray-400" />
+                </div>
+                {/* Zoom indicator */}
+                <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 flex items-center justify-center transition-all duration-200">
+                  <div className="opacity-0 hover:opacity-100 bg-white bg-opacity-80 rounded-full p-1 transition-opacity duration-200">
+                    <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -470,7 +740,7 @@ function QRScanner() {
               </h2>
               <p className="text-gray-600">
                 {scanResult.type === 'vehicle' && `${scanResult.vehicleDetails.brand} ${scanResult.vehicleDetails.model} • ${scanResult.vehicleDetails.color}`}
-                {scanResult.type === 'animal' && `${scanResult.animalType} • ${scanResult.animalDetails.breed || 'No breed specified'}`}
+                {scanResult.type === 'animal' && `${scanResult.animalDetails.breed || 'No breed specified'}`}
                 {scanResult.type === 'guest' && `Guest • ${scanResult.guestDetails.purpose}`}
                 {scanResult.type === 'service' && `${scanResult.personnelDetails.serviceType} • ${scanResult.workingHours.startTime} - ${scanResult.workingHours.endTime}`}
               </p>
@@ -589,7 +859,20 @@ function QRScanner() {
       </div>
 
       {/* Main Content */}
-      {!scanResult && (
+      {scannerStatus === 'processing' ? (
+        /* Processing Loader */
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center">
+            <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Processing QR Code</h3>
+            <p className="text-gray-600 text-center">Verifying data and fetching details...</p>
+          </div>
+        </div>
+      ) : scanResult ? (
+        /* Scan Result */
+        renderScanResult()
+      ) : (
+        /* Initial State - Scan Options */
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <button
@@ -618,9 +901,6 @@ function QRScanner() {
           )}
         </div>
       )}
-
-      {/* Scan Result */}
-      {scanResult && renderScanResult()}
 
       {/* QR Scanner Modal */}
       {showScanModal && (
@@ -763,8 +1043,47 @@ function QRScanner() {
           </div>
         </div>
       )}
+
+      {/* Image Zoom Modal */}
+      {showImageModal && zoomedImageUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90" onClick={() => setShowImageModal(false)}>
+          <div className="relative max-w-4xl max-h-screen p-4" onClick={(e) => e.stopPropagation()}>
+            {/* Close button */}
+            <button
+              onClick={() => setShowImageModal(false)}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors z-10"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            
+            {/* Zoomed image */}
+            <div className="relative bg-white rounded-lg p-2 shadow-2xl">
+              <img 
+                src={zoomedImageUrl}
+                alt="Zoomed view"
+                className="max-w-full max-h-[80vh] object-contain rounded"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+              <div className="hidden w-full h-64 bg-gray-100 flex items-center justify-center rounded">
+                <div className="text-center text-gray-500">
+                  <ImageIcon className="w-16 h-16 mx-auto mb-2" />
+                  <p>Image could not be loaded</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <p className="text-white text-center mt-4 text-sm opacity-75">
+              Click outside the image or press the X button to close
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default QRScanner; 
+export default QRScanner;

@@ -20,7 +20,9 @@ import {
     Building2,
     Timer,
     AlertTriangle,
-    X
+    X,
+    Shield,
+    UserCheck
 } from 'lucide-react';
 
 export default function DailyAttendanceProfile() {
@@ -137,6 +139,7 @@ export default function DailyAttendanceProfile() {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     societyId,
@@ -336,6 +339,12 @@ export default function DailyAttendanceProfile() {
                                                 <AlertCircle className="inline mr-2" size={16} /> Status
                                             </th>
                                             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                                                <Shield className="inline mr-2" size={16} /> Security Details
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                                                <UserCheck className="inline mr-2" size={16} /> Exit Details
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">
                                                 Actions
                                             </th>
                                         </tr>
@@ -407,6 +416,40 @@ export default function DailyAttendanceProfile() {
                                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(visitor.status)}`}>
                                                             {visitor.status}
                                                         </span>
+                                                    </td>
+                                                    <td className="px-4 py-4">
+                                                        <div className="text-sm text-gray-900">
+                                                            <div className="flex items-center text-blue-600">
+                                                                <Shield className="mr-1" size={14} />
+                                                                {visitor.approvedBy?.guardName || 'N/A'}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500 mt-1">
+                                                                <Phone className="mr-1 inline" size={12} />
+                                                                {visitor.approvedBy?.guardPhone || 'N/A'}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4">
+                                                        {visitor.exitMarkedBy?.personName ? (
+                                                            <div className="text-sm text-gray-900">
+                                                                <div className="flex items-center text-purple-600">
+                                                                    <UserCheck className="mr-1" size={14} />
+                                                                    {visitor.exitMarkedBy.personName}
+                                                                </div>
+                                                                <div className="text-xs text-gray-500 mt-1">
+                                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                                        {visitor.exitMarkedBy.personType}
+                                                                    </span>
+                                                                </div>
+                                                                {visitor.exitMarkedBy.exitTime && (
+                                                                    <div className="text-xs text-gray-500 mt-1">
+                                                                        {formatTime(visitor.exitMarkedBy.exitTime)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">No exit record</span>
+                                                        )}
                                                     </td>
                                                     <td className="px-4 py-4 text-sm">
                                                         {visitor.status === 'Inside' && (

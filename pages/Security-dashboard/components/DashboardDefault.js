@@ -20,7 +20,7 @@ const SecurityDashboardDefault = () => {
     { icon: Wrench, label: 'Approve/Visitor', href: '/Security-dashboard/components/ApproveVisitor' },
     { icon: Siren, label: 'Emergency', href: '/Security-dashboard/components/EmergencyAlerts' },
     { icon: Bell, label: 'Incident Log', href: '/Security-dashboard/components/IncidentLog' },
-    { icon: PieChart, label: 'Delivery Log', href: '/Security-dashboard/components/DeliveryLog' },
+    { icon: PieChart, label: 'Delivery Log', href: '/Security-dashboard/components/DeliveryEntry' },
   ];
 
   const menuSections = [
@@ -43,7 +43,7 @@ const SecurityDashboardDefault = () => {
     {
       title: 'Delivery Management',
       items: [
-        { icon: Package, label: 'Record Deliveries', href: '/Security-dashboard/components/DeliveryLog' },
+        { icon: Package, label: 'Record Deliveries', href: '/Security-dashboard/components/DeliveryEntry' },
         { icon: Bell, label: 'Notify Residents', href: '/Security-dashboard/components/NotifyResidents' },
       ]
     },
