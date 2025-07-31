@@ -265,16 +265,6 @@ const VehicleTagRequest = () => {
   // Image capture functions
   const startCamera = async () => {
     try {
-      console.log('Starting camera...');
-      
-      // Check if camera is supported
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera not supported on this device/browser');
-      }
-      
-      setShowCamera(true); // Show modal immediately
-      console.log('Camera modal should be visible now');
-      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           width: { ideal: 1280 }, 
@@ -282,27 +272,13 @@ const VehicleTagRequest = () => {
           facingMode: 'environment' // Use back camera if available
         } 
       });
-      
-      console.log('Camera stream obtained');
-      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        console.log('Video stream assigned to video element');
+        setShowCamera(true);
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      setShowCamera(false); // Hide modal on error
-      
-      // More detailed error messages
-      if (error.name === 'NotAllowedError') {
-        alert('Camera access denied. Please allow camera permissions and try again.');
-      } else if (error.name === 'NotFoundError') {
-        alert('No camera found on this device.');
-      } else if (error.name === 'NotSupportedError') {
-        alert('Camera not supported on this browser.');
-      } else {
-        alert(`Camera error: ${error.message}`);
-      }
+      alert('Unable to access camera. Please check permissions.');
     }
   };
 
@@ -373,15 +349,15 @@ const VehicleTagRequest = () => {
       const token = localStorage.getItem('Resident');
 
       // Prepare form data for multipart upload if image exists
-      let createResponse;
+      let createResponse; 
       if (imageFile) {
         const formDataToSend = new FormData();
         formDataToSend.append('residentId', residentData._id);
         formDataToSend.append('societyId', residentData.societyId);
         formDataToSend.append('vehicleType', formData.vehicleType);
-        formDataToSend.append('vehicleBrand', formData.brand);
-        formDataToSend.append('vehicleModel', formData.model);
-        formDataToSend.append('vehicleColor', formData.color);
+        formDataToSend.append('brand', formData.brand);
+        formDataToSend.append('model', formData.model);
+        formDataToSend.append('color', formData.color);
         formDataToSend.append('registrationNumber', formData.registrationNumber);
         formDataToSend.append('validUntil', formData.validUntil);
         formDataToSend.append('vehicleImage', imageFile);
@@ -414,19 +390,7 @@ const VehicleTagRequest = () => {
         );
       }
 
-      // Handle different response structures for the two API endpoints
-      let vehicleTag, pinCode;
-      if (imageFile) {
-        // For create-tag-with-image API: returns { vehicleTag, pinCode }
-        const response = createResponse.data;
-        vehicleTag = response.vehicleTag;
-        pinCode = response.pinCode;
-      } else {
-        // For create-tag API: returns { data, pinCode }
-        const response = createResponse.data;
-        vehicleTag = response.data;
-        pinCode = response.pinCode;
-      }
+      const { pinCode, data: vehicleTag } = createResponse.data;
 
       try {
               // Ensure we only use the societyId string
@@ -834,28 +798,16 @@ const VehicleTagRequest = () => {
 
       {/* Camera Modal */}
       {showCamera && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4" 
-          style={{ zIndex: 9999 }}
-        >
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl mx-auto border-4 border-blue-500">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl mx-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Capture Vehicle Image</h3>
               <button
-                onClick={() => {
-                  console.log('Close camera button clicked');
-                  stopCamera();
-                }}
-                className="text-gray-500 hover:text-gray-700 bg-red-100 p-2 rounded-full"
+                onClick={stopCamera}
+                className="text-gray-500 hover:text-gray-700"
               >
                 <X className="w-6 h-6" />
               </button>
-            </div>
-            
-            <div className="text-center mb-4">
-              <p className="text-sm text-gray-600">
-                Camera Status: {showCamera ? 'Active' : 'Inactive'}
-              </p>
             </div>
             
             <div className="relative">
@@ -863,17 +815,12 @@ const VehicleTagRequest = () => {
                 ref={videoRef}
                 autoPlay
                 playsInline
-                className="w-full h-64 object-cover rounded-lg bg-gray-100 border-2 border-gray-300"
-                onLoadedMetadata={() => console.log('Video metadata loaded')}
-                onPlay={() => console.log('Video started playing')}
+                className="w-full h-64 object-cover rounded-lg bg-gray-100"
               />
               
               <div className="mt-4 flex justify-center gap-4">
                 <button
-                  onClick={() => {
-                    console.log('Capture image button clicked');
-                    captureImage();
-                  }}
+                  onClick={captureImage}
                   className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                 >
                   <Camera className="w-5 h-5" />
@@ -881,10 +828,7 @@ const VehicleTagRequest = () => {
                 </button>
                 
                 <button
-                  onClick={() => {
-                    console.log('Cancel camera button clicked');
-                    stopCamera();
-                  }}
+                  onClick={stopCamera}
                   className="flex items-center gap-2 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
                 >
                   Cancel
