@@ -3,6 +3,8 @@ import VehicleTag from '../../models/VehicleTag';
 import AnimalTag from '../../models/AnimalTag';
 import GatePass from '../../models/GatePass';
 import ServicePass from '../../models/ServicePass';
+import Resident from '../../models/Resident';
+import Society from '../../models/Society';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -42,11 +44,17 @@ export default async function handler(req, res) {
 
     switch (scannedData.tagType || scannedData.passType) {
       case 'vehicle': {
-        const vehicleTag = await VehicleTag.findOne({
-          _id: scannedData.tagId,
+        // Build query - if tagId is provided use it, otherwise search by pinCode only
+        let query = {
           societyId: securitySocietyId,
           pinCode: scannedData.pinCode
-        })
+        };
+        
+        if (scannedData.tagId) {
+          query._id = scannedData.tagId;
+        }
+        
+        const vehicleTag = await VehicleTag.findOne(query)
         .populate('residentId', 'name flatDetails')
         .populate('societyId', 'societyName')
         .lean();
@@ -76,11 +84,17 @@ export default async function handler(req, res) {
       }
 
       case 'animal': {
-        const animalTag = await AnimalTag.findOne({
-          _id: scannedData.tagId,
+        // Build query - if tagId is provided use it, otherwise search by pinCode only
+        let query = {
           societyId: securitySocietyId,
           pinCode: scannedData.pinCode
-        })
+        };
+        
+        if (scannedData.tagId) {
+          query._id = scannedData.tagId;
+        }
+        
+        const animalTag = await AnimalTag.findOne(query)
         .populate('residentId', 'name flatDetails')
         .populate('societyId', 'societyName')
         .lean();
@@ -102,11 +116,17 @@ export default async function handler(req, res) {
       }
 
       case 'guest': {
-        const gatePass = await GatePass.findOne({
-          _id: scannedData.passId,
+        // Build query - if passId is provided use it, otherwise search by pinCode only
+        let query = {
           societyId: securitySocietyId,
           pinCode: scannedData.pinCode
-        })
+        };
+        
+        if (scannedData.passId) {
+          query._id = scannedData.passId;
+        }
+        
+        const gatePass = await GatePass.findOne(query)
         .populate('residentId', 'name flatDetails')
         .populate('societyId', 'societyName')
         .lean();
@@ -137,11 +157,17 @@ export default async function handler(req, res) {
       }
 
       case 'service': {
-        const servicePass = await ServicePass.findOne({
-          _id: scannedData.passId,
+        // Build query - if passId is provided use it, otherwise search by pinCode only
+        let query = {
           societyId: securitySocietyId,
           pinCode: scannedData.pinCode
-        })
+        };
+        
+        if (scannedData.passId) {
+          query._id = scannedData.passId;
+        }
+        
+        const servicePass = await ServicePass.findOne(query)
         .populate('residentId', 'name flatDetails')
         .populate('societyId', 'societyName')
         .lean();
