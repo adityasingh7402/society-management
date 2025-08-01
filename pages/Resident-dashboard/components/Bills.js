@@ -505,28 +505,41 @@ export default function Bills() {
     };
 
     // Filter bills based on filters state
-    const filterBills = () => {
-        return allBillsData.filter((bill) => {
-            const matchesCategory = !filters.category || bill.billHeadId?.category === filters.category;
+    const getFilteredBills = () => {
+        let billsToFilter = showHistory ? allPaidBills : bills;
+        
+        return billsToFilter.filter((bill) => {
+            // Filter by bill type (category)
+            const matchesCategory = !filters.category || bill.billType === filters.category;
+            
+            // Filter by subcategory (if needed)
             const matchesSubCategory = !filters.subCategory || bill.billHeadId?.subCategory === filters.subCategory;
-            const matchesDateFrom = !filters.dateFrom || new Date(bill.issueDate) >= new Date(filters.dateFrom);
-            const matchesDateTo = !filters.dateTo || new Date(bill.issueDate) <= new Date(filters.dateTo);
+            
+            // Filter by date range
+            const billDate = showHistory ? 
+                (bill.paymentDate || bill.updatedAt) : 
+                bill.issueDate;
+            const matchesDateFrom = !filters.dateFrom || new Date(billDate) >= new Date(filters.dateFrom);
+            const matchesDateTo = !filters.dateTo || new Date(billDate) <= new Date(filters.dateTo);
+            
+            // Filter by status
+            let matchesStatus = true;
+            if (filters.status) {
+                if (filters.status === 'Paid') {
+                    matchesStatus = bill.status === 'Paid';
+                } else if (filters.status === 'Unpaid') {
+                    matchesStatus = bill.status !== 'Paid';
+                } else if (filters.status === 'Overdue') {
+                    matchesStatus = bill.status !== 'Paid' && new Date(bill.dueDate) < new Date();
+                }
+            }
 
-            return matchesCategory && matchesSubCategory && matchesDateFrom && matchesDateTo;
+            return matchesCategory && matchesSubCategory && matchesDateFrom && matchesDateTo && matchesStatus;
         });
     };
 
-    // Filter paid bills for payment history
-    const filterPaidBills = () => {
-        return allPaidBills.filter((bill) => {
-            const matchesCategory = !filters.category || bill.billHeadId?.category === filters.category;
-            const matchesSubCategory = !filters.subCategory || bill.billHeadId?.subCategory === filters.subCategory;
-            const matchesDateFrom = !filters.dateFrom || new Date(bill.paymentDate) >= new Date(filters.dateFrom);
-            const matchesDateTo = !filters.dateTo || new Date(bill.paymentDate) <= new Date(filters.dateTo);
-
-            return matchesCategory && matchesSubCategory && matchesDateFrom && matchesDateTo;
-        });
-    };
+    // Get filtered bills
+    const filteredBills = getFilteredBills();
 
     if (loading) {
         return (
@@ -686,9 +699,9 @@ export default function Bills() {
                         <h2 className="text-xl font-semibold text-gray-900 mb-4">
                             Current Bills
                         </h2>
-                        {bills.length > 0 ? (
+                        {filteredBills.length > 0 ? (
                             <div className="grid grid-cols-1 gap-4">
-                                {bills.map((bill) => (
+                                {filteredBills.map((bill) => (
                                     <div
                                         key={bill._id}
                                         className="border border-gray-200 rounded-lg overflow-hidden shadow-sm"
@@ -864,9 +877,9 @@ export default function Bills() {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 Payment History
             </h2>
-            {paymentHistory.length > 0 ? (
+            {filteredBills.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
-                    {paymentHistory.map((payment) => (
+                    {filteredBills.map((payment) => (
                         <div key={payment._id} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                             <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center cursor-pointer" onClick={() => toggleHistoryBillVisibility(payment._id)}>
                                 <div className="flex items-center">
