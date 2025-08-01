@@ -79,14 +79,14 @@ export default async function handler(req, res) {
       query.createdAt = { $gt: new Date(since) };
     }
 
-    console.log('Query:', JSON.stringify(query, null, 2));
+    // console.log('Query:', JSON.stringify(query, null, 2));
 
     // Get messages based on query
     let messages = await ProductMessage.find(query)
       .sort({ createdAt: 1 }) // Sort by creation time ascending
       .lean();
 
-    console.log('Found messages:', messages.length);
+    // console.log('Found messages:', messages.length);
 
     // If no messages, return empty array
     if (!messages.length) {

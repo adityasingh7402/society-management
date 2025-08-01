@@ -1,5 +1,6 @@
 import connectToDatabase from '../../../lib/mongodb';
 import MaintenanceBill from '../../../models/MaintenanceBill';
+import BillHead from '../../../models/BillHead';
 import Society from '../../../models/Society';
 import { verifyToken } from '../../../utils/auth';
 import mongoose from 'mongoose';

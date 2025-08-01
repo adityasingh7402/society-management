@@ -1,4 +1,5 @@
 import UtilityBill from '../../../models/UtilityBill';
+import BillHead from '../../../models/BillHead';
 import connectDB from '../../../lib/mongodb';
 
 export default async function handler(req, res) {
@@ -19,8 +20,10 @@ export default async function handler(req, res) {
       });
     }
     
-    // Find all bills by residentId
-    const bills = await UtilityBill.find({ residentId }).sort({ issueDate: -1 });
+    // Find all bills by residentId and populate BillHead data
+    const bills = await UtilityBill.find({ residentId })
+      .populate('billHeadId', 'name category subCategory')
+      .sort({ issueDate: -1 });
     
     // Update penalty amounts for overdue bills
     const updatedBills = await Promise.all(bills.map(async (bill) => {

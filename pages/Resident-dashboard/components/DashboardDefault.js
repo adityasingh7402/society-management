@@ -58,6 +58,12 @@ const AndroidDashboard = ({ onLoaded }) => {
   const MENU_WIDTH = 320; // Width of the menu in pixels
   const DRAG_THRESHOLD = 50; // Minimum drag distance to trigger menu action
   const [greeting, setGreeting] = useState('');
+  
+  // Stats data
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [totalPendingBills, setTotalPendingBills] = useState(0);
+  const [openRequests, setOpenRequests] = useState(0);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   // Bottom navigation items
   const bottomNavItems = [
@@ -463,7 +469,7 @@ const AndroidDashboard = ({ onLoaded }) => {
       setPropertyMessages(unreadPropertyMessages);
 
       // Fetch product messages
-      const productResponse = await fetch('/api/Product-Api/get-messages', {
+      const productResponse = await fetch('/api/Product-Api/get-messages', { 
         headers: {
           Authorization: `Bearer ${token}`,
         }
@@ -553,6 +559,123 @@ const AndroidDashboard = ({ onLoaded }) => {
 
     return () => clearInterval(interval);
   }, []);
+  // Fetch wallet balance
+  const fetchWalletBalance = async () => {
+    try {
+      const token = localStorage.getItem("Resident");
+      if (!token) return;
+
+      const response = await fetch('/api/wallet/balance', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Match the structure from WalletDashboard.js: data.data.currentBalance
+        setWalletBalance(data.data?.currentBalance || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching wallet balance:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  // Fetch total pending bills
+  const fetchPendingBills = async () => {
+    try {
+      const token = localStorage.getItem("Resident");
+      if (!token) return;
+
+      // Check if we have residentId
+      if (!residentDetails._id) {
+        console.log('No residentId found in resident details');
+        return;
+      }
+
+      const endpointMapping = [
+        `/api/UtilityBill-Api/getBill-Resident?residentId=${residentDetails._id}`,
+        `/api/MaintenanceBill-Api/getBill-Resident?residentId=${residentDetails._id}`,
+        `/api/AmenityBill-Api/getBill-Resident?residentId=${residentDetails._id}`
+      ];
+
+      const pendingAmounts = await Promise.all(
+        endpointMapping.map(async endpoint => {
+          try {
+            const response = await fetch(endpoint, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              }
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              // Calculate pending amounts for bills with status 'Pending'
+              const residentBills = data.bills?.filter(bill => 
+                bill.status === 'Pending'
+              ) || [];
+              return residentBills.reduce((sum, bill) => sum + (bill.remainingAmount || 0), 0);
+            }
+            return 0;
+          } catch (error) {
+            console.error(`Error fetching bills from ${endpoint}:`, error);
+            return 0;
+          }
+        })
+      );
+
+      const totalPending = pendingAmounts.reduce((sum, amount) => sum + amount, 0);
+      setTotalPendingBills(totalPending);
+    } catch (error) {
+      console.error('Error fetching pending bills:', error);
+    }
+  };
+
+  // Fetch maintenance requests count
+  const fetchMaintenanceRequests = async () => {
+    try {
+      const token = localStorage.getItem("Resident");
+      if (!token) return;
+
+      const response = await fetch(`/api/Maintenance-Api/get-resident-tickets?residentId=${residentDetails._id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const tickets = data.data || [];
+        
+        // Count open/pending requests - matching the JSON structure
+        const openRequestsCount = tickets.filter(ticket =>
+          ticket.status === 'Pending' ||
+          ticket.status === 'Assigned' ||
+          ticket.status === 'In Progress'
+        ).length || 0;
+        setOpenRequests(openRequestsCount);
+      }
+    } catch (error) {
+      console.error('Error fetching maintenance requests:', error);
+    }
+  };
+
+  // Fetch all stats data when resident details are loaded
+  useEffect(() => {
+    if (residentDetails?._id) {
+      fetchWalletBalance();
+      fetchMaintenanceRequests();
+    }
+  }, [residentDetails._id]);
+
+  // Fetch pending bills when residentId is available
+  useEffect(() => {
+    if (residentDetails?._id) {
+      fetchPendingBills();
+    }
+  }, [residentDetails._id]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 relative">
@@ -1063,28 +1186,64 @@ const AndroidDashboard = ({ onLoaded }) => {
         </div>
         {/* Quick Stats Cards */}
         <div className="grid grid-cols-2 gap-4 mb-8 px-4">
-          <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
-            {/* Background gradient decoration */}
-            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-red-500/20 to-red-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
-            <div className="flex flex-col relative z-10">
-              <p className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">Due Bills</p>
-              <p className="text-2xl font-medium text-gray-600 group-hover:text-red-900 transition-colors duration-200">₹2,450</p>
-              <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
-                <Lightbulb className="w-6 h-6 text-red-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+          {/* Wallet Balance Card */}
+          <Link href="/Resident-dashboard/components/WalletDashboard">
+            <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80 cursor-pointer">
+              {/* Background gradient decoration */}
+              <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-blue-500/20 to-blue-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+              <div className="flex flex-col relative z-10">
+                <p className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">Wallet Balance</p>
+                {loadingStats ? (
+                  <p className="text-base font-medium text-gray-500 italic">Loading...</p>
+                ) : (
+                  <p className="text-base font-medium text-gray-600 group-hover:text-blue-900 transition-colors duration-200">₹{walletBalance.toFixed(2)}</p>
+                )}
+                <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
+                  <Store className="w-6 h-6 text-blue-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+                </div>
               </div>
             </div>
-          </div>
-          <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80">
-            {/* Background gradient decoration */}
-            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-orange-500/20 to-orange-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
-            <div className="flex flex-col relative z-10">
-              <p className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">Open Requests</p>
-              <p className="text-2xl font-medium text-gray-600 group-hover:text-yellow-900 transition-colors duration-200">3</p>
-              <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
-                <Wrench className="w-6 h-6 text-orange-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+          </Link>
+          {/* Total Pending Bills */}
+          <Link href="/Resident-dashboard/components/Bills">
+            <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80 cursor-pointer">
+              {/* Background gradient decoration */}
+              <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-red-500/20 to-red-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+              <div className="flex flex-col relative z-10">
+                <p className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">Due Bills</p>
+                {loadingStats ? (
+                  <p className="text-base font-medium text-gray-500 italic">Loading...</p>
+                ) : (
+                  <p className="text-base font-medium text-gray-600 group-hover:text-red-900 transition-colors duration-200">₹{totalPendingBills.toFixed(2)}</p>
+                )}
+                <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
+                  <Lightbulb className="w-6 h-6 text-red-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+                </div>
               </div>
             </div>
-          </div>
+          </Link>
+        </div>
+        
+        {/* Second row of stats */}
+        <div className="grid grid-cols-1 gap-4 mb-8 px-4">
+          {/* Maintenance Requests Card */}
+          <Link href="/Resident-dashboard/components/NewRequest">
+            <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80 cursor-pointer">
+              {/* Background gradient decoration */}
+              <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-orange-500/20 to-orange-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+              <div className="flex flex-col relative z-10">
+                <p className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">Maintenance Requests</p>
+                {loadingStats ? (
+                  <p className="text-base font-medium text-gray-500 italic">Loading...</p>
+                ) : (
+                  <p className="text-base font-medium text-gray-600 group-hover:text-yellow-900 transition-colors duration-200">{openRequests}</p>
+                )}
+                <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
+                  <Wrench className="w-6 h-6 text-orange-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+                </div>
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* Quick Access heading */}

@@ -33,11 +33,27 @@ const ResidentPaymentPopup = ({ bill, onClose, onPaymentComplete }) => {
     }
   };
 
-  // Refresh bill data
+  // Refresh bill data based on bill type
   const refreshBillData = async () => {
     try {
       const token = localStorage.getItem('Resident');
-      const response = await fetch(`/api/UtilityBill-Api/getBill?billId=${bill._id}`, {
+      
+      // Determine the correct API endpoint based on bill type
+      let apiEndpoint;
+      switch (bill.billType) {
+        case 'Maintenance':
+          apiEndpoint = `/api/MaintenanceBill-Api/getBill?billId=${bill._id}`;
+          break;
+        case 'Amenity':
+          apiEndpoint = `/api/AmenityBill-Api/getBill?billId=${bill._id}`;
+          break;
+        case 'Utility':
+        default:
+          apiEndpoint = `/api/UtilityBill-Api/getBill?billId=${bill._id}`;
+          break;
+      }
+      
+      const response = await fetch(apiEndpoint, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -46,7 +62,11 @@ const ResidentPaymentPopup = ({ bill, onClose, onPaymentComplete }) => {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          setBillData(data.data);
+          // Preserve the original billType since the API doesn't return it
+          setBillData({
+            ...data.data,
+            billType: bill.billType // Keep the original billType
+          });
         }
       }
     } catch (error) {
@@ -77,6 +97,21 @@ const ResidentPaymentPopup = ({ bill, onClose, onPaymentComplete }) => {
       // Generate transaction ID for wallet payment if not provided
       let transactionId = Math.floor(100000000000 + Math.random() * 900000000000).toString();
       
+      // Determine the correct billType for the API based on the bill's billType
+      let apiBillType;
+      switch (billData.billType) {
+        case 'Maintenance':
+          apiBillType = 'MaintenanceBill';
+          break;
+        case 'Amenity':
+          apiBillType = 'AmenityBill';
+          break;
+        case 'Utility':
+        default:
+          apiBillType = 'UtilityBill';
+          break;
+      }
+      
       // Create payment details for wallet payment
       const paymentDetails = {
         billId: billData._id,
@@ -85,7 +120,7 @@ const ResidentPaymentPopup = ({ bill, onClose, onPaymentComplete }) => {
         transactionId: transactionId,
         paymentDate: new Date().toISOString(),
         notes: 'Wallet payment from resident dashboard',
-        billType: 'UtilityBill'
+        billType: apiBillType // Use the correct billType for the API
       };
 
       console.log('Processing wallet payment:', paymentDetails);

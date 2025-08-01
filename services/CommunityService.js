@@ -82,6 +82,27 @@ export const fetchUnreadCounts = async (userId, setUnreadCounts) => {
   }
 };
 
+export const fetchConversationContacts = async (userId) => {
+  try {
+    const token = localStorage.getItem('Resident');
+    const response = await fetch(`/api/chat/conversation-contacts?userId=${userId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch conversation contacts');
+    }
+
+    const data = await response.json();
+    return data.contactIds || [];
+  } catch (error) {
+    console.error('Error fetching conversation contacts:', error);
+    return [];
+  }
+};
+
 export const setupWebSocket = (
   residentDetails,
   handleIncomingMessage,

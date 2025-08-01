@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaTools, FaArrowLeft, FaHistory, FaCreditCard, FaFileInvoiceDollar, FaCheckCircle, FaBuilding, FaHammer, FaLeaf, FaBroom } from 'react-icons/fa';
+import { FaTools, FaArrowLeft, FaHistory, FaCreditCard, FaFileInvoiceDollar, FaCheckCircle, FaBuilding, FaHammer, FaLeaf, FaBroom, FaChevronDown, FaChevronUp, FaFilter, FaCalendarAlt, FaTimes } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 
 // Import ResidentPaymentPopup for wallet-only payments
@@ -13,7 +13,7 @@ export default function Bills() {
     const [showHistory, setShowHistory] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [paymentData, setPaymentData] = useState(null);
-    const [utilityBills, setUtilityBills] = useState([]);
+    const [bills, setBills] = useState([]);
     const [paymentHistory, setPaymentHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [walletBalance, setWalletBalance] = useState(0);
@@ -23,9 +23,23 @@ export default function Bills() {
     const [upiVerified, setUpiVerified] = useState(false);
     const [upiVerifying, setUpiVerifying] = useState(false);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
+    const [collapsedBills, setCollapsedBills] = useState({});
+    const [collapsedHistoryBills, setCollapsedHistoryBills] = useState({});
 
-    // Fetch utility bills for resident
-    const fetchUtilityBills = async () => {
+    // Filter states
+    const [showFilters, setShowFilters] = useState(false);
+    const [filters, setFilters] = useState({
+        category: '',
+        subCategory: '',
+        dateFrom: '',
+        dateTo: '',
+        status: ''
+    });
+    const [allBillsData, setAllBillsData] = useState([]); // Store all bills for filtering
+    const [allPaidBills, setAllPaidBills] = useState([]); // Store all paid bills for history
+
+    // Fetch all bills for resident
+    const fetchAllBills = async () => {
         try {
             const token = localStorage.getItem("Resident");
             if (!token) {
@@ -45,45 +59,170 @@ export default function Bills() {
             }
 
             const residentData = await residentResponse.json();
-            const residentId = residentData._id; // Assuming the resident ID is available in the response
+            const residentId = residentData._id;
+            const societyId = residentData.societyId; // Get society ID for amenity bills
 
-            // Fetch utility bills for the resident
-            const billsResponse = await fetch(`/api/UtilityBill-Api/getBill-Resident?residentId=${residentId}`);
-            if (!billsResponse.ok) {
-                throw new Error("Failed to fetch utility bills");
+            // Fetch all bill types concurrently
+            const [utilityResponse, maintenanceResponse, amenityResponse] = await Promise.allSettled([
+                fetch(`/api/UtilityBill-Api/getBill-Resident?residentId=${residentId}`),
+                fetch(`/api/MaintenanceBill-Api/getBill-Resident?residentId=${residentId}`),
+                fetch(`/api/AmenityBill-Api/getBill-Resident?residentId=${residentId}`)
+            ]);
+
+            let allBills = [];
+            let allPayments = [];
+
+            // Process utility bills
+            if (utilityResponse.status === 'fulfilled' && utilityResponse.value.ok) {
+                const utilityData = await utilityResponse.value.json();
+                const utilityBills = utilityData.bills?.map(bill => ({
+                    ...bill,
+                    billType: 'Utility',
+                    icon: 'FaBuilding'
+                })) || [];
+                allBills.push(...utilityBills);
+
+                // Extract payment history from utility bills
+                utilityBills.forEach(bill => {
+                    if (bill.paymentHistory && bill.paymentHistory.length > 0) {
+                        bill.paymentHistory.forEach(payment => {
+                            allPayments.push({
+                                _id: payment._id || payment.transactionId,
+                                type: 'Utility Bill',
+                                billNumber: bill.billNumber,
+                                amount: payment.amount || bill.totalAmount,
+                                baseAmount: bill.baseAmount,
+                                gstAmount: bill.gstDetails?.isGSTApplicable ? (
+                                    (bill.gstDetails.cgstAmount || 0) +
+                                    (bill.gstDetails.sgstAmount || 0) +
+                                    (bill.gstDetails.igstAmount || 0)
+                                ) : 0,
+                                gstDetails: bill.gstDetails,
+                                lateFeeAmount: bill.latePaymentDetails?.lateFeeAmount || 0,
+                                latePaymentDetails: bill.latePaymentDetails,
+                                additionalChargesAmount: bill.additionalCharges?.reduce((sum, charge) => sum + (charge.amount || 0), 0) || 0,
+                                additionalCharges: bill.additionalCharges,
+                                paidOn: payment.paymentDate || payment.createdAt || bill.updatedAt,
+                                paymentMethod: payment.paymentMethod || 'N/A',
+                                paymentReference: payment.paymentReference || payment.transactionReference || 'N/A',
+                                status: payment.status || 'Success',
+                                flatNumber: bill.flatNumber,
+                                blockName: bill.blockName,
+                                floorNumber: bill.floorNumber,
+                                unitUsage: bill.unitUsage,
+                                periodType: bill.periodType,
+                                dueDate: bill.dueDate
+                            });
+                        });
+                    }
+                });
+            } else {
+                console.warn('Failed to fetch utility bills');
             }
 
-            const billsData = await billsResponse.json();
-            setUtilityBills(billsData.bills); // Set the utility bills for the resident
-                
-                // Extract payment history from bills that have been paid
-                const payments = [];
-                billsData.bills?.forEach(bill => {
-                        if (bill.paymentHistory && bill.paymentHistory.length > 0) {
-                            bill.paymentHistory.forEach(payment => {
-                                payments.push({
-                                    _id: payment._id || payment.transactionId,
-                                    type: 'Utility Bill',
-                                    billNumber: bill.billNumber,
-                                    amount: payment.amount || bill.totalAmount,
-                                    baseAmount: bill.baseAmount,
-                                    gstAmount: bill.gstDetails?.isGSTApplicable ? (
-                                        (bill.gstDetails.cgstAmount || 0) +
-                                        (bill.gstDetails.sgstAmount || 0) +
-                                        (bill.gstDetails.igstAmount || 0)
-                                    ) : 0,
-                                    lateFeeAmount: bill.latePaymentDetails?.lateFeeAmount || 0,
-                                    additionalChargesAmount: bill.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0,
-                                    paidOn: payment.paymentDate || payment.createdAt || bill.updatedAt,
-                                    paymentMethod: payment.paymentMethod || 'N/A',
-                                    paymentReference: payment.paymentReference || payment.transactionReference || 'N/A',
-                                    status: payment.status || 'Success'
-                                });
+            // Process maintenance bills
+            if (maintenanceResponse.status === 'fulfilled' && maintenanceResponse.value.ok) {
+                const maintenanceData = await maintenanceResponse.value.json();
+                const maintenanceBills = maintenanceData.bills?.map(bill => ({
+                    ...bill,
+                    billType: 'Maintenance',
+                    icon: 'FaHammer'
+                })) || [];
+                allBills.push(...maintenanceBills);
+
+                // Extract payment history from maintenance bills
+                maintenanceBills.forEach(bill => {
+                    if (bill.paymentHistory && bill.paymentHistory.length > 0) {
+                        bill.paymentHistory.forEach(payment => {
+                            allPayments.push({
+                                _id: payment._id || payment.transactionId,
+                                type: 'Maintenance Bill',
+                                billNumber: bill.billNumber,
+                                amount: payment.amount || bill.totalAmount,
+                                baseAmount: bill.baseAmount || bill.amount,
+                                gstAmount: bill.gstDetails?.isGSTApplicable ? (
+                                    (bill.gstDetails.cgstAmount || 0) +
+                                    (bill.gstDetails.sgstAmount || 0) +
+                                    (bill.gstDetails.igstAmount || 0)
+                                ) : 0,
+                                gstDetails: bill.gstDetails,
+                                lateFeeAmount: bill.latePaymentDetails?.lateFeeAmount || bill.penaltyAmount || 0,
+                                latePaymentDetails: bill.latePaymentDetails,
+                                additionalChargesAmount: bill.additionalCharges?.reduce((sum, charge) => sum + (charge.amount || 0), 0) || 0,
+                                additionalCharges: bill.additionalCharges,
+                                paidOn: payment.paymentDate || payment.createdAt || bill.updatedAt,
+                                paymentMethod: payment.paymentMethod || 'N/A',
+                                paymentReference: payment.paymentReference || payment.transactionReference || 'N/A',
+                                status: payment.status || 'Success',
+                                flatNumber: bill.flatNumber,
+                                blockName: bill.blockName,
+                                floorNumber: bill.floorNumber,
+                                unitUsage: bill.unitUsage,
+                                periodType: bill.periodType,
+                                dueDate: bill.dueDate
                             });
-                        }
+                        });
+                    }
                 });
-                
-                setPaymentHistory(payments);
+            } else {
+                console.warn('Failed to fetch maintenance bills');
+            }
+
+            // Process amenity bills
+            if (amenityResponse.status === 'fulfilled' && amenityResponse.value.ok) {
+                const amenityData = await amenityResponse.value.json();
+                const amenityBills = amenityData.bills?.map(bill => ({
+                    ...bill,
+                    billType: 'Amenity',
+                    icon: 'FaLeaf'
+                })) || [];
+                allBills.push(...amenityBills);
+
+                // Extract payment history from amenity bills
+                amenityBills.forEach(bill => {
+                    if (bill.paymentHistory && bill.paymentHistory.length > 0) {
+                        bill.paymentHistory.forEach(payment => {
+                            allPayments.push({
+                                _id: payment._id || payment.transactionId,
+                                type: 'Amenity Bill',
+                                billNumber: bill.billNumber,
+                                amount: payment.amount || bill.totalAmount,
+                                baseAmount: bill.baseAmount,
+                                gstAmount: bill.gstDetails?.isGSTApplicable ? (
+                                    (bill.gstDetails.cgstAmount || 0) +
+                                    (bill.gstDetails.sgstAmount || 0) +
+                                    (bill.gstDetails.igstAmount || 0)
+                                ) : 0,
+                                lateFeeAmount: bill.latePaymentDetails?.lateFeeAmount || bill.penaltyAmount || 0,
+                                additionalChargesAmount: bill.additionalCharges?.reduce((sum, charge) => sum + (charge.amount || 0), 0) || 0,
+                                paidOn: payment.paymentDate || payment.createdAt || bill.updatedAt,
+                                paymentMethod: payment.paymentMethod || 'N/A',
+                                paymentReference: payment.paymentReference || payment.transactionReference || 'N/A',
+                                status: payment.status || 'Success'
+                            });
+                        });
+                    }
+                });
+            } else {
+                console.warn('Failed to fetch amenity bills');
+            }
+
+            // Separate paid and unpaid bills
+            const unpaidBills = allBills.filter(bill => bill.status !== 'Paid');
+            const paidBills = allBills.filter(bill => bill.status === 'Paid');
+
+            // Sort by issue date (newest first)
+            unpaidBills.sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate));
+            paidBills.sort((a, b) => new Date(b.paymentDate || b.updatedAt) - new Date(a.paymentDate || a.updatedAt));
+
+            // Sort payment history by payment date (newest first)
+            allPayments.sort((a, b) => new Date(b.paidOn) - new Date(a.paidOn));
+
+            setBills(unpaidBills);
+            setAllBillsData(allBills); // Store all bills for filtering
+            setAllPaidBills(paidBills); // Store paid bills for history
+            setPaymentHistory(allPayments);
+
         } catch (error) {
             console.error("Error fetching data:", error);
             router.push("/login");
@@ -104,21 +243,21 @@ export default function Bills() {
         }
     };
 
-    // Fetch resident details and utility bills
+    // Fetch resident details and all bills
     useEffect(() => {
-        fetchUtilityBills();
+        fetchAllBills();
     }, [router]);
 
-    // Calculate utility bill stats
+    // Calculate bill stats
     const billStats = {
-        total: utilityBills.reduce((sum, bill) => sum + bill.totalAmount, 0),
-        unpaid: utilityBills.filter(bill => bill.status !== "Paid").reduce((sum, bill) => sum + bill.totalAmount, 0),
-        paid: utilityBills.filter(bill => bill.status === "Paid").reduce((sum, bill) => sum + bill.totalAmount, 0),
-        due: utilityBills.filter(bill =>
+        total: bills.reduce((sum, bill) => sum + (bill.totalAmount || 0), 0),
+        unpaid: bills.filter(bill => bill.status !== "Paid").reduce((sum, bill) => sum + (bill.totalAmount || 0), 0),
+        paid: bills.filter(bill => bill.status === "Paid").reduce((sum, bill) => sum + (bill.totalAmount || 0), 0),
+        due: bills.filter(bill =>
             bill.status !== "Paid" &&
             new Date(bill.dueDate) <= new Date(new Date().setDate(new Date().getDate() + 5))
         ).length,
-        totalGst: utilityBills.reduce((sum, bill) => {
+        totalGst: bills.reduce((sum, bill) => {
             if (bill.gstDetails?.isGSTApplicable) {
                 return sum + (
                     (bill.gstDetails.cgstAmount || 0) +
@@ -128,9 +267,9 @@ export default function Bills() {
             }
             return sum;
         }, 0),
-        totalLateFees: utilityBills.reduce((sum, bill) => sum + (bill.latePaymentDetails?.lateFeeAmount || 0), 0),
-        totalAdditionalCharges: utilityBills.reduce((sum, bill) => 
-            sum + (bill.additionalCharges?.reduce((chargeSum, charge) => chargeSum + charge.amount, 0) || 0), 0)
+        totalLateFees: bills.reduce((sum, bill) => sum + (bill.latePaymentDetails?.lateFeeAmount || 0), 0),
+        totalAdditionalCharges: bills.reduce((sum, bill) =>
+            sum + (bill.additionalCharges?.reduce((chargeSum, charge) => chargeSum + (charge.amount || 0), 0) || 0), 0)
     };
 
     // Fetch wallet balance
@@ -155,12 +294,12 @@ export default function Bills() {
         }
     };
 
-// Handler for opening payment modal
-const handlePayNow = (bill) => {
-    setSelectedBill(bill);
-    setPaymentModalOpen(true);
-    fetchWalletBalance(); // Fetch wallet balance when opening payment modal
-};
+    // Handler for opening payment modal
+    const handlePayNow = (bill) => {
+        setSelectedBill(bill);
+        setPaymentModalOpen(true);
+        fetchWalletBalance(); // Fetch wallet balance when opening payment modal
+    };
 
     // UPI Verification Handler
     const handleUpiVerification = async () => {
@@ -173,7 +312,7 @@ const handlePayNow = (bill) => {
         try {
             // Simulate UPI verification - replace with actual API call
             await new Promise(resolve => setTimeout(resolve, 2000));
-            
+
             // Simple UPI ID validation (you can enhance this)
             const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
             if (upiRegex.test(upiId)) {
@@ -202,21 +341,21 @@ const handlePayNow = (bill) => {
 
             // Get payment method from state or form and map to model enum
             const rawPaymentMethod = selectedPaymentMethod || e.target.paymentMethod?.value;
-            
+
             // Map frontend payment methods to UtilityBill model enum values
             const paymentMethodMapping = {
                 'Credit Card': 'Other',
-                'Debit Card': 'Other', 
+                'Debit Card': 'Other',
                 'UPI Payment': 'UPI',
                 'Net Banking': 'Bank Transfer',
                 'Wallet': 'Other'
             };
-            
+
             const paymentMethod = paymentMethodMapping[rawPaymentMethod] || 'Other';
-            
-            // Generate payment reference with safe fallback
-            const billType = 'UTILITY';
-            const paymentReference = `${billType.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10000000000)}`;
+
+            // Generate payment reference with safe fallback based on bill type
+            const billTypePrefix = selectedBill.billType.toUpperCase();
+            const paymentReference = `${billTypePrefix.substring(0, 2)}${Math.floor(Math.random() * 10000000000)}`;
 
             // Create payment details object
             const paymentDetails = {
@@ -288,9 +427,9 @@ const handlePayNow = (bill) => {
             const paymentResult = await paymentResponse.json();
 
             // Update the bills list with the new payment
-            setUtilityBills(prevBills => 
-                prevBills.map(bill => 
-                    bill._id === selectedBill._id 
+            setBills(prevBills =>
+                prevBills.map(bill =>
+                    bill._id === selectedBill._id
                         ? {
                             ...bill,
                             status: "Paid",
@@ -335,6 +474,7 @@ const handlePayNow = (bill) => {
             alert(error.message || "Failed to process payment. Please try again.");
         }
     };
+
     const getUnitLabel = (type) => {
         switch (type) {
             case 'Electricity':
@@ -347,6 +487,57 @@ const handlePayNow = (bill) => {
                 return 'Units';
         }
     };
+
+    // Toggle bill visibility
+    const toggleBillVisibility = (billId) => {
+        setCollapsedBills((prev) => ({
+            ...prev,
+            [billId]: !prev[billId],
+        }));
+    };
+
+    // Toggle history bill visibility
+    const toggleHistoryBillVisibility = (billId) => {
+        setCollapsedHistoryBills((prev) => ({
+            ...prev,
+            [billId]: !prev[billId],
+        }));
+    };
+
+    // Filter bills based on filters state
+    const filterBills = () => {
+        return allBillsData.filter((bill) => {
+            const matchesCategory = !filters.category || bill.billHeadId?.category === filters.category;
+            const matchesSubCategory = !filters.subCategory || bill.billHeadId?.subCategory === filters.subCategory;
+            const matchesDateFrom = !filters.dateFrom || new Date(bill.issueDate) >= new Date(filters.dateFrom);
+            const matchesDateTo = !filters.dateTo || new Date(bill.issueDate) <= new Date(filters.dateTo);
+
+            return matchesCategory && matchesSubCategory && matchesDateFrom && matchesDateTo;
+        });
+    };
+
+    // Filter paid bills for payment history
+    const filterPaidBills = () => {
+        return allPaidBills.filter((bill) => {
+            const matchesCategory = !filters.category || bill.billHeadId?.category === filters.category;
+            const matchesSubCategory = !filters.subCategory || bill.billHeadId?.subCategory === filters.subCategory;
+            const matchesDateFrom = !filters.dateFrom || new Date(bill.paymentDate) >= new Date(filters.dateFrom);
+            const matchesDateTo = !filters.dateTo || new Date(bill.paymentDate) <= new Date(filters.dateTo);
+
+            return matchesCategory && matchesSubCategory && matchesDateFrom && matchesDateTo;
+        });
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+                    <p className="mt-4 text-gray-600">Loading bills...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-100">
@@ -363,7 +554,7 @@ const handlePayNow = (bill) => {
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <h1 className="text-2xl md:text-3xl text-center font-bold text-blue-600 mb-6">Utility Bills</h1>
+                <h1 className="text-2xl md:text-3xl text-center font-bold text-blue-600 mb-6">Bills</h1>
 
                 {/* Bills Overview Section */}
                 <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -418,41 +609,115 @@ const handlePayNow = (bill) => {
                         </button>
                     </div>
                 </div>
-                {!showHistory && (
-                    <div className="bg-white rounded-lg shadow overflow-hidden">
-                        <div className="p-6">
-                            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                                <FaTools className="mr-2 text-blue-600" />
-                                Current Utility Bills
-                            </h2>
 
-                            {loading ? (
-                                <p className="text-gray-500 text-center py-4">Loading bills...</p>
-                            ) : utilityBills.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {utilityBills.map((bill) => (
-                                        <div key={bill._id} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                                            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                                                <div className="flex items-center">
-                                                    <div className="p-2 rounded-full bg-white shadow-sm mr-3">
-                                                        <FaBuilding className="text-blue-600" />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-medium text-gray-900">Utility Bill</h3>
-                                                        <p className="text-sm text-gray-500">Bill #{bill.billNumber}</p>
-                                                        <p className="text-xs text-gray-400">{bill.flatNumber} - {bill.blockName}</p>
-                                                        <p className="text-xs text-gray-400">Floor {bill.floorNumber}</p>
-                                                    </div>
+                {/* Filters Section */}
+                <div className="bg-white rounded-lg shadow p-6 mb-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold text-gray-900">Filters</h2>
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
+                        >
+                            <FaFilter />
+                            <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
+                        </button>
+                    </div>
+                    {showFilters && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Bill Type</label>
+                                <select
+                                    value={filters.category}
+                                    onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">All Types</option>
+                                    <option value="Utility">Utility</option>
+                                    <option value="Maintenance">Maintenance</option>
+                                    <option value="Amenity">Amenity</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+                                <input
+                                    type="date"
+                                    value={filters.dateFrom}
+                                    onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+                                <input
+                                    type="date"
+                                    value={filters.dateTo}
+                                    onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select
+                                    value={filters.status}
+                                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">All Status</option>
+                                    <option value="Paid">Paid</option>
+                                    <option value="Unpaid">Unpaid</option>
+                                    <option value="Overdue">Overdue</option>
+                                </select>
+                            </div>
+                            <div className="flex items-end">
+                                <button
+                                    onClick={() => setFilters({ category: '', subCategory: '', dateFrom: '', dateTo: '', status: '' })}
+                                    className="w-full px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                                >
+                                    Clear Filters
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Current Bills Section */}
+                {!showHistory && (
+                    <div className="bg-white rounded-lg shadow p-6 mb-6">
+                        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                            Current Bills
+                        </h2>
+                        {bills.length > 0 ? (
+                            <div className="grid grid-cols-1 gap-4">
+                                {bills.map((bill) => (
+                                    <div
+                                        key={bill._id}
+                                        className="border border-gray-200 rounded-lg overflow-hidden shadow-sm"
+                                    >
+                                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                                             onClick={() => toggleBillVisibility(bill._id)}>
+                                            <div className="flex items-center">
+                                                <div className="p-2 rounded-full bg-white shadow-sm mr-3">
+                                                    {bill.billType === 'Utility' && <FaBuilding className="text-blue-600" />}
+                                                    {bill.billType === 'Maintenance' && <FaHammer className="text-green-600" />}
+                                                    {bill.billType === 'Amenity' && <FaLeaf className="text-purple-600" />}
                                                 </div>
-                                                <span className={`text-sm px-2 py-1 rounded-full ${bill.status === 'Paid'
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : bill.status === 'Overdue'
-                                                            ? 'bg-red-100 text-red-800'
-                                                            : 'bg-yellow-100 text-yellow-800'
-                                                    }`}>
-                                                    {bill.status}
-                                                </span>
+                                                <div>
+                                                    <h3 className="font-medium text-gray-900">
+                                                        {bill.billHeadId?.name ||
+                                                            bill.scheduledBillReference?.scheduledBillTitle ||
+                                                            bill.billHeadId?.subCategory ||
+                                                            `${bill.billType} Bill`}
+                                                    </h3>
+                                                    <p className="text-sm text-gray-500">Bill #{bill.billNumber}</p>
+                                                    <p className="text-xs text-gray-400">{bill.flatNumber} - {bill.blockName}</p>
+                                                    <p className="text-xs text-gray-400">Floor {bill.floorNumber}</p>
+                                                </div>
                                             </div>
+                                            <span className="text-sm px-2 py-1 rounded-full bg-gray-100 text-gray-800 hover:bg-gray-200">
+                                                {collapsedBills[bill._id] ? <FaChevronUp /> : <FaChevronDown />}
+                                            </span>
+                                        </div>
+                                        {collapsedBills[bill._id] && (
                                             <div className="p-4">
                                                 {/* Usage Information */}
                                                 <div className="mb-4 p-3 bg-gray-50 rounded-md">
@@ -474,8 +739,8 @@ const handlePayNow = (bill) => {
                                                 <div className="flex justify-between mb-2">
                                                     <span className="text-sm text-gray-500">Due Date:</span>
                                                     <span className={`text-sm font-medium ${new Date(bill.dueDate) <= new Date() && bill.status !== 'Paid'
-                                                            ? 'text-red-600'
-                                                            : ''
+                                                        ? 'text-red-600'
+                                                        : ''
                                                         }`}>
                                                         {new Date(bill.dueDate).toLocaleDateString()}
                                                     </span>
@@ -572,7 +837,10 @@ const handlePayNow = (bill) => {
                                                     </div>
                                                 ) : (
                                                     <button
-                                                        onClick={() => handlePayNow(bill)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handlePayNow(bill);
+                                                        }}
                                                         className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                                     >
                                                         <FaCreditCard className="mr-2" />
@@ -580,125 +848,113 @@ const handlePayNow = (bill) => {
                                                     </button>
                                                 )}
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-gray-500 text-center py-4">No utility bills found.</p>
-                            )}
-                        </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-gray-500 text-center py-4">No bills found.</p>
+                        )}
                     </div>
                 )}
 
-                {/* Payment History Section */}
-                {showHistory && (
-                    <div className="bg-white rounded-lg shadow overflow-hidden">
-                        <div className="p-6">
-                            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                                <FaHistory className="mr-2 text-blue-600" />
-                                Payment History
-                            </h2>
-
-                            {loading ? (
-                                <p className="text-gray-500 text-center py-4">Loading payment history...</p>
-                            ) : paymentHistory.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill Number</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Amount</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Late Fee</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Additional</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {paymentHistory.map((payment) => (
-                                                <tr key={payment._id || payment.transactionId}>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center">
-                                                                <FaBuilding className="text-blue-600" />
-                                                            </div>
-                                                            <div className="ml-4">
-                                                                <div className="text-sm font-medium text-gray-900">{payment.type}</div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {payment.billNumber}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        ₹{payment.baseAmount?.toFixed(2)}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {payment.gstAmount > 0 ? `₹${payment.gstAmount.toFixed(2)}` : 'N/A'}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {payment.lateFeeAmount > 0 ? `₹${payment.lateFeeAmount.toFixed(2)}` : 'N/A'}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {payment.additionalChargesAmount > 0 ? `₹${payment.additionalChargesAmount.toFixed(2)}` : 'N/A'}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                        ₹{(payment.amount || 0).toFixed(2)}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {new Date(payment.paidOn).toLocaleDateString()}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {payment.paymentMethod}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        {payment.paymentReference}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+    {/* Payment History Section */}
+    {showHistory && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                Payment History
+            </h2>
+            {paymentHistory.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4">
+                    {paymentHistory.map((payment) => (
+                        <div key={payment._id} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center cursor-pointer" onClick={() => toggleHistoryBillVisibility(payment._id)}>
+                                <div className="flex items-center">
+                                    <div className="p-2 rounded-full bg-white shadow-sm mr-3">
+                                        {payment.type === 'Utility Bill' && <FaBuilding className="text-blue-600" />}
+                                        {payment.type === 'Maintenance Bill' && <FaHammer className="text-green-600" />}
+                                        {payment.type === 'Amenity Bill' && <FaLeaf className="text-purple-600" />}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-medium text-gray-900">{payment.type}</h3>
+                                        <p className="text-sm text-gray-500">Bill #{payment.billNumber}</p>
+                                        <p className="text-xs text-gray-500">Paid on {new Date(payment.paidOn).toLocaleDateString()}</p>
+                                    </div>
                                 </div>
-                            ) : (
-                                <p className="text-gray-500 text-center py-4">No payment history available.</p>
+                                <span className="text-sm px-2 py-1 rounded-full bg-gray-100 text-gray-800 hover:bg-gray-200">
+                                    {collapsedHistoryBills[payment._id] ? <FaChevronUp /> : <FaChevronDown />}
+                                </span>
+                            </div>
+                            {collapsedHistoryBills[payment._id] && (
+                                <div className="p-4">
+                                    <div className="flex justify-between mb-2">
+                                        <span className="text-sm text-gray-500">Base Amount:</span>
+                                        <span className="text-sm font-medium">₹{payment.baseAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between mb-2">
+                                        <span className="text-sm text-gray-500">GST:</span>
+                                        <span className="text-sm font-medium">₹{payment.gstAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between mb-2">
+                                        <span className="text-sm text-gray-500">Late Fee:</span>
+                                        <span className="text-sm font-medium">₹{payment.lateFeeAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between mb-2">
+                                        <span className="text-sm text-gray-500">Additional:</span>
+                                        <span className="text-sm font-medium">₹{payment.additionalChargesAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between mb-2">
+                                        <span className="text-sm text-gray-500">Payment Method:</span>
+                                        <span className="text-sm font-medium">{payment.paymentMethod}</span>
+                                    </div>
+                                    <div className="flex justify-between mb-2">
+                                        <span className="text-sm text-gray-500">Reference:</span>
+                                        <span className="text-sm font-medium">{payment.paymentReference}</span>
+                                    </div>
+                                    <div className="flex justify-between mb-2 pt-2 border-t border-gray-200">
+                                        <span className="text-sm font-bold text-gray-700">Total Amount:</span>
+                                        <span className="text-lg font-bold">₹{payment.amount.toFixed(2)}</span>
+                                    </div>
+                                </div>
                             )}
                         </div>
-                    </div>
-                )}
+                    ))}
+                </div>
+            ) : (
+                <p className="text-gray-500 text-center py-4">No payment history found.</p>
+            )}
+        </div>
+    )}
             </div>
 
-{/* Payment Modal */}
-{paymentModalOpen && selectedBill && (
-    <ResidentPaymentPopup
-        bill={selectedBill}
-        onClose={() => setPaymentModalOpen(false)}
-        onPaymentComplete={(data) => {
-            // Set payment data for success popup
-            setPaymentData({
-                bill: selectedBill,
-                payment: data.payment,
-                amount: selectedBill.totalAmount
-            });
-            setPaymentSuccess(true);
-            fetchUtilityBills(); // Refresh bills list
-            setPaymentModalOpen(false);
-        }}
-    />
-)}
+            {/* Payment Modal */}
+            {paymentModalOpen && selectedBill && (
+                <ResidentPaymentPopup
+                    bill={selectedBill}
+                    onClose={() => setPaymentModalOpen(false)}
+                    onPaymentComplete={(data) => {
+                        // Set payment data for success popup
+                        setPaymentData({
+                            bill: selectedBill,
+                            payment: data.payment,
+                            amount: selectedBill.totalAmount
+                        });
+                        setPaymentSuccess(true);
+                        fetchAllBills(); // Refresh bills list
+                        setPaymentModalOpen(false);
+                    }}
+                />
+            )}
 
-{/* Payment Success Popup */}
-<PaymentSuccessPopup
-    isOpen={paymentSuccess}
-    onClose={() => {
-        setPaymentSuccess(false);
-        setPaymentData(null);
-    }}
-    paymentData={paymentData}
-/>
+            {/* Payment Success Popup */}
+            <PaymentSuccessPopup
+                isOpen={paymentSuccess}
+                onClose={() => {
+                    setPaymentSuccess(false);
+                    setPaymentData(null);
+                }}
+                paymentData={paymentData}
+            />
         </div>
     );
 }

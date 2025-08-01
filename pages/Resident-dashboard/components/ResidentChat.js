@@ -5,7 +5,7 @@ import { Search, ArrowLeft, Users, MessageCircle, Building2, Loader2 } from 'luc
 
 import ResidentList from '../../../components/Community/ResidentList';
 import ChatModal from '../../../components/Community/ChatModal';
-import { setupWebSocket, fetchResidentDetails, fetchResidents, fetchUnreadCounts } from '../../../services/CommunityService';
+import { setupWebSocket, fetchResidentDetails, fetchResidents, fetchUnreadCounts, fetchConversationContacts } from '../../../services/CommunityService';
 
 export default function ResidentChat() {
   const router = useRouter();
@@ -28,6 +28,9 @@ export default function ResidentChat() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [socketError, setSocketError] = useState(false);
   const [socketLoading, setSocketLoading] = useState(true);
+
+  // Tab state
+  const [currentTab, setCurrentTab] = useState('Chats');
 
   useEffect(() => {
     const initializeData = async () => {
@@ -634,6 +637,77 @@ export default function ResidentChat() {
     (resident.flatDetails?.flatNumber && resident.flatDetails.flatNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+// Get residents with existing conversations (for Chats tab)
+const [residentsWithChats, setResidentsWithChats] = useState([]);
+
+useEffect(() => {
+  if (residentDetails && residentDetails._id && residents.length > 0) {
+    const loadResidentsWithChats = async () => {
+      try {
+        console.log('=== DEBUG: Loading residents with chats ===');
+        console.log('Current user ID:', residentDetails._id);
+        console.log('Total residents loaded:', residents.length);
+        console.log('Unread counts:', unreadCounts);
+        
+        // First, try to get conversation contacts from API
+        const contactIds = await fetchConversationContacts(residentDetails._id);
+        console.log('Conversation contact IDs from API:', contactIds);
+        console.log('Type of contactIds:', typeof contactIds, Array.isArray(contactIds));
+        
+        // Filter residents who have conversation history
+        let residentsWithConversations = residents.filter(resident => {
+          const hasConversation = contactIds.includes(resident._id);
+          if (hasConversation) {
+            console.log('Found resident with conversation:', resident.name, resident._id);
+          }
+          return hasConversation;
+        });
+        
+        console.log('Residents with conversations:', residentsWithConversations.length);
+        
+        // Also include residents with unread messages as fallback
+        const residentsWithUnread = residents.filter(resident => {
+          const hasUnread = unreadCounts[resident._id] && unreadCounts[resident._id] > 0;
+          if (hasUnread) {
+            console.log('Found resident with unread messages:', resident.name, resident._id, 'count:', unreadCounts[resident._id]);
+          }
+          return hasUnread;
+        });
+        
+        console.log('Residents with unread messages:', residentsWithUnread.length);
+        
+        // Combine both lists and remove duplicates
+        const combinedResidents = [...residentsWithConversations];
+        residentsWithUnread.forEach(resident => {
+          if (!combinedResidents.find(r => r._id === resident._id)) {
+            combinedResidents.push(resident);
+          }
+        });
+        
+        console.log('Final combined residents for chats:', combinedResidents.length);
+        console.log('Combined residents details:', combinedResidents.map(r => ({ name: r.name, id: r._id })));
+        
+        setResidentsWithChats(combinedResidents);
+      } catch (error) {
+        console.error('Error loading residents with chats:', error);
+        // Fallback to residents with unread messages only
+        const residentsWithUnread = residents.filter(resident => 
+          unreadCounts[resident._id] && unreadCounts[resident._id] > 0
+        );
+        console.log('Fallback: Using only residents with unread messages:', residentsWithUnread.length);
+        setResidentsWithChats(residentsWithUnread);
+      }
+    };
+
+    loadResidentsWithChats();
+  } else {
+    console.log('=== DEBUG: Not loading chats because ===');
+    console.log('residentDetails:', !!residentDetails);
+    console.log('residentDetails._id:', residentDetails?._id);
+    console.log('residents.length:', residents.length);
+  }
+}, [residentDetails, residents, unreadCounts]);
+  
   return (
     <div className="min-h-screen bg-gray-50 relative overflow-hidden">
       {/* Decorative Background Elements */}
@@ -645,8 +719,8 @@ export default function ResidentChat() {
       
       {!showChat ? (
         <>
-          {/* Residents List View */}
-          <div className="max-w-lg mx-auto bg-white min-h-screen pb-8 shadow-md relative z-10">
+          {/* Main Container */}
+          <div className="max-w-lg mx-auto bg-white min-h-screen shadow-md relative z-10">
             {/* App Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-5 shadow-md">
               <div className="flex justify-between items-center">
@@ -670,18 +744,89 @@ export default function ResidentChat() {
               </div>
             </div>
 
-            {/* Residents List */}
-            <div className="h-[calc(100vh-120px)] overflow-y-auto">
-              <ResidentList 
-                residents={filteredResidents}
-                isLoading={isLoading}
-                unreadCounts={unreadCounts}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                onChatSelect={handleChatSelect}
-                onCallStart={startCall}
-                socketConnected={socketConnected}
-              />
+            {/* Tab Navigation */}
+            <div className="flex bg-white border-b border-gray-200">
+              <button
+                onClick={() => setCurrentTab('Chats')}
+                className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+                  currentTab === 'Chats'
+                    ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Chats</span>
+                  {totalUnreadMessages > 0 && (
+                    <span className="bg-red-600 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
+                      {totalUnreadMessages}
+                    </span>
+                  )}
+                </div>
+              </button>
+              <button
+                onClick={() => setCurrentTab('Directory')}
+                className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+                  currentTab === 'Directory'
+                    ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <Users className="h-4 w-4" />
+                  <span>Directory</span>
+                </div>
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="h-[calc(100vh-160px)] overflow-y-auto">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-64 p-6">
+                  <div className="animate-pulse flex flex-col items-center">
+                    <Loader2 className="h-16 w-16 text-indigo-600 animate-spin" />
+                    <div className="mt-4 text-gray-600">Loading residents...</div>
+                  </div>
+                </div>
+              ) : currentTab === 'Chats' ? (
+                residentsWithChats.length > 0 ? (
+                  <ResidentList 
+                    residents={residentsWithChats.filter(resident =>
+                      resident.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      (resident.flatDetails?.flatNumber && resident.flatDetails.flatNumber.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )}
+                    isLoading={false}
+                    unreadCounts={unreadCounts}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    onChatSelect={handleChatSelect}
+                    onCallStart={startCall}
+                    socketConnected={socketConnected}
+                    hideFooter={true}
+                    chatMode={true}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-64 p-6 text-gray-500">
+                    <MessageCircle className="h-16 w-16 text-gray-300 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-800 mb-2">No conversations yet</h3>
+                    <p className="text-sm text-center max-w-xs">
+                      Start a conversation with someone from the Directory tab to see your chats here.
+                    </p>
+                  </div>
+                )
+              ) : (
+                <ResidentList 
+                  residents={filteredResidents}
+                  isLoading={false}
+                  unreadCounts={unreadCounts}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  onChatSelect={handleChatSelect}
+                  onCallStart={startCall}
+                  socketConnected={socketConnected}
+                  hideFooter={true}
+                />
+              )}
             </div>
           </div>
         </>

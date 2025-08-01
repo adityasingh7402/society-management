@@ -1,5 +1,6 @@
 import connectDB from '../../../lib/mongodb';
 import Message from '../../../models/Message';
+import mongoose from 'mongoose';
 
 export default async function handler(req, res) {
   // Only allow GET method
@@ -18,11 +19,14 @@ export default async function handler(req, res) {
     
     console.log(`Getting unread counts for user: ${userId}`);
     
+    // Convert userId to ObjectId for proper matching
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    
     // Aggregate unread message counts by sender
     const unreadCounts = await Message.aggregate([
       {
         $match: {
-          recipientId: userId,
+          recipientId: userObjectId,
           status: { $ne: 'read' }
         }
       },
@@ -34,11 +38,17 @@ export default async function handler(req, res) {
       }
     ]);
     
-    console.log(`Found ${unreadCounts.length} senders with unread messages`);
+    // Convert the sender IDs to strings for consistency
+    const formattedCounts = unreadCounts.map(item => ({
+      _id: item._id.toString(),
+      count: item.count
+    }));
+    
+    console.log(`Found ${formattedCounts.length} senders with unread messages:`, formattedCounts);
     
     return res.status(200).json({
       success: true,
-      unreadCounts
+      unreadCounts: formattedCounts
     });
   } catch (error) {
     console.error('Error getting unread counts:', error);

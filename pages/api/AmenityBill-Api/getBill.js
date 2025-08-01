@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import AmenityBill from '../../../models/AmenityBill';
+import BillHead from '../../../models/BillHead';
 import { verifyToken } from '../../../utils/auth';
 
 export default async function handler(req, res) {

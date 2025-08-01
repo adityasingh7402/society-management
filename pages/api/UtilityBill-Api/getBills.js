@@ -1,5 +1,6 @@
 import connectToDatabase from '../../../lib/mongodb';
 import UtilityBill from '../../../models/UtilityBill';
+import BillHead from '../../../models/BillHead';
 import JournalVoucher from '../../../models/JournalVoucher';
 import { verifyToken } from '../../../utils/auth';
 import mongoose from 'mongoose';
