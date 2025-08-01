@@ -126,7 +126,7 @@ const ResidentPaymentPopup = ({ bill, onClose, onPaymentComplete }) => {
   // Navigate to wallet page to add money
   const handleAddMoney = () => {
     onClose();
-    router.push('/Resident-dashboard?page=WalletDashboard');  // Navigate to wallet dashboard
+    router.push('/Resident-dashboard/components/WalletDashboard');  // Navigate to wallet dashboard
   };
 
   const remainingAmount = billData.totalAmount - (billData.paidAmount || 0);
