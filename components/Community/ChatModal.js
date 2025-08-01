@@ -594,14 +594,9 @@ export default function ChatModal({
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="fixed bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-100"
-        style={{
-          padding: '12px',
-          paddingBottom: isMobile ? 'calc(env(safe-area-inset-bottom, 12px) + 8px)' : '12px'
-        }}
+        className="p-3 bg-white border-t border-gray-100 relative z-10"
       >
-        <div className="flex items-center bg-gray-50 rounded-full overflow-hidden shadow-sm border border-gray-200 transition-all duration-200 focus-within:shadow-md focus-within:border-blue-300 max-w-[720px] mx-auto">
-
+        <div className="flex items-center bg-gray-50 rounded-full overflow-hidden shadow-sm border border-gray-200 transition-all duration-200 focus-within:shadow-md focus-within:border-blue-300">
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
@@ -626,14 +621,10 @@ export default function ChatModal({
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !sending && handleSendClick()}
+            onKeyPress={(e) => e.key === 'Enter' && !sending && handleSendClick()}
             placeholder="Type a message..."
-            className="flex-1 py-3 px-2 bg-transparent focus:outline-none text-gray-700 placeholder-gray-400 text-sm sm:text-base"
+            className="flex-1 py-3 px-2 bg-transparent focus:outline-none text-gray-700 placeholder-gray-400"
             disabled={sending}
-            style={{
-              fontSize: isMobile ? '16px' : '14px',
-              minHeight: '20px'
-            }}
           />
 
           <motion.button
@@ -652,10 +643,8 @@ export default function ChatModal({
               <Send size={20} />
             )}
           </motion.button>
-
         </div>
       </motion.div>
-
 
       {/* Image Viewer */}
       <AnimatePresence>
