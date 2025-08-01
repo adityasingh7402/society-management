@@ -2,58 +2,111 @@ import React, { useState, useEffect } from 'react';
 import { FaTools, FaArrowLeft, FaHistory, FaCreditCard, FaFileInvoiceDollar, FaCheckCircle, FaBuilding, FaHammer, FaLeaf, FaBroom } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 
+// Import ResidentPaymentPopup for wallet-only payments
+import ResidentPaymentPopup from '../../../components/Resident/widgets/ResidentPaymentPopup';
+import PaymentSuccessPopup from '../../../components/Resident/widgets/PaymentSuccessPopup';
+
 export default function Bills() {
     const router = useRouter();
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedBill, setSelectedBill] = useState(null);
     const [showHistory, setShowHistory] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
+    const [paymentData, setPaymentData] = useState(null);
     const [utilityBills, setUtilityBills] = useState([]);
     const [paymentHistory, setPaymentHistory] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [walletBalance, setWalletBalance] = useState(0);
+    const [walletLoading, setWalletLoading] = useState(false);
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+    const [upiId, setUpiId] = useState('');
+    const [upiVerified, setUpiVerified] = useState(false);
+    const [upiVerifying, setUpiVerifying] = useState(false);
+    const [paymentProcessing, setPaymentProcessing] = useState(false);
+
+    // Fetch utility bills for resident
+    const fetchUtilityBills = async () => {
+        try {
+            const token = localStorage.getItem("Resident");
+            if (!token) {
+                router.push("/login");
+                return;
+            }
+
+            // Fetch resident details
+            const residentResponse = await fetch("/api/Resident-Api/get-resident-details", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!residentResponse.ok) {
+                throw new Error("Failed to fetch resident details");
+            }
+
+            const residentData = await residentResponse.json();
+            const residentId = residentData._id; // Assuming the resident ID is available in the response
+
+            // Fetch utility bills for the resident
+            const billsResponse = await fetch(`/api/UtilityBill-Api/getBill-Resident?residentId=${residentId}`);
+            if (!billsResponse.ok) {
+                throw new Error("Failed to fetch utility bills");
+            }
+
+            const billsData = await billsResponse.json();
+            setUtilityBills(billsData.bills); // Set the utility bills for the resident
+                
+                // Extract payment history from bills that have been paid
+                const payments = [];
+                billsData.bills?.forEach(bill => {
+                        if (bill.paymentHistory && bill.paymentHistory.length > 0) {
+                            bill.paymentHistory.forEach(payment => {
+                                payments.push({
+                                    _id: payment._id || payment.transactionId,
+                                    type: 'Utility Bill',
+                                    billNumber: bill.billNumber,
+                                    amount: payment.amount || bill.totalAmount,
+                                    baseAmount: bill.baseAmount,
+                                    gstAmount: bill.gstDetails?.isGSTApplicable ? (
+                                        (bill.gstDetails.cgstAmount || 0) +
+                                        (bill.gstDetails.sgstAmount || 0) +
+                                        (bill.gstDetails.igstAmount || 0)
+                                    ) : 0,
+                                    lateFeeAmount: bill.latePaymentDetails?.lateFeeAmount || 0,
+                                    additionalChargesAmount: bill.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0,
+                                    paidOn: payment.paymentDate || payment.createdAt || bill.updatedAt,
+                                    paymentMethod: payment.paymentMethod || 'N/A',
+                                    paymentReference: payment.paymentReference || payment.transactionReference || 'N/A',
+                                    status: payment.status || 'Success'
+                                });
+                            });
+                        }
+                });
+                
+                setPaymentHistory(payments);
+        } catch (error) {
+            console.error("Error fetching data:", error);
+            router.push("/login");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Add notification utility function
+    const setNotificationWithTimeout = (message, type) => {
+        // For now, use alert - you can implement a proper notification system later
+        if (type === 'success') {
+            alert(`Success: ${message}`);
+        } else if (type === 'error') {
+            alert(`Error: ${message}`);
+        } else {
+            alert(message);
+        }
+    };
 
     // Fetch resident details and utility bills
     useEffect(() => {
-        const fetchResidentDetailsAndBills = async () => {
-            try {
-                const token = localStorage.getItem("Resident");
-                if (!token) {
-                    router.push("/login");
-                    return;
-                }
-
-                // Fetch resident details
-                const residentResponse = await fetch("/api/Resident-Api/get-resident-details", {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (!residentResponse.ok) {
-                    throw new Error("Failed to fetch resident details");
-                }
-
-                const residentData = await residentResponse.json();
-                const residentId = residentData._id; // Assuming the resident ID is available in the response
-
-                // Fetch utility bills for the resident
-                const billsResponse = await fetch(`/api/UtilityBill-Api/getBill-Resident?residentId=${residentId}`);
-                if (!billsResponse.ok) {
-                    throw new Error("Failed to fetch utility bills");
-                }
-
-                const billsData = await billsResponse.json();
-                setUtilityBills(billsData.bills); // Set the utility bills for the resident
-                setPaymentHistory(billsData.bills || []); // Set payment history if available
-            } catch (error) {
-                console.error("Error fetching data:", error);
-                router.push("/login");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchResidentDetailsAndBills();
+        fetchUtilityBills();
     }, [router]);
 
     // Calculate utility bill stats
@@ -80,10 +133,60 @@ export default function Bills() {
             sum + (bill.additionalCharges?.reduce((chargeSum, charge) => chargeSum + charge.amount, 0) || 0), 0)
     };
 
-    // Handler for opening payment modal
-    const handlePayNow = (bill) => {
-        setSelectedBill(bill);
-        setPaymentModalOpen(true);
+    // Fetch wallet balance
+    const fetchWalletBalance = async () => {
+        try {
+            setWalletLoading(true);
+            const token = localStorage.getItem("Resident");
+            if (!token) return;
+
+            const response = await fetch('/api/wallet/balance', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setWalletBalance(data.data.currentBalance || 0);
+            }
+        } catch (error) {
+            console.error('Error fetching wallet balance:', error);
+        } finally {
+            setWalletLoading(false);
+        }
+    };
+
+// Handler for opening payment modal
+const handlePayNow = (bill) => {
+    setSelectedBill(bill);
+    setPaymentModalOpen(true);
+    fetchWalletBalance(); // Fetch wallet balance when opening payment modal
+};
+
+    // UPI Verification Handler
+    const handleUpiVerification = async () => {
+        if (!upiId) {
+            alert('Please enter UPI ID');
+            return;
+        }
+
+        setUpiVerifying(true);
+        try {
+            // Simulate UPI verification - replace with actual API call
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Simple UPI ID validation (you can enhance this)
+            const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+            if (upiRegex.test(upiId)) {
+                setUpiVerified(true);
+            } else {
+                alert('Invalid UPI ID format');
+            }
+        } catch (error) {
+            console.error('UPI verification error:', error);
+            alert('UPI verification failed. Please try again.');
+        } finally {
+            setUpiVerifying(false);
+        }
     };
 
     // Handler for processing payment
@@ -97,11 +200,29 @@ export default function Bills() {
                 return;
             }
 
+            // Get payment method from state or form and map to model enum
+            const rawPaymentMethod = selectedPaymentMethod || e.target.paymentMethod?.value;
+            
+            // Map frontend payment methods to UtilityBill model enum values
+            const paymentMethodMapping = {
+                'Credit Card': 'Other',
+                'Debit Card': 'Other', 
+                'UPI Payment': 'UPI',
+                'Net Banking': 'Bank Transfer',
+                'Wallet': 'Other'
+            };
+            
+            const paymentMethod = paymentMethodMapping[rawPaymentMethod] || 'Other';
+            
+            // Generate payment reference with safe fallback
+            const billType = 'UTILITY';
+            const paymentReference = `${billType.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10000000000)}`;
+
             // Create payment details object
             const paymentDetails = {
                 billId: selectedBill._id,
-                paymentMethod: e.target.paymentMethod.value,
-                paymentReference: `${selectedBill.utilityType.substring(0, 2).toUpperCase()}${Math.floor(Math.random() * 10000000000)}`,
+                paymentMethod: paymentMethod,
+                paymentReference: paymentReference,
                 paymentDate: new Date().toISOString(),
                 amount: selectedBill.totalAmount,
                 gstDetails: selectedBill.gstDetails,
@@ -121,11 +242,32 @@ export default function Bills() {
             };
 
             // Add card details if paying by card
-            if (e.target.paymentMethod.value === "Credit Card" || e.target.paymentMethod.value === "Debit Card") {
-                paymentDetails.cardDetails = {
-                    lastFourDigits: e.target.cardNumber.value.slice(-4),
-                    cardType: e.target.cardType.value
+            if (paymentMethod === "Credit Card" || paymentMethod === "Debit Card") {
+                const cardNumber = e.target.cardNumber?.value;
+                if (cardNumber) {
+                    paymentDetails.cardDetails = {
+                        lastFourDigits: cardNumber.slice(-4),
+                        cardType: paymentMethod
+                    };
+                }
+            }
+
+            // Add UPI details if paying by UPI
+            if (paymentMethod === "UPI Payment") {
+                paymentDetails.upiDetails = {
+                    upiId: upiId,
+                    verified: upiVerified
                 };
+            }
+
+            // Add bank details if paying by Net Banking
+            if (paymentMethod === "Net Banking") {
+                const bankName = e.target.bankName?.value;
+                if (bankName) {
+                    paymentDetails.bankDetails = {
+                        bankName: bankName
+                    };
+                }
             }
 
             // Send payment data to the backend
@@ -164,7 +306,7 @@ export default function Bills() {
             // Add to payment history
             const newPaymentRecord = {
                 _id: paymentResult.paymentId,
-                type: selectedBill.utilityType,
+                type: 'Utility Bill',
                 billNumber: selectedBill.billNumber,
                 amount: selectedBill.totalAmount,
                 baseAmount: selectedBill.baseAmount,
@@ -296,8 +438,10 @@ export default function Bills() {
                                                         <FaBuilding className="text-blue-600" />
                                                     </div>
                                                     <div>
-                                                        <h3 className="font-medium text-gray-900">{bill.utilityType}</h3>
-                                                        <p className="text-sm text-gray-500">{bill.description}</p>
+                                                        <h3 className="font-medium text-gray-900">Utility Bill</h3>
+                                                        <p className="text-sm text-gray-500">Bill #{bill.billNumber}</p>
+                                                        <p className="text-xs text-gray-400">{bill.flatNumber} - {bill.blockName}</p>
+                                                        <p className="text-xs text-gray-400">Floor {bill.floorNumber}</p>
                                                     </div>
                                                 </div>
                                                 <span className={`text-sm px-2 py-1 rounded-full ${bill.status === 'Paid'
@@ -315,13 +459,13 @@ export default function Bills() {
                                                     <div className="flex justify-between mb-2">
                                                         <span className="text-sm text-gray-500">Usage:</span>
                                                         <span className="text-sm font-medium">
-                                                            {bill.unitUsage} {getUnitLabel(bill.utilityType)}
+                                                            {bill.unitUsage || 'N/A'} Units
                                                         </span>
                                                     </div>
                                                     <div className="flex justify-between">
-                                                        <span className="text-sm text-gray-500">Rate:</span>
+                                                        <span className="text-sm text-gray-500">Period:</span>
                                                         <span className="text-sm font-medium">
-                                                            ₹{bill.perUnitRate}/{getUnitLabel(bill.utilityType)}
+                                                            {bill.periodType}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -348,19 +492,19 @@ export default function Bills() {
                                                         <div className="ml-4 mt-1">
                                                             {bill.gstDetails.cgstAmount > 0 && (
                                                                 <div className="flex justify-between text-sm">
-                                                                    <span>CGST ({bill.gstDetails.cgstRate}%):</span>
+                                                                    <span>CGST ({bill.gstDetails.cgstPercentage}%):</span>
                                                                     <span>₹{bill.gstDetails.cgstAmount.toFixed(2)}</span>
                                                                 </div>
                                                             )}
                                                             {bill.gstDetails.sgstAmount > 0 && (
                                                                 <div className="flex justify-between text-sm">
-                                                                    <span>SGST ({bill.gstDetails.sgstRate}%):</span>
+                                                                    <span>SGST ({bill.gstDetails.sgstPercentage}%):</span>
                                                                     <span>₹{bill.gstDetails.sgstAmount.toFixed(2)}</span>
                                                                 </div>
                                                             )}
                                                             {bill.gstDetails.igstAmount > 0 && (
                                                                 <div className="flex justify-between text-sm">
-                                                                    <span>IGST ({bill.gstDetails.igstRate}%):</span>
+                                                                    <span>IGST ({bill.gstDetails.igstPercentage}%):</span>
                                                                     <span>₹{bill.gstDetails.igstAmount.toFixed(2)}</span>
                                                                 </div>
                                                             )}
@@ -383,7 +527,7 @@ export default function Bills() {
                                                         <div className="ml-4 mt-1">
                                                             {bill.additionalCharges.map((charge, index) => (
                                                                 <div key={index} className="flex justify-between text-sm">
-                                                                    <span>{charge.description}:</span>
+                                                                    <span>{charge.chargeType}:</span>
                                                                     <span>₹{charge.amount.toFixed(2)}</span>
                                                                 </div>
                                                             ))}
@@ -392,15 +536,19 @@ export default function Bills() {
                                                 )}
 
                                                 {/* Late Payment Details */}
-                                                {bill.latePaymentDetails && (
+                                                {bill.latePaymentDetails && bill.latePaymentDetails.isLatePaymentChargeApplicable && (
                                                     <div className="mb-2">
                                                         <div className="flex justify-between text-sm">
-                                                            <span className="text-sm text-gray-500">Late Fee Rate:</span>
-                                                            <span className="text-sm font-medium">{bill.latePaymentDetails.lateFeeRate}% per day</span>
+                                                            <span className="text-sm text-gray-500">Late Fee Type:</span>
+                                                            <span className="text-sm font-medium">{bill.latePaymentDetails.chargeType || 'N/A'}</span>
                                                         </div>
                                                         <div className="flex justify-between text-sm">
-                                                            <span className="text-sm text-gray-500">Days Late:</span>
-                                                            <span className="text-sm font-medium">{bill.latePaymentDetails.daysLate || 0} days</span>
+                                                            <span className="text-sm text-gray-500">Grace Period:</span>
+                                                            <span className="text-sm font-medium">{bill.latePaymentDetails.gracePeriodDays} days</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-sm">
+                                                            <span className="text-sm text-gray-500">Charge Value:</span>
+                                                            <span className="text-sm font-medium">₹{bill.latePaymentDetails.chargeValue}</span>
                                                         </div>
                                                         <div className="flex justify-between text-sm">
                                                             <span className="text-sm text-gray-500">Late Fee Amount:</span>
@@ -420,7 +568,7 @@ export default function Bills() {
                                                 {bill.status === 'Paid' ? (
                                                     <div className="text-center text-green-600 text-sm font-medium">
                                                         <FaCheckCircle className="inline mr-1" />
-                                                        Paid on {new Date(bill.updatedAt).toLocaleDateString()}
+                                                        Paid on {bill.paymentDate ? new Date(bill.paymentDate).toLocaleDateString() : new Date(bill.updatedAt).toLocaleDateString()}
                                                     </div>
                                                 ) : (
                                                     <button
@@ -428,7 +576,7 @@ export default function Bills() {
                                                         className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                                     >
                                                         <FaCreditCard className="mr-2" />
-                                                        Pay Now
+                                                        Pay Now - ₹{bill.remainingAmount ? bill.remainingAmount.toFixed(2) : bill.totalAmount.toFixed(2)}
                                                     </button>
                                                 )}
                                             </div>
@@ -499,7 +647,7 @@ export default function Bills() {
                                                         {payment.additionalChargesAmount > 0 ? `₹${payment.additionalChargesAmount.toFixed(2)}` : 'N/A'}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                        ₹{payment.amount.toFixed(2)}
+                                                        ₹{(payment.amount || 0).toFixed(2)}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                         {new Date(payment.paidOn).toLocaleDateString()}
@@ -523,139 +671,34 @@ export default function Bills() {
                 )}
             </div>
 
-            {/* Payment Modal */}
-            {paymentModalOpen && selectedBill && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                        {paymentSuccess ? (
-                            <div className="text-center py-6">
-                                <FaCheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
-                                <h2 className="text-2xl font-semibold text-gray-900 mb-2">Payment Successful!</h2>
-                                <p className="text-gray-600">Your payment has been processed successfully.</p>
-                            </div>
-                        ) : (
-                            <>
-                                <h2 className="text-xl font-semibold text-gray-900 mb-4">Pay {selectedBill.utilityType} Bill</h2>
-                                <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                                    <div className="flex justify-between mb-2">
-                                        <span className="text-sm text-gray-600">Usage:</span>
-                                        <span className="text-sm font-medium">
-                                            {selectedBill.unitUsage} {getUnitLabel(selectedBill.utilityType)}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between mb-2">
-                                        <span className="text-sm text-gray-600">Base Amount:</span>
-                                        <span className="text-sm font-medium">₹{selectedBill.baseAmount.toFixed(2)}</span>
-                                    </div>
-                                    {selectedBill.additionalCharges && selectedBill.additionalCharges.length > 0 && (
-                                        <div className="mb-2">
-                                            <span className="text-sm text-gray-600">Additional Charges:</span>
-                                            <div className="ml-4 mt-1">
-                                                {selectedBill.additionalCharges.map((charge, index) => (
-                                                    <div key={index} className="flex justify-between text-sm">
-                                                        <span>{charge.description}:</span>
-                                                        <span>₹{charge.amount.toFixed(2)}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {selectedBill.penaltyAmount > 0 && (
-                                        <div className="flex justify-between mb-2">
-                                            <span className="text-sm text-red-500">Penalty Amount:</span>
-                                            <span className="text-sm font-medium text-red-500">₹{selectedBill.penaltyAmount.toFixed(2)}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between pt-2 border-t border-gray-200 mt-2">
-                                        <span className="text-sm font-semibold text-gray-700">Total Amount:</span>
-                                        <span className="text-lg font-bold">
-                                            ₹{(
-                                                selectedBill.baseAmount +
-                                                (selectedBill.additionalCharges ? selectedBill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0) : 0) +
-                                                (selectedBill.penaltyAmount || 0)
-                                            ).toFixed(2)}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between mb-2">
-                                        <span className="text-sm text-gray-600">Due Date:</span>
-                                        <span className="text-sm font-medium">{new Date(selectedBill.dueDate).toLocaleDateString()}</span>
-                                    </div>
-                                </div>
+{/* Payment Modal */}
+{paymentModalOpen && selectedBill && (
+    <ResidentPaymentPopup
+        bill={selectedBill}
+        onClose={() => setPaymentModalOpen(false)}
+        onPaymentComplete={(data) => {
+            // Set payment data for success popup
+            setPaymentData({
+                bill: selectedBill,
+                payment: data.payment,
+                amount: selectedBill.totalAmount
+            });
+            setPaymentSuccess(true);
+            fetchUtilityBills(); // Refresh bills list
+            setPaymentModalOpen(false);
+        }}
+    />
+)}
 
-                                {/* Rest of the payment form */}
-                                <form onSubmit={handlePayment}>
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-                                        <select
-                                            name="paymentMethod"
-                                            required
-                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        >
-                                            <option value="">Select payment method</option>
-                                            <option value="Credit Card">Credit Card</option>
-                                            <option value="Debit Card">Debit Card</option>
-                                            <option value="UPI Payment">UPI Payment</option>
-                                            <option value="Net Banking">Net Banking</option>
-                                        </select>
-                                    </div>
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
-                                        <div className="mt-1 relative rounded-md shadow-sm">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <FaCreditCard className="text-gray-400" />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                name="cardNumber"
-                                                placeholder="XXXX XXXX XXXX XXXX"
-                                                className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md"
-                                                maxLength="19"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4 mb-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
-                                            <input
-                                                type="text"
-                                                name="expiryDate"
-                                                placeholder="MM/YY"
-                                                className="focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                                                maxLength="5"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
-                                            <input
-                                                type="text"
-                                                name="cvv"
-                                                placeholder="XXX"
-                                                className="focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                                                maxLength="3"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-end space-x-3 mt-6">
-                                        <button
-                                            type="button"
-                                            onClick={() => setPaymentModalOpen(false)}
-                                            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                        >
-                                            Pay ₹{(selectedBill.baseAmount + selectedBill.additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)).toFixed(2)}
-                                        </button>
-                                    </div>
-                                </form>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
+{/* Payment Success Popup */}
+<PaymentSuccessPopup
+    isOpen={paymentSuccess}
+    onClose={() => {
+        setPaymentSuccess(false);
+        setPaymentData(null);
+    }}
+    paymentData={paymentData}
+/>
         </div>
     );
 }

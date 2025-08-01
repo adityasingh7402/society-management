@@ -32,9 +32,9 @@ const PaymentEntrySchema = new mongoose.Schema({
     required: true,
     default: Date.now
   },
-  paymentMode: {
+paymentMode: {
     type: String,
-    enum: ['Cash', 'Cheque', 'Bank Transfer', 'UPI', 'NEFT', 'RTGS', 'Card', 'Other'],
+    enum: ['Cash', 'Cheque', 'Bank Transfer', 'UPI', 'NEFT', 'RTGS', 'Card', 'Wallet', 'Other'],
     required: true
   },
   transactionId: String,

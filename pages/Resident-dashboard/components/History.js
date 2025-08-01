@@ -385,10 +385,15 @@ export default function History() {
                                         onChange={(e) => setPaymentType(e.target.value)}
                                     >
                                         <option value="all">All Payment Methods</option>
-                                        <option value="Credit Card">Credit Card</option>
-                                        <option value="Debit Card">Debit Card</option>
+                                        <option value="Cash">Cash</option>
+                                        <option value="Cheque">Cheque</option>
+                                        <option value="Bank Transfer">Bank Transfer</option>
                                         <option value="UPI">UPI Payment</option>
-                                        <option value="Net Banking">Net Banking</option>
+                                        <option value="NEFT">NEFT</option>
+                                        <option value="RTGS">RTGS</option>
+                                        <option value="Card">Card Payment</option>
+                                        <option value="Wallet">Wallet Payment</option>
+                                        <option value="Other">Other</option>
                                     </select>
                                 </div>
 

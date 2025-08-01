@@ -55,6 +55,12 @@ const residentSchema = new mongoose.Schema({
     adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'Society' },
     adminName: { type: String },
     approvedAt: { type: Date }
+  },
+  
+  // Wallet Reference
+  walletId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Wallet'
   }
 });
 

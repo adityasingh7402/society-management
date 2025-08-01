@@ -211,6 +211,7 @@ export default async function handler(req, res) {
         amount,
         balanceBefore: balanceBefore,
         balanceAfter: wallet.currentBalance,
+        status: 'SUCCESS', // Set status to SUCCESS for completed payment
         type: billType === 'MaintenanceBill' ? 'MAINTENANCE_PAYMENT' : 
               billType === 'AmenityBill' ? 'AMENITY_PAYMENT' : 'UTILITY_PAYMENT',
         description: `${billType} payment for bill ${bill.billNumber}`,
@@ -220,6 +221,7 @@ export default async function handler(req, res) {
           billNumber: bill.billNumber,
           dueDate: bill.dueDate
         },
+        completedAt: new Date(), // Set completion timestamp
         createdBy: decoded.id
       });
 

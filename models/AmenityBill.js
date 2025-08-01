@@ -111,7 +111,7 @@ const AmenityBillSchema = new mongoose.Schema({
     paymentDate: Date,
     paymentMethod: {
       type: String,
-      enum: ['Cash', 'Cheque', 'Bank Transfer', 'UPI', 'Other']
+      enum: ['Cash', 'Cheque', 'Bank Transfer', 'UPI', 'Wallet', 'Other']
     },
     transactionId: String,
     receiptNumber: String,

@@ -112,7 +112,7 @@ const MaintenanceBillSchema = new mongoose.Schema({
     paymentDate: Date,
     paymentMethod: {
       type: String,
-      enum: ['Cash', 'Cheque', 'Bank Transfer', 'UPI', 'NEFT', 'RTGS', 'Card', 'Other']
+      enum: ['Cash', 'Cheque', 'Bank Transfer', 'UPI', 'NEFT', 'RTGS', 'Card', 'Wallet', 'Other']
     },
     transactionId: String,
     receiptNumber: String,
