@@ -45,6 +45,7 @@ export default async function handler(req, res) {
     }
 
     // Find bill and populate bill head
+    console.log('Looking for bill with ID:', billId);
     const bill = await UtilityBill.findById(billId)
       .populate({
         path: 'billHeadId',
@@ -55,7 +56,21 @@ export default async function handler(req, res) {
       });
 
     if (!bill) {
+      console.log('Bill not found with ID:', billId);
       return res.status(404).json({ message: 'Bill not found' });
+    }
+    
+    console.log('Bill found successfully:', { id: bill._id, billNumber: bill.billNumber, billHeadId: bill.billHeadId });
+    
+    // Check if billHeadId is populated properly
+    if (!bill.billHeadId) {
+      console.error('Bill found but billHeadId is missing');
+      return res.status(400).json({ message: 'Bill configuration is incomplete - missing bill head' });
+    }
+    
+    if (!bill.billHeadId.accountingConfig) {
+      console.error('Bill head found but accounting config is missing');
+      return res.status(400).json({ message: 'Bill configuration is incomplete - missing accounting config' });
     }
 
     if (bill.status === 'Paid') {
@@ -264,6 +279,7 @@ async function generateReceiptNumber(societyId) {
 
 // Helper function to get ledger id based on payment method
 async function getLedgerIdForPaymentMethod(societyId, paymentMethod) {
+  console.log('Looking for ledger with societyId:', societyId, 'paymentMethod:', paymentMethod);
   const Ledger = mongoose.model('Ledger');
   let query = {
     societyId,
@@ -286,7 +302,10 @@ async function getLedgerIdForPaymentMethod(societyId, paymentMethod) {
       query.category = 'Bank';
   }
   
+  console.log('Ledger query:', JSON.stringify(query, null, 2));
   const ledger = await Ledger.findOne(query);
+  console.log('Ledger found:', ledger ? { id: ledger._id, name: ledger.name } : 'null');
+  
   if (!ledger) {
     throw new Error(`Ledger not found for payment method: ${paymentMethod}`);
   }
