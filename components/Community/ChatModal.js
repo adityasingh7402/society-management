@@ -22,12 +22,12 @@ export default function ChatModal({
   const inputRef = useRef(null);
   const [sending, setSending] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
-  
+
   // Enhanced mobile keyboard handling
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [initialViewportHeight, setInitialViewportHeight] = useState(window.innerHeight);
-  
+
   // Image viewer states
   const [viewerOpen, setViewerOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState(null);
@@ -38,7 +38,7 @@ export default function ChatModal({
   const imageRef = useRef(null);
 
   const [isMobile, setIsMobile] = useState(false);
-  
+
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
@@ -48,11 +48,11 @@ export default function ChatModal({
         setIsKeyboardOpen(false);
       }
     };
-    
+
     checkMobile();
     setInitialViewportHeight(window.innerHeight);
     window.addEventListener('resize', checkMobile);
-    
+
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
@@ -63,7 +63,7 @@ export default function ChatModal({
     const handleVisibilityChange = () => {
       const currentHeight = window.visualViewport?.height || window.innerHeight;
       const heightDiff = initialViewportHeight - currentHeight;
-      
+
       if (heightDiff > 150) {
         setIsKeyboardOpen(true);
         setKeyboardHeight(heightDiff);
@@ -102,17 +102,17 @@ export default function ChatModal({
   useEffect(() => {
     if (messagesEndRef.current) {
       const shouldSmoothScroll = !isFirstLoad;
-      
+
       // Add delay for mobile keyboard
       const scrollDelay = isMobile && isKeyboardOpen ? 200 : 0;
-      
+
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ 
+        messagesEndRef.current?.scrollIntoView({
           behavior: shouldSmoothScroll ? 'smooth' : 'auto',
           block: 'end'
         });
       }, scrollDelay);
-      
+
       if (isFirstLoad && chatMessages.length > 0) {
         setIsFirstLoad(false);
       }
@@ -141,7 +141,7 @@ export default function ChatModal({
 
   const groupMessagesByDay = () => {
     const grouped = {};
-    
+
     chatMessages.forEach(message => {
       const day = getMessageDay(message.timestamp);
       if (!grouped[day]) {
@@ -149,7 +149,7 @@ export default function ChatModal({
       }
       grouped[day].push(message);
     });
-    
+
     return grouped;
   };
 
@@ -199,11 +199,11 @@ export default function ChatModal({
     const files = Array.from(e.target.files);
     const maxSize = 5 * 1024 * 1024;
     const validFiles = files.filter(file => file.size <= maxSize);
-    
+
     if (validFiles.length !== files.length) {
       toast.error(`File(s) too large. Maximum size is 5MB per file.`);
     }
-    
+
     if (validFiles.length > 0) {
       setSelectedFiles(prev => [...prev, ...validFiles]);
     }
@@ -215,11 +215,11 @@ export default function ChatModal({
 
   const handleSendClick = async () => {
     if (sending) return;
-    
+
     if (!newMessage.trim() && selectedFiles.length === 0) {
       return;
     }
-    
+
     setSending(true);
     try {
       await onSend();
@@ -234,36 +234,36 @@ export default function ChatModal({
   const shouldShowAvatar = (message, index) => {
     if (index === 0) return true;
     if (!message.isIncoming) return false;
-    
+
     const prevMessage = chatMessages[index - 1];
-    return prevMessage.isIncoming !== message.isIncoming || 
+    return prevMessage.isIncoming !== message.isIncoming ||
       new Date(message.timestamp) - new Date(prevMessage.timestamp) > 300000;
   };
 
   // Dynamic container height calculation
   const getContainerHeight = () => {
     if (!isMobile) return '100vh';
-    
+
     if (isKeyboardOpen) {
       return `${initialViewportHeight - keyboardHeight}px`;
     }
-    
+
     return `${initialViewportHeight}px`;
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="flex flex-col bg-gray-50 relative overflow-hidden"
-      style={{ 
+      style={{
         height: getContainerHeight(),
         maxHeight: getContainerHeight()
       }}
     >
       {/* Chat Header */}
-      <motion.div 
+      <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.3 }}
@@ -271,7 +271,7 @@ export default function ChatModal({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <motion.button 
+            <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={onClose}
@@ -280,21 +280,21 @@ export default function ChatModal({
             >
               <ArrowLeft className="h-5 w-5 text-gray-700" />
             </motion.button>
-            
-            <motion.div 
+
+            <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.3 }}
               className="relative"
             >
-              <motion.div 
+              <motion.div
                 whileHover={{ scale: 1.05 }}
                 className="h-11 w-11 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center relative border-2 border-white shadow-lg"
               >
                 {selectedResident.userImage ? (
-                  <img 
-                    src={selectedResident.userImage} 
-                    alt={selectedResident.name} 
+                  <img
+                    src={selectedResident.userImage}
+                    alt={selectedResident.name}
                     className="h-11 w-11 rounded-full object-cover"
                     onError={(e) => {
                       e.target.style.display = 'none';
@@ -303,14 +303,14 @@ export default function ChatModal({
                 ) : (
                   <User className="text-white h-5 w-5" />
                 )}
-                <motion.div 
+                <motion.div
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ duration: 2, repeat: Infinity }}
                   className="absolute bottom-0 right-0 h-3 w-3 bg-green-400 rounded-full border-2 border-white"
                 />
               </motion.div>
             </motion.div>
-            
+
             <motion.div
               initial={{ x: -10, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
@@ -320,15 +320,15 @@ export default function ChatModal({
                 {selectedResident.name}
               </h2>
               <p className="text-xs text-gray-500 truncate max-w-[140px] sm:max-w-xs">
-                {selectedResident.flatDetails?.flatNumber ? 
-                  `Flat: ${selectedResident.flatDetails?.flatNumber}` : 
+                {selectedResident.flatDetails?.flatNumber ?
+                  `Flat: ${selectedResident.flatDetails?.flatNumber}` :
                   'Online'}
               </p>
             </motion.div>
           </div>
         </div>
       </motion.div>
-      
+
       {/* Product/Property Reference Banner */}
       <AnimatePresence>
         {(productRef?.id || propertyRef?.id) && (
@@ -338,14 +338,14 @@ export default function ChatModal({
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <Link 
-              href={productRef?.id ? 
+            <Link
+              href={productRef?.id ?
                 `/Resident-dashboard/components/ProductDetail?id=${productRef.id}` :
                 `/Resident-dashboard/components/PropertyDetail?id=${propertyRef.id}`
               }
               className="bg-blue-50 border-b border-blue-100 p-3 flex items-center hover:bg-blue-100 transition-colors"
             >
-              <motion.div 
+              <motion.div
                 whileHover={{ rotate: 5 }}
                 className="mr-3 bg-blue-100 rounded-full p-2"
               >
@@ -359,7 +359,7 @@ export default function ChatModal({
                   {productRef?.title || propertyRef?.title}
                 </p>
               </div>
-              <motion.div 
+              <motion.div
                 whileHover={{ x: 5 }}
                 className="ml-2 text-xs text-blue-600 font-semibold"
               >
@@ -369,12 +369,12 @@ export default function ChatModal({
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       {/* Chat Messages */}
-      <div 
-        ref={chatContainerRef} 
+      <div
+        ref={chatContainerRef}
         className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-white"
-        style={{ 
+        style={{
           minHeight: 0,
           scrollBehavior: 'smooth',
           paddingBottom: isMobile && isKeyboardOpen ? '20px' : '16px'
@@ -393,17 +393,17 @@ export default function ChatModal({
               <p className="mt-2 text-gray-600 text-sm">Start the conversation by introducing yourself.</p>
             </motion.div>
           ) : chatMessages.length === 0 ? (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
               className="h-full flex flex-col items-center justify-center text-center"
             >
-              <motion.div 
-                animate={{ 
+              <motion.div
+                animate={{
                   y: [0, -10, 0],
                 }}
-                transition={{ 
+                transition={{
                   duration: 2,
                   repeat: Infinity,
                   ease: "easeInOut"
@@ -417,15 +417,15 @@ export default function ChatModal({
             </motion.div>
           ) : (
             Object.entries(groupMessagesByDay()).map(([day, dayMessages]) => (
-              <motion.div 
-                key={day} 
+              <motion.div
+                key={day}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
                 className="space-y-3"
               >
                 <div className="flex justify-center">
-                  <motion.div 
+                  <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     className="bg-gray-100 text-gray-600 text-xs px-3 py-1.5 rounded-full font-medium shadow-sm"
@@ -433,38 +433,38 @@ export default function ChatModal({
                     {day}
                   </motion.div>
                 </div>
-                
+
                 <AnimatePresence>
                   {dayMessages.map((message, index) => (
                     <motion.div
                       key={message.id || index}
-                      initial={{ 
-                        opacity: 0, 
+                      initial={{
+                        opacity: 0,
                         x: message.isIncoming ? -20 : 20,
                         scale: 0.95
                       }}
-                      animate={{ 
-                        opacity: 1, 
+                      animate={{
+                        opacity: 1,
                         x: 0,
                         scale: 1
                       }}
-                      transition={{ 
+                      transition={{
                         duration: 0.3,
                         delay: index * 0.05
                       }}
                       className={`flex ${message.isIncoming ? 'justify-start' : 'justify-end'} items-end space-x-2`}
                     >
                       {message.isIncoming && shouldShowAvatar(message, index) && (
-                        <motion.div 
+                        <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           transition={{ delay: index * 0.05 + 0.1 }}
                           className="h-7 w-7 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center shadow-sm"
                         >
                           {selectedResident.userImage ? (
-                            <img 
-                              src={selectedResident.userImage} 
-                              alt={selectedResident.name} 
+                            <img
+                              src={selectedResident.userImage}
+                              alt={selectedResident.name}
                               className="h-7 w-7 rounded-full object-cover"
                             />
                           ) : (
@@ -472,30 +472,29 @@ export default function ChatModal({
                           )}
                         </motion.div>
                       )}
-                      
+
                       {message.isIncoming && !shouldShowAvatar(message, index) && (
                         <div className="w-7"></div>
                       )}
-                      
+
                       <div className="max-w-[280px] sm:max-w-[320px] space-y-1">
                         <motion.div
                           whileHover={{ scale: 1.02 }}
-                          className={`px-4 py-2.5 rounded-[18px] shadow-sm transition-all duration-200 ${
-                            message.isIncoming
+                          className={`px-4 py-2.5 rounded-[18px] shadow-sm transition-all duration-200 ${message.isIncoming
                               ? 'bg-gray-100 text-gray-800'
                               : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                          }`}
+                            }`}
                         >
                           {message.media && (
                             <div className="mb-2">
                               {message.media.type?.startsWith('image/') ? (
-                                <motion.div 
+                                <motion.div
                                   whileHover={{ scale: 1.05 }}
                                   className="rounded-xl overflow-hidden"
                                 >
-                                  <img 
-                                    src={message.media.url} 
-                                    alt="Shared image" 
+                                  <img
+                                    src={message.media.url}
+                                    alt="Shared image"
                                     className="w-full h-auto cursor-pointer transition-opacity duration-200"
                                     loading="lazy"
                                     onClick={() => openImageViewer(message.media.url)}
@@ -513,7 +512,7 @@ export default function ChatModal({
                           )}
                           {message.text && <p className="text-sm break-words leading-relaxed">{message.text}</p>}
                         </motion.div>
-                        
+
                         <div className={`flex items-center text-xs ${message.isIncoming ? '' : 'justify-end'}`}>
                           <span className="text-gray-400">
                             {formatMessageTime(message.timestamp)}
@@ -537,7 +536,7 @@ export default function ChatModal({
         </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
-      
+
       {/* Selected Files Preview */}
       <AnimatePresence>
         {selectedFiles.length > 0 && (
@@ -550,21 +549,21 @@ export default function ChatModal({
           >
             <div className="flex overflow-x-auto space-x-2 pb-1">
               {selectedFiles.map((file, index) => (
-                <motion.div 
-                  key={index} 
+                <motion.div
+                  key={index}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
                   transition={{ delay: index * 0.1 }}
                   className="relative flex-shrink-0 group"
                 >
-                  <motion.div 
+                  <motion.div
                     whileHover={{ scale: 1.05 }}
                     className="h-14 w-14 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 shadow-sm"
                   >
                     {file.type.startsWith('image/') ? (
-                      <img 
-                        src={URL.createObjectURL(file)} 
+                      <img
+                        src={URL.createObjectURL(file)}
                         alt={`Preview ${index}`}
                         className="h-full w-full object-cover"
                       />
@@ -574,7 +573,7 @@ export default function ChatModal({
                       </div>
                     )}
                   </motion.div>
-                  <motion.button 
+                  <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => removeSelectedFile(index)}
@@ -589,18 +588,20 @@ export default function ChatModal({
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       {/* Message Input - Enhanced mobile support */}
-      <motion.div 
+      <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="p-3 bg-white border-t border-gray-100 relative z-10"
+        className="fixed bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-100"
         style={{
-          paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 12px)' : '12px'
+          padding: '12px',
+          paddingBottom: isMobile ? 'calc(env(safe-area-inset-bottom, 12px) + 8px)' : '12px'
         }}
       >
-        <div className="flex items-center bg-gray-50 rounded-full overflow-hidden shadow-sm border border-gray-200 transition-all duration-200 focus-within:shadow-md focus-within:border-blue-300">
+        <div className="flex items-center bg-gray-50 rounded-full overflow-hidden shadow-sm border border-gray-200 transition-all duration-200 focus-within:shadow-md focus-within:border-blue-300 max-w-[720px] mx-auto">
+
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
@@ -619,32 +620,31 @@ export default function ChatModal({
               disabled={sending}
             />
           </motion.button>
-          
+
           <input
             ref={inputRef}
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && !sending && handleSendClick()}
+            onKeyDown={(e) => e.key === 'Enter' && !sending && handleSendClick()}
             placeholder="Type a message..."
             className="flex-1 py-3 px-2 bg-transparent focus:outline-none text-gray-700 placeholder-gray-400 text-sm sm:text-base"
             disabled={sending}
-            style={{ 
+            style={{
               fontSize: isMobile ? '16px' : '14px',
               minHeight: '20px'
             }}
           />
-          
+
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={handleSendClick}
             disabled={sending || (!newMessage.trim() && !selectedFiles.length)}
-            className={`p-3 transition-colors duration-200 ${
-              sending || (!newMessage.trim() && !selectedFiles.length)
+            className={`p-3 transition-colors duration-200 ${sending || (!newMessage.trim() && !selectedFiles.length)
                 ? 'text-gray-400'
                 : 'text-blue-500 hover:text-blue-600'
-            }`}
+              }`}
           >
             {sending ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -652,24 +652,26 @@ export default function ChatModal({
               <Send size={20} />
             )}
           </motion.button>
+
         </div>
       </motion.div>
+
 
       {/* Image Viewer */}
       <AnimatePresence>
         {viewerOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center"
             onClick={closeImageViewer}
           >
-            <div 
+            <div
               className="relative w-full h-full flex items-center justify-center"
               onClick={(e) => e.stopPropagation()}
             >
-              <motion.button 
+              <motion.button
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 whileHover={{ scale: 1.1 }}
@@ -680,13 +682,13 @@ export default function ChatModal({
               >
                 <X size={24} />
               </motion.button>
-              
-              <motion.div 
+
+              <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/70 backdrop-blur-sm rounded-full py-2 px-4 flex items-center space-x-4 z-10"
               >
-                <motion.button 
+                <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => handleZoom(-0.2)}
@@ -696,10 +698,10 @@ export default function ChatModal({
                 >
                   <ZoomOut size={18} />
                 </motion.button>
-                
+
                 <span className="text-white text-sm font-medium">{Math.round(zoomLevel * 100)}%</span>
-                
-                <motion.button 
+
+                <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => handleZoom(0.2)}
@@ -709,8 +711,8 @@ export default function ChatModal({
                 >
                   <ZoomIn size={18} />
                 </motion.button>
-                
-                <motion.button 
+
+                <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setZoomLevel(1)}
@@ -720,8 +722,8 @@ export default function ChatModal({
                   {zoomLevel > 1 ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                 </motion.button>
               </motion.div>
-              
-              <motion.div 
+
+              <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 ref={imageRef}
@@ -734,9 +736,9 @@ export default function ChatModal({
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
               >
-                <img 
-                  src={currentImage} 
-                  alt="Enlarged view" 
+                <img
+                  src={currentImage}
+                  alt="Enlarged view"
                   className="max-h-[85vh] max-w-[90vw] object-contain shadow-2xl rounded-lg"
                   draggable="false"
                 />
