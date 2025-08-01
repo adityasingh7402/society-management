@@ -1,6 +1,8 @@
 import UtilityBill from '../../../models/UtilityBill';
 import BillHead from '../../../models/BillHead';
 import JournalVoucher from '../../../models/JournalVoucher';
+import Wallet from '../../../models/Wallet';
+import WalletTransaction from '../../../models/WalletTransaction';
 import connectDB from '../../../lib/mongodb';
 import { verifyToken } from '../../../utils/auth';
 import mongoose from 'mongoose';
@@ -11,6 +13,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('PayBill API called with body:', JSON.stringify(req.body, null, 2));
     await connectDB();
     
     // Verify authentication
@@ -63,9 +66,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Cannot pay cancelled bill' });
     }
 
+    console.log('Bill found:', { billId: bill._id, status: bill.status, remainingAmount: bill.remainingAmount });
+    
     // Calculate late fee if applicable
-    const lateFee = bill.calculateLateFee();
+    let lateFee = 0;
+    try {
+      lateFee = bill.calculateLateFee ? bill.calculateLateFee() : 0;
+    } catch (error) {
+      console.warn('Error calculating late fee:', error.message);
+      lateFee = 0;
+    }
+    console.log('Late fee calculated:', lateFee);
+    
     const totalDue = bill.remainingAmount + lateFee;
+    console.log('Total due amount:', totalDue, 'Payment amount:', amount);
 
     if (amount > totalDue) {
       return res.status(400).json({ message: 'Payment amount exceeds due amount' });
@@ -104,7 +118,7 @@ export default async function handler(req, res) {
     // Create journal voucher for payment
     const journalVoucher = new JournalVoucher({
       societyId: bill.societyId,
-      voucherNumber: 'RCP/' + receiptNumber,
+      voucherNumber: receiptNumber,
       voucherDate: new Date(),
       voucherType: 'Receipt',
       referenceType: 'Payment',
@@ -127,7 +141,7 @@ export default async function handler(req, res) {
           description: `Payment for bill ${bill.billNumber}`
         }
       ],
-      status: 'Posted',
+      status: 'Active',
       createdBy: decoded.id
     });
 
@@ -142,6 +156,54 @@ export default async function handler(req, res) {
           description: 'Late payment fee'
         });
       }
+    }
+
+    // Update wallet when paymentMethod is Wallet
+    if (paymentMethod === 'Wallet') {
+      console.log('Processing wallet payment for resident:', bill.residentId);
+      const wallet = await Wallet.findOne({ residentId: bill.residentId });
+      if (!wallet) {
+        throw new Error('Wallet not found');
+      }
+
+      console.log('Wallet found. Current balance:', wallet.currentBalance, 'Payment amount:', amount);
+      
+      // Ensure wallet has sufficient balance
+      if (wallet.currentBalance < amount) {
+        throw new Error('Insufficient wallet balance');
+      }
+
+      // Store balance before deduction for transaction record
+      const balanceBefore = wallet.currentBalance;
+      
+      // Debit wallet
+      wallet.updateBalance(amount, 'debit');
+      console.log('Wallet balance after deduction:', wallet.currentBalance);
+      
+      // Create wallet transaction with correct balance values
+      const walletTransaction = new WalletTransaction({
+        walletId: wallet._id,
+        residentId: bill.residentId,
+        societyId: bill.societyId,
+        transactionFlow: 'DEBIT',
+        amount,
+        balanceBefore: balanceBefore,
+        balanceAfter: wallet.currentBalance,
+        type: 'UTILITY_PAYMENT',
+        description: `Utility bill payment for bill ${bill.billNumber}`,
+        billDetails: {
+          billId: bill._id,
+          billType: 'UtilityBill',
+          billNumber: bill.billNumber,
+          dueDate: bill.dueDate
+        },
+        createdBy: decoded.id
+      });
+
+      console.log('Saving wallet and transaction...');
+      await wallet.save();
+      await walletTransaction.save();
+      console.log('Wallet and transaction saved successfully');
     }
 
     // Save all changes
@@ -168,6 +230,14 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error recording payment:', error);
+    
+    // Return 400 for business logic errors
+    if (error.message.includes('Wallet not found') || 
+        error.message.includes('Insufficient wallet balance') ||
+        error.message.includes('Ledger not found')) {
+      return res.status(400).json({ message: error.message });
+    }
+    
     res.status(500).json({ message: 'Failed to record payment', error: error.message });
   }
 }
@@ -209,6 +279,7 @@ async function getLedgerIdForPaymentMethod(societyId, paymentMethod) {
     case 'UPI':
     case 'NEFT':
     case 'RTGS':
+    case 'Wallet':
       query.category = 'Bank';
       break;
     default:
