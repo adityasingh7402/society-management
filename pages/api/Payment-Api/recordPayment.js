@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import AmenityBill from '../../../models/AmenityBill';  // Import AmenityBill first
 import MaintenanceBill from '../../../models/MaintenanceBill';
 import UtilityBill from '../../../models/UtilityBill';
+import BillHead from '../../../models/BillHead';  // Add missing BillHead import
 import PaymentEntry from '../../../models/PaymentEntry';  // Import PaymentEntry after bill models
 import Ledger from '../../../models/Ledger';
 import JournalVoucher from '../../../models/JournalVoucher';
@@ -225,7 +226,7 @@ export default async function handler(req, res) {
   }
 }
 
-// Helper function to get the appropriate payment ledger (Cash or Bank)
+// Helper function to get the appropriate payment ledger (Cash, Bank, or Wallet)
 async function getPaymentLedger(societyId, paymentMethod, userId) {
   const Ledger = mongoose.model('Ledger');
   
@@ -237,6 +238,10 @@ async function getPaymentLedger(societyId, paymentMethod, userId) {
     category = 'Cash';
     code = 'CASH';
     name = 'Cash Account';
+  } else if (paymentMethod === 'Wallet') {
+    category = 'Bank';  // Wallet is categorized as Bank (online payment)
+    code = 'WALLET';
+    name = 'Wallet Account';
   }
   
   // Try to find existing ledger

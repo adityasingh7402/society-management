@@ -3,6 +3,7 @@ import BillHead from '../../../models/BillHead';
 import JournalVoucher from '../../../models/JournalVoucher';
 import Wallet from '../../../models/Wallet';
 import WalletTransaction from '../../../models/WalletTransaction';
+import Ledger from '../../../models/Ledger';
 import connectDB from '../../../lib/mongodb';
 import { verifyToken } from '../../../utils/auth';
 import mongoose from 'mongoose';
