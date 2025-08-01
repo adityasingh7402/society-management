@@ -73,6 +73,13 @@ export default async function handler(req, res) {
       console.error('Bill head found but accounting config is missing');
       return res.status(400).json({ message: 'Bill configuration is incomplete - missing accounting config' });
     }
+    
+    // Log accounting config details
+    console.log('Accounting config:', {
+      incomeLedgerId: bill.billHeadId.accountingConfig.incomeLedgerId,
+      receivableLedgerId: bill.billHeadId.accountingConfig.receivableLedgerId,
+      gstLedgerId: bill.billHeadId.accountingConfig.gstLedgerId
+    });
 
     if (bill.status === 'Paid') {
       return res.status(400).json({ message: 'Bill is already paid' });

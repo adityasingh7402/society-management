@@ -6,6 +6,8 @@ import BillHead from '../../../models/BillHead';  // Add missing BillHead import
 import PaymentEntry from '../../../models/PaymentEntry';  // Import PaymentEntry after bill models
 import Ledger from '../../../models/Ledger';
 import JournalVoucher from '../../../models/JournalVoucher';
+import Wallet from '../../../models/Wallet';
+import WalletTransaction from '../../../models/WalletTransaction';
 import { verifyToken } from '../../../utils/auth';
 
 export default async function handler(req, res) {
@@ -176,6 +178,56 @@ export default async function handler(req, res) {
 
     // Save payment entry - NO SESSION
     await payment.save();
+
+    // Handle wallet payment - deduct from wallet and create transaction
+    if (paymentMethod === 'Wallet') {
+      console.log('Processing wallet payment for resident:', bill.residentId);
+      const wallet = await Wallet.findOne({ residentId: bill.residentId });
+      
+      if (!wallet) {
+        throw new Error('Wallet not found for resident');
+      }
+
+      console.log('Wallet found. Current balance:', wallet.currentBalance, 'Payment amount:', amount);
+      
+      // Ensure wallet has sufficient balance
+      if (wallet.currentBalance < amount) {
+        throw new Error('Insufficient wallet balance');
+      }
+
+      // Store balance before deduction for transaction record
+      const balanceBefore = wallet.currentBalance;
+      
+      // Debit wallet
+      wallet.updateBalance(amount, 'debit');
+      console.log('Wallet balance after deduction:', wallet.currentBalance);
+      
+      // Create wallet transaction with correct balance values
+      const walletTransaction = new WalletTransaction({
+        walletId: wallet._id,
+        residentId: bill.residentId,
+        societyId: bill.societyId,
+        transactionFlow: 'DEBIT',
+        amount,
+        balanceBefore: balanceBefore,
+        balanceAfter: wallet.currentBalance,
+        type: billType === 'MaintenanceBill' ? 'MAINTENANCE_PAYMENT' : 
+              billType === 'AmenityBill' ? 'AMENITY_PAYMENT' : 'UTILITY_PAYMENT',
+        description: `${billType} payment for bill ${bill.billNumber}`,
+        billDetails: {
+          billId: bill._id,
+          billType: billType,
+          billNumber: bill.billNumber,
+          dueDate: bill.dueDate
+        },
+        createdBy: decoded.id
+      });
+
+      console.log('Saving wallet and wallet transaction...');
+      await wallet.save();
+      await walletTransaction.save();
+      console.log('Wallet and wallet transaction saved successfully');
+    }
 
     // Update bill payment status
     bill.paidAmount = (bill.paidAmount || 0) + amount;
