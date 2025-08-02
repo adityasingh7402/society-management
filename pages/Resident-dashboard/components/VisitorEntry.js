@@ -5,8 +5,18 @@ import {
     Search, Filter, ChevronDown, ChevronUp, Eye, Phone,
     ArrowLeft, Loader, Home, AlertCircle, CheckCircle, XCircle
 } from 'lucide-react';
+import useRoleAccess from '../../../hooks/useRoleAccess';
 
 const VisitorEntry = () => {
+    // Allow residents and tenants to access visitor entry
+    // Only these roles can approve/reject visitors
+    // family_member role is excluded from visitor approval
+    const { isAuthorized, loading: authLoading } = useRoleAccess([
+        'resident', // Main resident can access
+        'tenant' // Tenant can access
+    ]);
+    
+    // Move all hooks to the top before any conditional returns
     const router = useRouter();
     const [visitors, setVisitors] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -22,7 +32,7 @@ const VisitorEntry = () => {
     // Add state for full-screen image view
     const [fullScreenImage, setFullScreenImage] = useState(null);
 
-    // Fetch resident details on component mount
+    // Fetch resident details on component mount - moved before conditional returns
     useEffect(() => {
         const fetchResidentProfile = async () => {
             try {
@@ -54,8 +64,45 @@ const VisitorEntry = () => {
             }
         };
 
-        fetchResidentProfile();
-    }, [router]);
+        // Only fetch if authorized to avoid unnecessary API calls
+        if (isAuthorized && !authLoading) {
+            fetchResidentProfile();
+        }
+    }, [router, isAuthorized, authLoading]);
+
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="bg-white rounded-lg shadow-lg p-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+                    <p className="text-gray-600 text-center">Checking access permissions...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!isAuthorized) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Shield className="w-8 h-8 text-red-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h2>
+                    <p className="text-gray-600 mb-6">
+                        Only main residents and tenants can access the Visitor Entry page.
+                        Family members do not have permission to approve visitors.
+                    </p>
+                    <button 
+                        onClick={() => router.back()}
+                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     // Fetch visitors based on resident flat details
     const fetchVisitors = async (resident) => {

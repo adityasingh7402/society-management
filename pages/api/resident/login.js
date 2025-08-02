@@ -43,7 +43,6 @@ export default async function handler(req, res) {
           email: resident.email,
           phone: resident.phone,
           role: 'resident',
-          residentId: resident.residentId,
           societyName: resident.societyName,
           societyId: resident.societyId,
           flatDetails: resident.flatDetails,

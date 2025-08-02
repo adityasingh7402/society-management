@@ -16,6 +16,7 @@ export default async function handler(req, res) {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET); // Decode the token
+        console.log(decoded)
         const residentId = decoded.residentId || decoded.id; // Use residentId for main resident lookup
 
         await connectToDatabase();
