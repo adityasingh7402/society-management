@@ -23,11 +23,6 @@ export default function ChatModal({
   const [sending, setSending] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
 
-  // Enhanced mobile keyboard handling
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-  const [initialViewportHeight, setInitialViewportHeight] = useState(window.innerHeight);
-
   // Image viewer states
   const [viewerOpen, setViewerOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState(null);
@@ -43,81 +38,29 @@ export default function ChatModal({
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      if (!mobile) {
-        setKeyboardHeight(0);
-        setIsKeyboardOpen(false);
-      }
     };
 
     checkMobile();
-    setInitialViewportHeight(window.innerHeight);
     window.addEventListener('resize', checkMobile);
 
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Enhanced keyboard detection for mobile
-  useEffect(() => {
-    if (!isMobile) return;
-
-    const handleVisibilityChange = () => {
-      const currentHeight = window.visualViewport?.height || window.innerHeight;
-      const heightDiff = initialViewportHeight - currentHeight;
-
-      if (heightDiff > 150) {
-        setIsKeyboardOpen(true);
-        setKeyboardHeight(heightDiff);
-      } else {
-        setIsKeyboardOpen(false);
-        setKeyboardHeight(0);
-      }
-    };
-
-    // Use visual viewport API if available (better for mobile)
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleVisibilityChange);
-      return () => {
-        window.visualViewport.removeEventListener('resize', handleVisibilityChange);
-      };
-    } else {
-      // Fallback for older browsers
-      window.addEventListener('resize', handleVisibilityChange);
-      return () => {
-        window.removeEventListener('resize', handleVisibilityChange);
-      };
-    }
-  }, [isMobile, initialViewportHeight]);
-
-  // Focus management for mobile
-  useEffect(() => {
-    if (isMobile && isKeyboardOpen && inputRef.current) {
-      // Small delay to ensure keyboard is fully open
-      setTimeout(() => {
-        inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
-    }
-  }, [isKeyboardOpen, isMobile]);
-
-  // Auto-scroll with improved mobile handling
+  // Auto-scroll - simplified without keyboard handling
   useEffect(() => {
     if (messagesEndRef.current) {
       const shouldSmoothScroll = !isFirstLoad;
 
-      // Add delay for mobile keyboard
-      const scrollDelay = isMobile && isKeyboardOpen ? 200 : 0;
-
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({
-          behavior: shouldSmoothScroll ? 'smooth' : 'auto',
-          block: 'end'
-        });
-      }, scrollDelay);
+      messagesEndRef.current?.scrollIntoView({
+        behavior: shouldSmoothScroll ? 'smooth' : 'auto',
+        block: 'end'
+      });
 
       if (isFirstLoad && chatMessages.length > 0) {
         setIsFirstLoad(false);
       }
     }
-  }, [chatMessages, isFirstLoad, isKeyboardOpen, isMobile]);
+  }, [chatMessages, isFirstLoad]);
 
   useEffect(() => {
     setIsFirstLoad(true);
@@ -240,27 +183,12 @@ export default function ChatModal({
       new Date(message.timestamp) - new Date(prevMessage.timestamp) > 300000;
   };
 
-  // Dynamic container height calculation
-  const getContainerHeight = () => {
-    if (!isMobile) return '100vh';
-
-    if (isKeyboardOpen) {
-      return `${initialViewportHeight - keyboardHeight}px`;
-    }
-
-    return `${initialViewportHeight}px`;
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex flex-col bg-gray-50 relative overflow-hidden"
-      style={{
-        height: getContainerHeight(),
-        maxHeight: getContainerHeight()
-      }}
+      className="flex flex-col bg-gray-50 relative overflow-hidden h-screen"
     >
       {/* Chat Header */}
       <motion.div
@@ -376,8 +304,7 @@ export default function ChatModal({
         className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-white"
         style={{
           minHeight: 0,
-          scrollBehavior: 'smooth',
-          paddingBottom: isMobile && isKeyboardOpen ? '20px' : '16px'
+          scrollBehavior: 'smooth'
         }}
       >
         <AnimatePresence mode="wait">
@@ -589,7 +516,7 @@ export default function ChatModal({
         )}
       </AnimatePresence>
 
-      {/* Message Input - Enhanced mobile support */}
+      {/* Message Input - Simplified without keyboard handling */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
