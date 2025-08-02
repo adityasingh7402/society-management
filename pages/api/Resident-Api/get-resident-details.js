@@ -16,10 +16,10 @@ export default async function handler(req, res) {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET); // Decode the token
-        const phone = decoded.phone; // Use `residentPhone` for the resident's information
+        const residentId = decoded.residentId || decoded.id; // Use residentId for main resident lookup
 
         await connectToDatabase();
-        const resident = await Resident.findOne({ phone }); // Query using `phoneNumber`
+        const resident = await Resident.findById(residentId); // Query using resident ID
 
         if (!resident) {
             return res.status(404).json({ message: "Resident not found" });

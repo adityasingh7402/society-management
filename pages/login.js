@@ -3,39 +3,40 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Phone, User, Home, MessageSquare, ChevronRight, UserCheck, Building, Check, AlertCircle, X } from 'lucide-react';
+import { Phone, Home, MessageSquare, ChevronRight, Building, Check, AlertCircle, X, MapPin, Edit, User } from 'lucide-react';
 
-export default function Login() {
+export default function ResidentLogin() {
+  const userType = 'resident';
+  const [pinCode, setPinCode] = useState('');
+  const [societies, setSocieties] = useState([]);
+  const [filteredSocieties, setFilteredSocieties] = useState([]);
+  const [selectedSociety, setSelectedSociety] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [loadingOtp, setLoadingOtp] = useState(false);
+  const [loadingSocieties, setLoadingSocieties] = useState(false);
   const [verificationId, setVerificationId] = useState('');
-  const [userType, setUserType] = useState('resident'); // "resident" or "tenant"
-  const [notification, setNotification] = useState({
-    show: false,
-    type: 'success',
-    message: ''
-  });
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+  const [showSocietyList, setShowSocietyList] = useState(false);
+  const [isPincodeValid, setIsPincodeValid] = useState(false);
+  const [societySearchQuery, setSocietySearchQuery] = useState('');
   const [fcmToken, setFcmToken] = useState('');
 
-  // Add FCM token handler
+  // Get FCM token on component mount
   useEffect(() => {
     const token = localStorage.getItem('fcmToken');
     if (token) {
       setFcmToken(token);
-      console.log("FCM token retrieved from localStorage:", token);
-    } else {
-      console.log("No FCM token found in localStorage");
     }
   }, []);
 
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { 
+    visible: {
       opacity: 1,
-      transition: { 
+      transition: {
         duration: 0.5,
         when: "beforeChildren",
         staggerChildren: 0.1
@@ -45,50 +46,123 @@ export default function Login() {
 
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
-    visible: { 
-      y: 0, 
+    visible: {
+      y: 0,
       opacity: 1,
-      transition: { 
+      transition: {
         type: "spring",
         stiffness: 100
       }
     }
   };
 
-  // Button animation variants
   const buttonVariants = {
     hover: { scale: 1.05, boxShadow: "0px 5px 15px rgba(0, 0, 0, 0.1)" },
     tap: { scale: 0.98 },
     disabled: { opacity: 0.7 }
   };
 
-  // Notification animation variants
   const notificationVariants = {
-    hidden: { opacity: 0, y: -50 },
-    visible: { 
-      opacity: 1, 
+    hidden: {
+      y: -100,
+      opacity: 0,
+      scale: 0.8
+    },
+    visible: {
       y: 0,
-      transition: { 
-        type: "spring", 
-        stiffness: 120 
+      opacity: 1,
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 200,
+        damping: 20
       }
     },
-    exit: { 
-      opacity: 0, 
-      y: -50,
-      transition: { 
-        duration: 0.3 
+    exit: {
+      y: -100,
+      opacity: 0,
+      scale: 0.8,
+      transition: {
+        duration: 0.3
       }
     }
   };
 
+  // Auto-hide notification after delay
+  useEffect(() => {
+    if (notification.show) {
+      const timer = setTimeout(() => {
+        setNotification({ ...notification, show: false });
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  // Show notification helper function
+  const showNotification = (type, message) => {
+    setNotification({
+      show: true,
+      type,
+      message
+    });
+  };
+
+  const handlePincodeChange = async (e) => {
+    const { value } = e.target;
+    setPinCode(value.replace(/\D/g, '').slice(0, 6));
+
+    // Basic pincode validation
+    if (value.length === 6 && /^\d+$/.test(value)) {
+      setIsPincodeValid(true);
+      setLoadingSocieties(true);
+      try {
+        const response = await axios.get(`/api/societies-login?pinCode=${value}`);
+        if (response.data.success) {
+          setSocieties(response.data.societies || []);
+          setFilteredSocieties(response.data.societies || []);
+          setShowSocietyList(true);
+        } else {
+          showNotification('error', 'Failed to fetch societies');
+        }
+      } catch (error) {
+        console.error("Failed to fetch societies", error);
+        showNotification('error', 'Failed to fetch societies for this pincode');
+      }
+      setLoadingSocieties(false);
+    } else {
+      setIsPincodeValid(false);
+      setShowSocietyList(false);
+      setSocieties([]);
+      setFilteredSocieties([]);
+    }
+  };
+
+  const handleSocietySearch = (e) => {
+    const { value } = e.target;
+    setSocietySearchQuery(value);
+    if (societies.length > 0) {
+      const filtered = societies.filter(society =>
+        society.societyName.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredSocieties(filtered);
+      setShowSocietyList(true);
+    }
+  };
+
+  const handleSocietySelect = (society) => {
+    setSelectedSociety(society);
+    setShowSocietyList(false);
+    setSocietySearchQuery('');
+  };
+
   const handleOtpSend = async () => {
     if (!phoneNumber || phoneNumber.length !== 10) {
-      setNotification({
-        show: true,
-        type: 'error',
-        message: 'Please enter a valid 10-digit mobile number.'
-      });
+      showNotification('error', 'Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    if (!selectedSociety) {
+      showNotification('error', 'Please select a society first.');
       return;
     }
 
@@ -96,122 +170,88 @@ export default function Login() {
     setLoadingOtp(true);
 
     try {
+      // First verify if the phone number belongs to a resident in this society
+      const verifyResponse = await axios.post('/api/resident/verify-phone', {
+        societyId: selectedSociety._id,
+        phoneNumber: fullPhoneNumber
+      });
+
+      if (!verifyResponse.data.success) {
+        showNotification('error', verifyResponse.data.message || 'You are not registered as a resident in this society');
+        setLoadingOtp(false);
+        return;
+      }
+
       const response = await axios.post('/api/send-otp', { phoneNumber: fullPhoneNumber });
 
       if (response.data.success) {
-        setVerificationId(response.data.sessionId); // Changed from verificationId to sessionId
+        setVerificationId(response.data.sessionId);
         setOtpSent(true);
-        setNotification({
-          show: true,
-          type: 'success',
-          message: 'OTP sent successfully!'
-        });
+        showNotification('success', 'OTP sent successfully! Please check your phone.');
       } else {
-        setNotification({
-          show: true,
-          type: 'error',
-          message: 'Failed to send OTP. Please try again.'
-        });
+        showNotification('error', 'Failed to send OTP. Please try again.');
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
-      setNotification({
-        show: true,
-        type: 'error',
-        message: 'Error sending OTP. Please try again.'
-      });
+      showNotification('error', error.response?.data?.message || 'Error sending OTP. Please try again.');
     }
     setLoadingOtp(false);
   };
 
   const handleLogin = async () => {
     if (!otp || otp.length < 6) {
-      setNotification({
-        show: true,
-        type: 'error',
-        message: 'Please enter a valid OTP.'
-      });
+      showNotification('error', 'Please enter a valid OTP.');
       return;
     }
 
     try {
-      const verifyResponse = await axios.post('/api/verify-otp', {
+      // Step 1: Verify OTP
+      const response = await axios.post('/api/verify-otp', {
         otp,
         phoneNumber: `+91${phoneNumber}`,
-        sessionId: verificationId, // Changed from verificationId to sessionId
+        sessionId: verificationId,
       });
 
-      if (verifyResponse.data.success) {
-        const detailsEndpoint =
-          userType === 'resident'
-            ? '/api/Resident-Api/get-resident'
-            : '/api/Tenant-Api/get-tenant';
-
-        const detailsResponse = await axios.post(detailsEndpoint, {
+      if (response.data.success) {
+        // Step 2: Login as resident
+        const loginResponse = await axios.post('/api/resident/login', {
+          societyId: selectedSociety._id,
           phoneNumber: `+91${phoneNumber}`,
-          fcmToken: fcmToken  // Add FCM token to the request
+          fcmToken: fcmToken
         });
 
-        if (detailsResponse.data.success) {
-          const { details, token } = detailsResponse.data;
-          localStorage.setItem(userType === 'resident' ? 'Resident' : 'Tenant', token);
+        if (loginResponse.data.success) {
+          const { token } = loginResponse.data;
+          localStorage.setItem('Resident', token);
+          showNotification('success', 'Login successful! Redirecting to dashboard...');
           
-          // Remove this section since we're now handling FCM token in the initial request
-          // if (fcmToken) {
-          //   try {
-          //     await axios.post(`/api/${userType === 'resident' ? 'Resident' : 'Tenant'}-Api/update-fcm`, {
-          //       phoneNumber: `+91${phoneNumber}`,
-          //       fcmToken: fcmToken
-          //     });
-          //   } catch (error) {
-          //     console.error('Error updating FCM token:', error);
-          //   }
-          // }
-
-          setNotification({
-            show: true,
-            type: 'success',
-            message: 'Login successful! Redirecting to dashboard...'
-          });
           setTimeout(() => {
-            window.location.href = userType === 'resident' ? '/Resident-dashboard' : '/Tenant-dashboard';
+            window.location.href = '/Resident-dashboard';
           }, 1500);
         } else {
-          setNotification({
-            show: true,
-            type: 'error',
-            message: `${userType === 'resident' ? 'Resident' : 'Tenant'} details not found. Please try again.`
-          });
+          showNotification('error', 'Login failed. Please try again.');
         }
       } else {
-        setNotification({
-          show: true,
-          type: 'error',
-          message: 'Invalid OTP. Please try again.'
-        });
+        showNotification('error', 'Invalid OTP. Please try again.');
       }
     } catch (error) {
-      console.error('Error verifying OTP or fetching user details:', error);
-      setNotification({
-        show: true,
-        type: 'error',
-        message: 'An error occurred. Please try again.'
-      });
+      console.error('Error during login:', error);
+      showNotification('error', error.response?.data?.message || 'An error occurred. Please try again.');
     }
   };
 
   return (
     <div className="bg-slate-50 min-h-screen">
       <Head>
-        <title>Login - SocietyManage</title>
-        <meta name="description" content="Login to your account using mobile number and OTP." />
+        <title>Resident Login - SocietyManage</title>
+        <meta name="description" content="Resident login using mobile number and OTP." />
       </Head>
 
       {/* Notification Popup */}
       <AnimatePresence>
         {notification.show && (
-          <motion.div 
-            className="fixed top-[7rem] left-0 right-0 mx-auto z-50 px-6 py-4 rounded-lg shadow-lg flex items-center max-w-md w-11/12 sm:w-full"
+          <motion.div
+            className="fixed top-5 left-0 right-0 mx-auto z-50 px-6 py-4 rounded-lg shadow-lg flex items-center max-w-md w-11/12 sm:w-full"
             style={{
               margin: '0 auto',
               backgroundColor: notification.type === 'success' ? '#f0fdf4' : '#fef2f2',
@@ -222,7 +262,7 @@ export default function Login() {
             animate="visible"
             exit="exit"
           >
-            <div 
+            <div
               className="rounded-full p-2 mr-3"
               style={{
                 backgroundColor: notification.type === 'success' ? '#dcfce7' : '#fee2e2',
@@ -232,20 +272,20 @@ export default function Login() {
               {notification.type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
             </div>
             <div className="flex-1">
-              <h3 
+              <h3
                 className="font-medium"
                 style={{ color: notification.type === 'success' ? '#166534' : '#991b1b' }}
               >
                 {notification.type === 'success' ? 'Success' : 'Error'}
               </h3>
-              <p 
+              <p
                 className="text-sm"
                 style={{ color: notification.type === 'success' ? '#15803d' : '#b91c1c' }}
               >
                 {notification.message}
               </p>
             </div>
-            <button 
+            <button
               onClick={() => setNotification({ ...notification, show: false })}
               className="text-gray-500 hover:text-gray-700"
             >
@@ -256,25 +296,27 @@ export default function Login() {
       </AnimatePresence>
 
       {/* Header Section with Animation */}
-      <motion.header 
-        className="bg-gradient-to-r from-indigo-600 to-purple-600 py-3 text-white shadow-lg sticky top-0 z-50"
+      <motion.header
+        className="bg-gradient-to-r from-indigo-600 to-purple-600 py-3 text-white shadow-lg sticky top-0 z-40"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ type: 'spring', stiffness: 120 }}
       >
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-            <motion.h1 
+          <Link href={"/"}>
+            <motion.h1
               className="sm:text-xl md:text-3xl font-bold"
               whileHover={{ scale: 1.05 }}
             >
               SocietyManage
             </motion.h1>
+          </Link>
           <nav>
             <ul className="flex space-x-6">
               <motion.li whileHover={{ scale: 1.1 }}>
-                <Link href="/Resident-dashboard" className="hover:underline text-lg font-medium flex items-center">
+                <Link href="/" className="hover:underline text-lg font-medium flex items-center">
                   <Home size={18} className="mr-1" />
-                  <span>Dashboard</span>
+                  <span>Home</span>
                 </Link>
               </motion.li>
               <motion.li whileHover={{ scale: 1.1 }}>
@@ -290,18 +332,18 @@ export default function Login() {
 
       <section className="py-20 min-h-screen relative overflow-hidden">
         {/* Background decoration elements */}
-        <motion.div 
+        <motion.div
           className="absolute top-20 left-20 w-64 h-64 bg-indigo-200 rounded-full opacity-20"
-          animate={{ 
+          animate={{
             y: [0, -30, 0],
             x: [0, 20, 0],
             scale: [1, 1.1, 1],
           }}
           transition={{ duration: 15, repeat: Infinity, repeatType: "reverse" }}
         />
-        <motion.div 
+        <motion.div
           className="absolute bottom-20 right-20 w-96 h-96 bg-purple-200 rounded-full opacity-20"
-          animate={{ 
+          animate={{
             y: [0, 30, 0],
             x: [0, -20, 0],
             scale: [1, 1.1, 1],
@@ -310,48 +352,138 @@ export default function Login() {
         />
 
         <div className="container mx-auto px-6 relative z-10">
-          <motion.div 
-            className="max-w-lg mx-auto bg-white shadow-xl rounded-xl overflow-hidden"
+          <motion.div
+            className="max-w-lg mx-auto bg-white shadow-xl rounded-xl overflow-visible"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 py-4 px-6">
-              <h2 className="text-2xl font-bold text-center text-white">Welcome Back</h2>
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 py-4 px-6 rounded-t-xl">
+              <h2 className="text-2xl font-bold text-center text-white">Resident Login</h2>
             </div>
-            
-            <motion.div 
+
+            <motion.div
               className="p-8"
               variants={containerVariants}
               initial="hidden"
               animate="visible"
             >
-              {/* User Type Selection */}
-              <motion.div className="mb-6" variants={itemVariants}>
-                <label className="block text-lg font-medium text-gray-700 mb-2 flex items-center">
-                  <User size={20} className="mr-2 text-indigo-600" />
-                  User Type
-                </label>
-                <div className="relative">
-                  <select
-                    value={userType}
-                    onChange={(e) => setUserType(e.target.value)}
-                    className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
-                  >
-                    <option value="resident">Resident</option>
-                    <option value="tenant">Tenant</option>
-                  </select>
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    {userType === 'resident' ? 
-                      <Building size={20} className="text-indigo-500" /> : 
-                      <UserCheck size={20} className="text-indigo-500" />
-                    }
-                  </div>
+              {/* Resident Icon */}
+              <motion.div
+                className="flex justify-center mb-6"
+                variants={itemVariants}
+              >
+                <div className="p-4 bg-indigo-100 rounded-full">
+                  <User size={40} className="text-indigo-600" />
                 </div>
               </motion.div>
 
-              {/* Phone Number Input */}
-              {!otpSent ? (
+              {/* Step 1: PIN Code Input */}
+              {!selectedSociety && (
+                <div className="space-y-6">
+                  {/* PIN Code Input */}
+                  <motion.div variants={itemVariants}>
+                    <label htmlFor="pinCode" className="block text-gray-700 font-medium mb-2">
+                      <MapPin className="inline-block w-5 h-5 mr-2 text-indigo-600" />
+                      PIN Code
+                    </label>
+                    <input
+                      type="text"
+                      id="pinCode"
+                      name="pinCode"
+                      value={pinCode}
+                      onChange={handlePincodeChange}
+                      maxLength={6}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      placeholder="Enter PIN code to find societies"
+                    />
+                    {loadingSocieties && (
+                      <div className="mt-2 text-sm text-indigo-600 flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
+                        Searching for societies...
+                      </div>
+                    )}
+                  </motion.div>
+
+                  {/* Society Selection */}
+                  {isPincodeValid && (
+                    <motion.div variants={itemVariants} className="relative">
+                      <label htmlFor="societySearch" className="block text-gray-700 font-medium mb-2">
+                        <Building className="inline-block w-5 h-5 mr-2" />
+                        Society Name
+                      </label>
+                      <input
+                        type="text"
+                        id="societySearch"
+                        name="societySearch"
+                        value={societySearchQuery}
+                        onChange={handleSocietySearch}
+                        className="w-full px-4 py-3 rounded-lg border outline-none border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="Search for your society"
+                      />
+
+                      {/* Society List Dropdown */}
+                      <AnimatePresence>
+                        {showSocietyList && filteredSocieties.length > 0 && (
+                          <motion.div
+                            className="absolute left-0 right-0 z-50 mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                          >
+                            {filteredSocieties.map((society) => (
+                              <motion.div
+                                key={society._id}
+                                onClick={() => handleSocietySelect(society)}
+                                className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                                whileHover={{ backgroundColor: "#f3f4f6" }}
+                              >
+                                <div className="font-medium text-gray-800">{society.societyName}</div>
+                                <div className="text-sm text-gray-600">{society.street}</div>
+                                <div className="text-xs text-gray-500">{society.city}, {society.state}</div>
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {showSocietyList && filteredSocieties.length === 0 && (
+                        <div className="mt-2 text-sm text-gray-600">
+                          No societies found for this PIN code
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </div>
+              )}
+
+              {/* Display Selected Society Details */}
+              {selectedSociety && !otpSent && (
+                <motion.div
+                  variants={itemVariants}
+                  className="bg-indigo-50 p-4 rounded-lg border border-indigo-200"
+                >
+                  <h3 className="font-medium text-indigo-800 mb-2">Selected Society</h3>
+                  <div className="space-y-1">
+                    <p className="text-indigo-700">{selectedSociety.societyName}</p>
+                    <p className="text-indigo-600 text-sm">{selectedSociety.street}</p>
+                    <p className="text-indigo-600 text-sm">{selectedSociety.city}, {selectedSociety.state} - {selectedSociety.pinCode}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowSocietyList(true);
+                      setSelectedSociety(null);
+                    }}
+                    className="mt-2 text-sm text-indigo-700 hover:text-indigo-800 flex items-center"
+                  >
+                    <Edit className="w-4 h-4 mr-1" />
+                    Change Society
+                  </button>
+                </motion.div>
+              )}
+
+              {/* Step 2: Phone Number & OTP */}
+              {selectedSociety && !otpSent && (
                 <>
                   <motion.div variants={itemVariants}>
                     <label htmlFor="phoneNumber" className="block text-lg font-medium text-gray-700 mb-2 flex items-center">
@@ -364,28 +496,27 @@ export default function Login() {
                         type="tel"
                         id="phoneNumber"
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                         className="flex-1 focus:outline-none"
                         placeholder="Enter your 10-digit number"
                       />
                     </div>
                   </motion.div>
-                  
+
                   <motion.button
                     type="button"
                     onClick={handleOtpSend}
-                    disabled={loadingOtp}
-                    className={`mt-6 w-full py-3 text-white rounded-lg flex items-center justify-center ${loadingOtp ? 'bg-gray-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600'}`}
+                    disabled={loadingOtp || phoneNumber.length !== 10}
+                    className={`mt-6 w-full py-3 text-white rounded-lg flex items-center justify-center ${
+                      loadingOtp || phoneNumber.length !== 10 ? 'bg-gray-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600'
+                    }`}
                     variants={buttonVariants}
-                    whileHover={!loadingOtp ? "hover" : "disabled"}
-                    whileTap={!loadingOtp ? "tap" : "disabled"}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.4 }}
+                    whileHover={!loadingOtp && phoneNumber.length === 10 ? "hover" : "disabled"}
+                    whileTap={!loadingOtp && phoneNumber.length === 10 ? "tap" : "disabled"}
                   >
                     {loadingOtp ? (
                       <>
-                        <motion.div 
+                        <motion.div
                           className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
                           animate={{ rotate: 360 }}
                           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -400,9 +531,11 @@ export default function Login() {
                     )}
                   </motion.button>
                 </>
-              ) : (
+              )}
+
+              {/* Step 3: OTP Verification */}
+              {selectedSociety && otpSent && (
                 <>
-                  {/* OTP Input */}
                   <motion.div variants={itemVariants}>
                     <label htmlFor="otp" className="block text-lg font-medium text-gray-700 mb-2">
                       Enter OTP
@@ -412,7 +545,7 @@ export default function Login() {
                         type="text"
                         id="otp"
                         value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                         className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="Enter the 6-digit OTP"
                       />
@@ -432,7 +565,7 @@ export default function Login() {
                   >
                     Login
                   </motion.button>
-                  
+
                   <motion.button
                     type="button"
                     onClick={() => setOtpSent(false)}
@@ -447,18 +580,16 @@ export default function Login() {
               )}
 
               {/* Enrollment Link */}
-              <motion.div 
+              <motion.div
                 className="text-center flex justify-end items-center mt-6"
                 variants={itemVariants}
               >
-                <Link
-                  href={userType === 'resident' ? '/Enroll-Resident' : '/Enroll-Tenants'}
-                >
+                <Link href={'/Enroll-Resident'}>
                   <motion.span
                     className="text-indigo-600 hover:underline font-medium ml-1 inline-flex items-center"
                     whileHover={{ scale: 1.05 }}
                   >
-                    Enroll as {userType === 'resident' ? 'Resident' : 'Tenant'}
+                    Enroll as Resident
                     <ChevronRight size={16} className="ml-1" />
                   </motion.span>
                 </Link>
@@ -468,17 +599,17 @@ export default function Login() {
         </div>
       </section>
 
-      <motion.footer 
-        className="bg-slate-900 text-white py-6"
+      <motion.footer
+        className="bg-gray-800 text-white py-6"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
         viewport={{ once: true }}
       >
         <div className="container mx-auto px-6 text-center">
-          <p>&copy; {new Date().getFullYear()} SocietyManage. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Society Management System. All rights reserved.</p>
           <motion.nav className="flex justify-center space-x-6 mt-4">
-            <Link href="/login">
+            <Link href="/">
               <motion.span className="hover:underline flex items-center" whileHover={{ scale: 1.1 }}>
                 <Home size={16} className="mr-1" />
                 Home

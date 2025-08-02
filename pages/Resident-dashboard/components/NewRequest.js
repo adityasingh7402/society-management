@@ -41,6 +41,7 @@ export default function NewRequest() {
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('');
     const [priority, setPriority] = useState('Medium');
+    const [referenceNumber, setReferenceNumber] = useState('');
     const [uploadedImages, setUploadedImages] = useState([]);
     const [uploadingImages, setUploadingImages] = useState(false);
     const [previewImages, setPreviewImages] = useState([]);
@@ -159,6 +160,7 @@ export default function NewRequest() {
                 description,
                 category,
                 priority,
+                referenceNumber: referenceNumber || undefined,
                 images: imageUrls, // Use the newly uploaded images
                 flatNumber: residentDetails.flatDetails.flatNumber,
                 societyId: residentDetails.societyCode,
@@ -226,23 +228,66 @@ export default function NewRequest() {
         }
     };
 
-    const handleAddComment = async () => {
-        if (!newComment.trim() || !selectedTicket) {
-            return;
-        }
+    const handleChangeStatus = async (ticketId, newStatus) => {
+        if (!residentDetails) return;
 
         try {
             const token = localStorage.getItem('Resident');
-
-            const response = await fetch(`/api/Maintenance-Api/update-ticket?id=${selectedTicket._id}`, {
+            
+            const response = await fetch('/api/Maintenance-Api/change-status', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    comment: newComment
+                    ticketId,
+                    newStatus,
+                    userType: 'resident',
+                    userId: residentDetails._id,
+                    userName: residentDetails.name,
+                    reason: newStatus === 'Resolved' ? 'Request resolved by resident' : 
+                           newStatus === 'Pending' ? 'Request reopened by resident' : ''
                 }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to change status');
+            }
+
+            const data = await response.json();
+
+            // Update the ticket in the tickets list
+            setTickets(tickets.map(ticket =>
+                ticket._id === ticketId ? data.data : ticket
+            ));
+
+            toast.success(`Request ${newStatus.toLowerCase()} successfully`);
+        } catch (error) {
+            console.error('Error changing status:', error);
+            toast.error(error.message || 'Failed to change status');
+        }
+    };
+
+    const handleAddComment = async (ticket) => {
+        if (!newComment.trim()) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('Resident');
+
+            const response = await fetch(`/api/Maintenance-Api/add-comment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    ticketId: ticket._id,
+                    comment: newComment
+                })
             });
 
             if (!response.ok) {
@@ -251,12 +296,9 @@ export default function NewRequest() {
 
             const data = await response.json();
 
-            // Update the selected ticket with the new data
-            setSelectedTicket(data.data);
-
             // Update the ticket in the tickets list
-            setTickets(tickets.map(ticket =>
-                ticket._id === selectedTicket._id ? data.data : ticket
+            setTickets(tickets.map(t =>
+                t._id === ticket._id ? data.data.ticket : t
             ));
 
             // Clear the comment input
@@ -343,6 +385,7 @@ export default function NewRequest() {
         setDescription('');
         setCategory('');
         setPriority('Medium');
+        setReferenceNumber('');
         setUploadedImages([]);
         setPreviewImages([]);
         setSelectedFiles([]);
@@ -367,6 +410,8 @@ export default function NewRequest() {
                 return 'bg-indigo-100 text-indigo-800';
             case 'Completed':
                 return 'bg-green-100 text-green-800';
+            case 'Resolved':
+                return 'bg-emerald-100 text-emerald-800';
             case 'Rejected':
                 return 'bg-red-100 text-red-800';
             default:
@@ -507,6 +552,7 @@ export default function NewRequest() {
                                         <option value="Other">Other</option>
                                     </select>
                                 </div>
+
 
                                 <div>
                                     <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
@@ -652,6 +698,7 @@ export default function NewRequest() {
                         <option value="Assigned">Assigned</option>
                         <option value="In Progress">In Progress</option>
                         <option value="Completed">Completed</option>
+                        <option value="Resolved">Resolved</option>
                         <option value="Rejected">Rejected</option>
                     </select>
                 </div>
@@ -745,6 +792,12 @@ export default function NewRequest() {
                                         )}
 
                                         <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-500">
+                                            {ticket.referenceNumber && (
+                                                <div className="flex items-center">
+                                                    <FileText className="h-4 w-4 mr-1" />
+                                                    Reference: {ticket.referenceNumber}
+                                                </div>
+                                            )}
                                             <div className="flex items-center">
                                                 <Calendar className="h-4 w-4 mr-1" />
                                                 Created: {formatDate(ticket.createdAt)}
@@ -775,7 +828,7 @@ export default function NewRequest() {
                                                             <div>
                                                                 <div className="text-sm">
                                                                     <span className={`font-medium ${comment.isAdmin ? 'text-blue-600' : 'text-gray-900'}`}>
-                                                                        {comment.isAdmin ? 'Admin' : 'You'}
+{comment.isAdmin ? 'Admin' : residentDetails.firstName}
                                                                     </span>
                                                                     <span className="text-gray-500 ml-2">
                                                                         {formatDate(comment.createdAt)}
@@ -801,6 +854,24 @@ export default function NewRequest() {
                                                     Delete Request
                                                 </button>
                                             )}
+                                            {ticket.status === 'Completed' && (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleChangeStatus(ticket._id, 'Pending')}
+                                                        className="flex items-center text-blue-600 hover:text-blue-700"
+                                                    >
+                                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                                        Reopen Request
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleChangeStatus(ticket._id, 'Resolved')}
+                                                        className="flex items-center text-green-600 hover:text-green-700"
+                                                    >
+                                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                                        Resolve
+                                                    </button>
+                                                </>
+                                            )}
                                             <div className="flex-1">
                                                 <div className="flex items-center space-x-2">
                                                     <input
@@ -811,7 +882,7 @@ export default function NewRequest() {
                                                         className="flex-1 border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
                                                     />
                                                     <button
-                                                        onClick={handleAddComment}
+                                                        onClick={() => handleAddComment(ticket)}
                                                         disabled={!newComment.trim()}
                                                         className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
                                                     >

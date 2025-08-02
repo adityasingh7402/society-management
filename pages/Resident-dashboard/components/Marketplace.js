@@ -925,7 +925,8 @@ const Marketplace = () => {
                             {/* Actions */}
                             <div className="flex items-center space-x-3">
                               <div className="flex items-center space-x-1 text-gray-500">
-                                <Heart size={14} />
+                                <Heart size={14} className={isLikedByUser(product) ? 'text-red-500' : 'text-gray-500'}
+                                  fill={isLikedByUser(product) ? 'currentColor' : 'none'} />
                                 <span className="text-xs font-medium">{product.likes.length}</span>
                               </div>
                               {unreadMessages[product._id] > 0 && (

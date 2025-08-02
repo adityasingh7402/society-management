@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import {
   Camera, User, Clock, LogOut, Home, Building,
   CheckCircle, XCircle, Layers, MessageSquare,
-  Calendar, Shield, Loader, Check, X
+  Calendar, Shield, Loader, Check, X, Bell
 } from 'lucide-react';
 import { FaArrowLeft } from "react-icons/fa";
 
@@ -154,6 +154,27 @@ const ApproveVisitor = () => {
     if (status === 'approve') return 'Approved';
     if (status === 'reject') return 'Rejected';
     return 'Pending';
+  };
+
+  // Function to notify resident
+  const notifyResident = async (visitorId) => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/VisitorApi/notify-resident', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitorId }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to send notification');
+      }
+      showNotification('Notification sent successfully to resident', 'success');
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      showNotification('Failed to send notification', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -310,34 +331,45 @@ const ApproveVisitor = () => {
                     </h3>
                     
                     <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <div className="text-sm text-gray-600 flex items-center">
-                        <MessageSquare size={14} className="mr-1 text-gray-500" />
-                        <span className="font-medium mr-1">Purpose:</span> {visitor.visitorReason}
+                      <div className="text-sm text-gray-600">
+                        <div className="flex items-center mb-1">
+                          <MessageSquare size={14} className="mr-1 text-gray-500" />
+                          <span className="font-medium">Purpose:</span>
+                        </div>
+                        <div className="text-gray-800 font-medium">{visitor.visitorReason}</div>
                       </div>
-                      
-                      <div className="text-sm text-gray-600 flex items-center">
-                        <Clock size={14} className="mr-1 text-gray-500" />
-                        <span className="font-medium mr-1">Entry:</span> {formatDateTime(visitor.entryTime)}
+
+                      <div className="text-sm text-gray-600">
+                        <div className="flex items-center mb-1">
+                          <Clock size={14} className="mr-1 text-gray-500" />
+                          <span className="font-medium">Entry:</span>
+                        </div>
+                        <div className="text-gray-800 font-medium">{formatDateTime(visitor.entryTime)}</div>
                       </div>
-                      
-                      <div className="text-sm text-gray-600 flex items-center">
-                        <Building size={14} className="mr-1 text-gray-500" />
-                        <span className="font-medium mr-1">Location:</span> 
-                        Block {visitor.blockName}, Floor {visitor.floorNumber}, Flat {visitor.flatNumber}
+
+                      <div className="text-sm text-gray-600">
+                        <div className="flex items-center mb-1">
+                          <Building size={14} className="mr-1 text-gray-500" />
+                          <span className="font-medium">Location:</span>
+                        </div>
+                        <div className="text-gray-800 font-medium">Block {visitor.blockName}, Floor {visitor.floorNumber}, Flat {visitor.flatNumber}</div>
                       </div>
-                      
-                      <div className="text-sm text-gray-600 flex items-center">
-                        <User size={14} className="mr-1 text-gray-500" />
-                        <span className="font-medium mr-1">Resident:</span> {visitor.ownerName}
+
+                      <div className="text-sm text-gray-600">
+                        <div className="flex items-center mb-1">
+                          <User size={14} className="mr-1 text-gray-500" />
+                          <span className="font-medium">Resident:</span>
+                        </div>
+                        <div className="text-gray-800 font-medium">{visitor.ownerName}</div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Visitor image if available - updated to be clickable */}
+                  {/* Visitor image and actions */}
                   <div className="ml-4 flex flex-col items-center">
                     {visitor.visitorImage ? (
                       <div 
-                        className="w-20 h-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 cursor-pointer"
+                        className="w-20 h-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 cursor-pointer mb-3"
                         onClick={() => setFullScreenImage(visitor.visitorImage)}
                       >
                         <img 
@@ -351,13 +383,23 @@ const ApproveVisitor = () => {
                         />
                       </div>
                     ) : (
-                      <div className="w-20 h-20 rounded-md bg-gray-100 flex items-center justify-center">
+                      <div className="w-20 h-20 rounded-md bg-gray-100 flex items-center justify-center mb-3">
                         <User size={32} className="text-gray-400" />
                       </div>
                     )}
                     
+                    {/* Notify Resident Button */}
+                    <button
+                      onClick={() => notifyResident(visitor._id)}
+                      className="mb-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center justify-center text-sm font-medium transition-colors"
+                      disabled={loading}
+                    >
+                      <Bell size={16} className="mr-1" />
+                      Notify Resident
+                    </button>
+                    
                     {/* Large status icon */}
-                    <div className="mt-2">
+                    <div className="mt-1">
                       {visitor.status === 'approve' && (
                         <CheckCircle size={28} className="text-green-500" />
                       )}
@@ -370,24 +412,6 @@ const ApproveVisitor = () => {
                     </div>
                   </div>
                 </div>
-                
-                {/* Approval actions - uncomment if needed */}
-                {/* {visitor.status === 'pending' && (
-                  <div className="mt-4 flex space-x-2">
-                    <button
-                      onClick={() => handleApprovalStatus(visitor._id, 'approve')}
-                      className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md flex items-center justify-center"
-                    >
-                      <Check size={16} className="mr-1" /> Approve
-                    </button>
-                    <button
-                      onClick={() => handleApprovalStatus(visitor._id, 'reject')}
-                      className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md flex items-center justify-center"
-                    >
-                      <X size={16} className="mr-1" /> Reject
-                    </button>
-                  </div>
-                )} */}
                 
                 {/* Status information - now using updatedAt instead of approvedAt */}
                 {visitor.status !== 'pending' && visitor.updatedAt && (

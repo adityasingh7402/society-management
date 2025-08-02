@@ -1,6 +1,18 @@
 import mongoose from 'mongoose';
 
+// Function to generate 10-digit reference number
+const generateReferenceNumber = () => {
+  const timestamp = Date.now().toString();
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return (timestamp.slice(-7) + random).slice(-10);
+};
+
 const MaintenanceTicketSchema = new mongoose.Schema({
+  referenceNumber: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
   title: {
     type: String,
     required: [true, 'Please provide a title for the ticket'],
@@ -26,7 +38,7 @@ const MaintenanceTicketSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Pending', 'Approved', 'Assigned', 'In Progress', 'Completed', 'Rejected'],
+    enum: ['Pending', 'Approved', 'Assigned', 'In Progress', 'Completed', 'Resolved', 'Rejected'],
     default: 'Pending'
   },
   images: [{
@@ -65,6 +77,38 @@ const MaintenanceTicketSchema = new mongoose.Schema({
     isAdmin: {
       type: Boolean,
       default: false
+    },
+    userType: {
+      type: String,
+      enum: ['resident', 'society'],
+      required: true
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true
+    },
+    // Additional fields for residents
+    flatNumber: {
+      type: String
+    },
+    userImage: {
+      type: String
+    },
+    // Additional fields for society members
+    role: {
+      type: String
+    },
+    // Optional attachments
+    attachments: [{
+      type: String // URLs to uploaded files/images
+    }],
+    // For tracking comment status
+    isEdited: {
+      type: Boolean,
+      default: false
+    },
+    editedAt: {
+      type: Date
     }
   }],
   statusHistory: [{
@@ -82,5 +126,21 @@ const MaintenanceTicketSchema = new mongoose.Schema({
     }
   }]
 }, { timestamps: true });
+
+// Pre-save middleware to auto-generate reference number
+MaintenanceTicketSchema.pre('save', async function(next) {
+  if (!this.referenceNumber) {
+    let isUnique = false;
+    while (!isUnique) {
+      const refNumber = generateReferenceNumber();
+      const existingTicket = await mongoose.models.MaintenanceTicket.findOne({ referenceNumber: refNumber });
+      if (!existingTicket) {
+        this.referenceNumber = refNumber;
+        isUnique = true;
+      }
+    }
+  }
+  next();
+});
 
 export default mongoose.models.MaintenanceTicket || mongoose.model('MaintenanceTicket', MaintenanceTicketSchema);

@@ -1,5 +1,4 @@
-import connectDB from '../../../lib/mongodb';
-import MessageG from '../../../models/MessageG';
+// In your /api/Message-Api/sendMessage.js file, add discussionId support:
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -8,23 +7,20 @@ export default async function handler(req, res) {
 
   try {
     await connectDB();
-    
-    const { societyCode, senderId, senderName, content, isSociety } = req.body;
-    console.log(req.body)
-    console.log("Society Code:", societyCode)
-    
-    if (!societyCode || !senderId || !senderName || !content) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
+    const { societyCode, senderId, senderName, content, isSociety, discussionId } = req.body;
 
-    const message = await MessageG.create({
-      societyId: societyCode, // Map societyCode to societyId in the MessageG model
+    const message = new Message({
+      societyId: societyCode,
       senderId,
       senderName,
       content,
-      isSociety
+      isSociety: isSociety || false,
+      discussionId: discussionId || null, // Add discussionId field
+      timestamp: new Date(),
+      isDeleted: false
     });
 
+    await message.save();
     res.status(201).json({ success: true, message });
   } catch (error) {
     console.error('Error sending message:', error);

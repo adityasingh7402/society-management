@@ -879,11 +879,10 @@ const PropertyMarketplace = () => {
                           )}
 
                           {/* Status Tag */}
-                          <div className={`absolute top-3 left-3 px-3 py-1 text-xs font-medium rounded-full shadow-lg ${
-                            property.status === 'Available' ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white' :
-                            property.status === 'Under Contract' ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white' :
-                            'bg-gradient-to-r from-red-500 to-red-600 text-white'
-                          }`}>
+                          <div className={`absolute top-3 left-3 px-3 py-1 text-xs font-medium rounded-full shadow-lg ${property.status === 'Available' ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white' :
+                              property.status === 'Under Contract' ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white' :
+                                'bg-gradient-to-r from-red-500 to-red-600 text-white'
+                            }`}>
                             {property.status}
                           </div>
 
@@ -978,7 +977,8 @@ const PropertyMarketplace = () => {
                             {/* Actions */}
                             <div className="flex items-center space-x-3">
                               <div className="flex items-center space-x-1 text-gray-500">
-                                <Heart size={14} />
+                                <Heart size={14} className={isLikedByUser(property) ? 'text-red-500' : 'text-gray-500'}
+                                  fill={isLikedByUser(property) ? 'currentColor' : 'none'} />
                                 <span className="text-xs font-medium">{property.likes?.length || 0}</span>
                               </div>
                               {unreadMessages[property._id] > 0 && (

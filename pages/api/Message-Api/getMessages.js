@@ -1,5 +1,4 @@
-import connectDB from '../../../lib/mongodb';
-import MessageG from '../../../models/MessageG';
+// In your /api/Message-Api/getMessages.js file, modify it to:
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -8,13 +7,19 @@ export default async function handler(req, res) {
 
   try {
     await connectDB();
-    const { societyId } = req.query;
-    
+    const { societyId, discussionId } = req.query;
+
     if (!societyId) {
       return res.status(400).json({ message: 'Society ID is required' });
     }
 
-    const messages = await MessageG.find({ societyId })
+    // Create filter - if discussionId is provided, filter by it
+    let filter = { societyId };
+    if (discussionId) {
+      filter.discussionId = discussionId;
+    }
+
+    const messages = await Message.find(filter)
       .sort({ timestamp: 1 })
       .lean();
 

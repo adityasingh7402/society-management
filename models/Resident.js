@@ -57,6 +57,44 @@ const residentSchema = new mongoose.Schema({
     approvedAt: { type: Date }
   },
   
+  // Members array similar to Society.members (for family members, tenants)
+  members: [{
+    name: { type: String, required: true },
+    phone: { type: String, required: true },
+    email: { type: String, required: true },
+    role: { 
+      type: String, 
+      required: true,
+      enum: ['admin', 'family_member', 'tenant'],
+      default: 'family_member'
+    },
+    status: {
+      type: String,
+      enum: ['active', 'inactive'],
+      default: 'active'
+    },
+    fcmTokens: [String], // FCM tokens for this member
+    lastTokenUpdate: Date, // Last time FCM token was updated
+    // Reference fields from parent resident
+    residentId: { type: String }, // Parent resident's residentId
+    societyName: { type: String }, // Parent resident's society name
+    societyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Society' }, // Parent resident's society ID
+    flatDetails: {
+      blockName: { type: String },
+      floorIndex: { type: Number },
+      flatNumber: { type: String },
+      structureType: { type: String }
+    },
+    addedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Resident'
+    },
+    addedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  
   // Wallet Reference
   walletId: {
     type: mongoose.Schema.Types.ObjectId,

@@ -1,18 +1,70 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
+import { Check, CheckCheck, X, ArrowLeft, Send, MessageSquare, User, Clock, Loader2, ZoomIn, ZoomOut, Download, Maximize2, Minimize2, Image as ImageIcon, Paperclip, Shield, Trash2, AlertTriangle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import { setupWebSocket } from '../../../services/CommunityService';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { usePermissions } from "../../../components/PermissionsContext";
 import AccessDenied from "../widget/societyComponents/accessRestricted";
 
-export default function SocietyChat() {
+export default function SocietyDiscussionForm() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [messageStatus, setMessageStatus] = useState({});
   const [error, setError] = useState(null);
+  const [sending, setSending] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [isUserAtBottom, setIsUserAtBottom] = useState(true);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [discussionTopic, setDiscussionTopic] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
+
+  // Socket state
+  const socketRef = useRef(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [socketError, setSocketError] = useState(false);
+  const [socketLoading, setSocketLoading] = useState(true);
+
+  // Image viewer states
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [currentImage, setCurrentImage] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
   const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const imageRef = useRef(null);
+  const inputRef = useRef(null);
   const router = useRouter();
+
+  // Get discussion ID from router query
+  const { discussionId } = router.query;
+
+  // Check permissions
+  const permissions = usePermissions();
+  const hasDiscussionAccess = permissions.includes("manage_discussions") || permissions.includes("full_access");
+
+  // Check if user is near bottom of messages
+  const checkIfUserAtBottom = () => {
+    if (!chatContainerRef.current) return true;
+    
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    const threshold = 100; // pixels from bottom
+    return scrollHeight - scrollTop - clientHeight < threshold;
+  };
+
+  // Handle scroll to track user position
+  const handleScroll = () => {
+    setIsUserAtBottom(checkIfUserAtBottom());
+  };
 
   const generateResidentColor = (userId) => {
     const numericId = typeof userId === 'string' ?
@@ -24,99 +76,415 @@ export default function SocietyChat() {
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   };
 
+  // Smart auto-scroll: only scroll if user is at bottom or it's first load
   useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        const token = localStorage.getItem('Society');
-        if (!token) {
-          router.push('/societyLogin');
-          return;
-        }
+    if (messagesEndRef.current && (isUserAtBottom || isFirstLoad)) {
+      const shouldSmoothScroll = !isFirstLoad;
+      
+      messagesEndRef.current?.scrollIntoView({
+        behavior: shouldSmoothScroll ? 'smooth' : 'auto',
+        block: 'end'
+      });
 
-        const userResponse = await fetch('/api/Society-Api/get-society-details', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!userResponse.ok) throw new Error('Failed to fetch profile');
-        const userData = await userResponse.json();
-
-        setCurrentUser({
-          id: userData.societyId,
-          name: userData.societyName,
-          isSociety: true
-        });
-
-        const messagesResponse = await fetch(`/api/Message-Api/getMessages?societyId=${userData.societyId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!messagesResponse.ok) {
-          const errorData = await messagesResponse.json();
-          throw new Error(errorData.message || 'Failed to fetch messages');
-        }
-
-        const messagesData = await messagesResponse.json();
-        setMessages(messagesData.messages);
-        setError(null);
-      } catch (err) {
-        setError(err.message);
-        console.error('Error:', err);
-      } finally {
-        setLoading(false);
+      if (isFirstLoad && messages.length > 0) {
+        setIsFirstLoad(false);
       }
+    }
+  }, [messages, isFirstLoad, isUserAtBottom]);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'auto';
     };
+  }, []);
 
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
-    return () => clearInterval(interval);
-  }, [router]);
+  // Initial data fetch
+  useEffect(() => {
+    if (discussionId) {
+      fetchSocietyData();
+    }
+  }, [router, discussionId]);
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
-  
+  // Socket setup after society data is loaded
+  useEffect(() => {
+    if (currentUser && currentUser.id && discussionId) {
+      const setupSocket = () => {
+        setSocketLoading(true);
+        // Clear previous socket if it exists
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        }
+        
+        // Connect to socket.io endpoint
+        fetch('/api/socketio')
+          .then(() => {
+            // Socket.io endpoint is available
+          })
+          .catch(error => {
+            // Error pinging socket.io endpoint
+          })
+          .finally(() => {
+            createSocket();
+          });
+      };
+
+      const createSocket = () => {
+        const socket = setupWebSocket(
+          {
+            _id: currentUser.id,
+            name: currentUser.name,
+            societyCode: currentUser.societyCode || currentUser.id,
+            isSociety: true
+          }, 
+          handleIncomingMessage,
+          updateMessageStatus,
+          markMessagesAsReadByRecipient
+        );
+        
+        // Only set socket ref and add listeners if socket was created
+        if (socket) {
+          socketRef.current = socket;
+          
+          // Join discussion room
+          socket.emit('join_discussion_room', {
+            discussionId: discussionId,
+            societyCode: currentUser.societyCode || currentUser.id,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            isSociety: true
+          });
+          
+          // Add socket connection state handlers
+          socket.on('connect', () => {
+            setSocketConnected(true);
+            setSocketError(false);
+            setSocketLoading(false);
+          });
+          
+          socket.on('connect_error', (error) => {
+            setSocketConnected(false);
+            setSocketError(true);
+            setSocketLoading(false);
+            
+            // Show error message to user
+            toast.error('Unable to connect to discussion server. Please try refreshing the page.', {
+              duration: 5000,
+              id: 'socket-error',
+            });
+          });
+          
+          socket.on('disconnect', (reason) => {
+            setSocketConnected(false);
+            setSocketError(true);
+            setSocketLoading(false);
+            
+            // Show appropriate message based on disconnect reason
+            if (reason === 'io server disconnect') {
+              // Auth error
+              toast.error('Your session has expired. Please log in again.', {
+                duration: 5000,
+                id: 'session-expired',
+              });
+            }
+          });
+          
+          socket.on('reconnect', () => {
+            setSocketConnected(true);
+            setSocketError(false);
+            setSocketLoading(false);
+          });
+          
+          socket.on('auth_error', (data) => {
+            setSocketConnected(false);
+            setSocketError(true);
+            setSocketLoading(false);
+            
+            // Check if token issue and show appropriate message
+            if (data.message.includes('token') || data.message.includes('auth')) {
+              toast.error('Authentication error. Please refresh the page or log in again.', {
+                duration: 5000,
+                id: 'auth-error',
+              });
+            }
+          });
+          
+          // Set a timeout to stop the loading indicator if it takes too long
+          setTimeout(() => {
+            setSocketLoading(false);
+          }, 5000);
+        } else {
+          // No socket was created, likely due to missing token
+          setSocketConnected(false);
+          setSocketError(true);
+          setSocketLoading(false);
+          
+          // Show error message to user
+          toast.error('Failed to connect to discussion. Please try refreshing the page.', {
+            duration: 5000,
+          });
+        }
+      };
+      
+      // Start the initial socket setup
+      setupSocket();
+      
+      return () => {
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+        }
+      };
+    }
+  }, [currentUser, discussionId]);
+
+  // Fetch messages after user data is loaded
+  useEffect(() => {
+    if (currentUser && discussionId) {
+      fetchDiscussionMessages();
+    }
+  }, [currentUser, discussionId]);
+
+  const fetchSocietyData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      const userResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!userResponse.ok) throw new Error('Failed to fetch profile');
+      const userData = await userResponse.json();
+
+      const userObj = {
+        id: userData.societyId,
+        name: userData.societyName,
+        societyCode: userData.societyId,
+        isSociety: true
+      };
+      
+      setCurrentUser(userObj);
+
+      // Fetch discussion details
+      const discussionResponse = await fetch(`/api/Discussion-Api/getDiscussion?discussionId=${discussionId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (discussionResponse.ok) {
+        const discussionData = await discussionResponse.json();
+        setDiscussionTopic(discussionData.discussion.topic || 'Discussion');
+      }
+    } catch (error) {
+      console.error('Error fetching society details:', error);
+      setError('Failed to load your profile');
+      setLoading(false);
+    }
+  };
+
+  const fetchDiscussionMessages = async () => {
+    try {
+      setLoadingMessages(true);
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        toast.error('Please log in again');
+        router.push('/societyLogin');
+        return;
+      }
+
+      const messagesResponse = await fetch(`/api/Discussion-Api/getDiscussionMessages?discussionId=${discussionId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!messagesResponse.ok) {
+        const errorData = await messagesResponse.json();
+        throw new Error(errorData.message || 'Failed to fetch discussion messages');
+      }
+
+      const messagesData = await messagesResponse.json();
+      setMessages(messagesData.messages || []);
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching discussion messages:', error);
+      toast.error('Failed to load discussion messages');
+    } finally {
+      setLoadingMessages(false);
+      setLoading(false);
+    }
+  };
+
+  // Socket message handlers
+  const handleIncomingMessage = (message) => {
+    const { from, text, timestamp, id, media, senderName, isSociety, discussionId: msgDiscussionId } = message;
+    
+    // Only handle messages for this discussion
+    if (msgDiscussionId !== discussionId) return;
+    
+    // Update messages state - ensure we don't add duplicates by checking message ID
+    setMessages(prevMessages => {
+      const isMessageExists = prevMessages.some(msg => msg._id === id);
+      
+      // If message already exists, don't add it again
+      if (isMessageExists) return prevMessages;
+      
+      const newMessage = {
+        _id: id,
+        senderId: from,
+        senderName: senderName,
+        content: text,
+        timestamp: timestamp,
+        isSociety: isSociety || false,
+        isDeleted: false,
+        media,
+        discussionId: msgDiscussionId
+      };
+      
+      const updatedMessages = [...prevMessages, newMessage];
+      
+      // Update UI immediately
+      setTimeout(() => {
+        const messageContainer = document.querySelector('.chat-messages');
+        if (messageContainer) {
+          messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+      }, 50);
+      
+      return updatedMessages;
+    });
+  };
+
+  const updateMessageStatus = (data) => {
+    const { messageId, status } = data;
+    
+    // Update message status in message state
+    setMessageStatus(prev => ({
+      ...prev,
+      [messageId]: status
+    }));
+    
+    // Also update message object in the messages state
+    setMessages(prevMessages => {
+      return prevMessages.map(msg => {
+        if (msg._id === messageId) {
+          return {
+            ...msg,
+            status
+          };
+        }
+        return msg;
+      });
+    });
+  };
+
+  const markMessagesAsReadByRecipient = (data) => {
+    console.log('Messages marked as read:', data);
+  };
+
+  const handleSendMessage = async (e) => {
+    if (e) e.preventDefault();
+    if (!newMessage.trim() && selectedFiles.length === 0) return;
+    if (sending) return;
+
+    setSending(true);
     const tempId = Date.now().toString();
-    setMessageStatus(prev => ({ ...prev, [tempId]: 'sending' }));
     
     try {
-      const response = await fetch('/api/Message-Api/sendMessage', {
+      // Optimistically add message to UI
+      const optimisticMessage = {
+        _id: tempId,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        content: newMessage,
+        timestamp: new Date().toISOString(),
+        isSociety: currentUser.isSociety,
+        isDeleted: false,
+        discussionId: discussionId
+      };
+      
+      setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+      setMessageStatus(prev => ({ ...prev, [tempId]: 'sending' }));
+
+      const response = await fetch('/api/Discussion-Api/sendDiscussionMessage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          societyCode: currentUser.id,
+          discussionId: discussionId,
           senderId: currentUser.id,
           senderName: currentUser.name,
           content: newMessage,
           isSociety: currentUser.isSociety
         }),
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to send message');
       }
-      
+
       const data = await response.json();
-      setMessages([...messages, data.message]);
+      
+      // Replace the optimistic message with the real one
+      setMessages(prev => 
+        prev.map(msg => msg._id === tempId ? data.message : msg)
+      );
+      
+      // Emit message via socket if available
+      if (socketRef.current) {
+        socketRef.current.emit('discussion_message', {
+          discussionId: discussionId,
+          from: currentUser.id,
+          senderName: currentUser.name,
+          text: newMessage,
+          messageId: data.message._id,
+          timestamp: data.message.timestamp,
+          isSociety: currentUser.isSociety
+        });
+      }
+
       setMessageStatus(prev => ({ ...prev, [data.message._id]: 'sent' }));
       setNewMessage('');
-    } catch (err) {
-      console.error('Error sending message:', err);
+      setSelectedFiles([]);
+      setIsUserAtBottom(true); // Ensure we scroll to new message
+      
+      // Focus back on input
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Error sending message:', error);
       setMessageStatus(prev => ({ ...prev, [tempId]: 'failed' }));
+      toast.error('Failed to send message');
+    } finally {
+      setSending(false);
     }
   };
 
-  const handleDeleteMessage = async (messageId) => {
-    if (!window.confirm('Are you sure you want to delete this message?')) return;
+  const confirmDeleteMessage = (messageId, senderName) => {
+    setMessageToDelete({ id: messageId, senderName });
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!messageToDelete) return;
 
     try {
-      const response = await fetch('/api/Message-Api/deleteMessage', {
+      const response = await fetch('/api/Discussion-Api/deleteDiscussionMessage', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageId }),
+        body: JSON.stringify({ 
+          messageId: messageToDelete.id,
+          discussionId: discussionId,
+          deletedBy: currentUser.id
+        }),
       });
 
       if (!response.ok) {
@@ -126,33 +494,85 @@ export default function SocietyChat() {
 
       const data = await response.json();
       setMessages(messages.map(msg =>
-        msg._id === messageId ? data.message : msg
+        msg._id === messageToDelete.id ? data.message : msg
       ));
+      
+      // Emit delete message event via socket
+      if (socketRef.current) {
+        socketRef.current.emit('discussion_message_deleted', {
+          discussionId: discussionId,
+          messageId: messageToDelete.id,
+          deletedBy: currentUser.id
+        });
+      }
+
+      toast.success('Message deleted successfully');
     } catch (err) {
       console.error('Error deleting message:', err);
+      toast.error('Failed to delete message');
+    } finally {
+      setShowDeleteModal(false);
+      setMessageToDelete(null);
     }
   };
+
+  const openImageViewer = (imageUrl) => {
+    setCurrentImage(imageUrl);
+    setViewerOpen(true);
+    setZoomLevel(1);
+    setPosition({ x: 0, y: 0 });
+    document.body.style.overflow = 'hidden';
+  };
+
+  const closeImageViewer = () => {
+    setViewerOpen(false);
+    setCurrentImage(null);
+    document.body.style.overflow = 'auto';
+  };
+
+  const handleZoom = (increment) => {
+    setZoomLevel(prevZoom => {
+      const newZoom = prevZoom + increment;
+      return Math.max(0.5, Math.min(3, newZoom));
+    });
+    if (increment < 0) {
+      setPosition({ x: 0, y: 0 });
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    const maxSize = 5 * 1024 * 1024;
+    const validFiles = files.filter(file => file.size <= maxSize);
+
+    if (validFiles.length !== files.length) {
+      toast.error(`File(s) too large. Maximum size is 5MB per file.`);
+    }
+
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+    }
+  };
+
+  const removeSelectedFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const MessageStatus = ({ messageId, senderId }) => {
     if (senderId !== currentUser?.id) return null;
-
+    
     const status = messageStatus[messageId] || 'sent';
-
+    
     return (
       <span className="ml-2">
         {status === 'sending' && (
-          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+          <Loader2 className="w-3 h-3 text-gray-400 animate-spin" />
         )}
         {status === 'sent' && (
-          <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7M5 13l4 4L19 7" />
-          </svg>
+          <CheckCheck className="w-3 h-3 text-blue-500" />
         )}
         {status === 'failed' && (
-          <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-3 h-3 text-red-500" />
         )}
       </span>
     );
@@ -202,16 +622,50 @@ export default function SocietyChat() {
     });
   };
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const shouldShowAvatar = (message, index, dayMessages) => {
+    if (index === 0) return true;
+    if (message.senderId === currentUser?.id) return false;
 
-  const permissions = usePermissions();
-  if (!permissions.includes("manage_notices") && !permissions.includes("full_access")) {
+    const prevMessage = dayMessages[index - 1];
+    return prevMessage.senderId !== message.senderId ||
+      new Date(message.timestamp) - new Date(prevMessage.timestamp) > 300000;
+  };
+
+  // Render image if message has one
+  const renderMessageContent = (message) => {
+    if (message.isDeleted) {
+      return <span className="inline-flex items-center gap-2 italic opacity-60">
+        <Trash2 className="w-3 h-3" />
+        This message was deleted by society admin
+      </span>;
+    }
+    
+    return (
+      <>
+        {/* Check if message has an image/media */}
+        {message.media && message.media.type && message.media.type.startsWith('image/') && (
+          <div className="mb-2">
+            <motion.img 
+              src={message.media.url} 
+              alt="Shared image" 
+              className="max-w-full rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => openImageViewer(message.media.url)}
+              whileHover={{ scale: 1.02 }}
+            />
+          </div>
+        )}
+        {message.content && <div className="whitespace-pre-line">{message.content}</div>}
+      </>
+    );
+  };
+
+  // Check permissions
+  if (!hasDiscussionAccess) {
     return <AccessDenied />;
   }
 
-  if (loading) {
+  // Show loading screen until all essential data is loaded
+  if (loading || !currentUser || loadingMessages) {
     return (
       <div className="container mx-auto p-4">
         <PreloaderSociety />
@@ -221,104 +675,546 @@ export default function SocietyChat() {
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center text-red-500">
-        Error: {error}
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-center min-h-screen bg-gray-50"
+      >
+        <div className="text-center bg-white p-8 rounded-2xl shadow-lg max-w-md mx-4">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"
+          >
+            <X className="w-8 h-8 text-red-500" />
+          </motion.div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">Something went wrong</h3>
+          <p className="text-red-500 mb-6">{error}</p>
+          <button
+            onClick={() => router.reload()}
+            className="inline-flex items-center gap-2 bg-blue-500 text-white px-6 py-3 rounded-full hover:bg-blue-600 transition-colors duration-200"
+          >
+            Try Again
+          </button>
+        </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      <div className="bg-white shadow-sm p-4 flex items-center sticky top-0 z-10">
-        <h1 className="text-xl font-semibold text-gray-800">Society Chat</h1>
-        <span className="ml-2 text-sm text-gray-500">({messages.length} messages)</span>
-      </div>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="flex flex-col bg-gray-50 relative overflow-hidden h-screen"
+    >
+      {/* Chat Header */}
+      <motion.div
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="bg-white shadow-sm border-b border-gray-100 px-4 py-3 relative z-10"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.back()}
+              className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors duration-200"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5 text-gray-700" />
+            </motion.button>
 
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, duration: 0.3 }}
+              className="relative"
+            >
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="h-11 w-11 rounded-full bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center relative border-2 border-white shadow-lg"
+              >
+                <MessageSquare className="text-white h-6 w-6" />
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                    socketConnected ? 'bg-green-400' : socketError ? 'bg-red-400' : 'bg-yellow-400'
+                  }`}
+                />
+              </motion.div>
+            </motion.div>
+
+            <motion.div
+              initial={{ x: -10, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.3 }}
+            >
+              <h2 className="font-semibold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+                <Shield className="w-4 h-4 text-blue-600" />
+                {discussionTopic || 'Discussion'}
+              </h2>
+              <p className="text-xs text-gray-500">
+                {socketLoading ? 'Connecting...' : 
+                 socketConnected ? 'Connected • Society Admin' : 
+                 socketError ? 'Connection error' : 'Offline'}
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Chat Messages */}
       <div
-        className="flex-1 overflow-y-auto p-4 space-y-4"
+        ref={chatContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-white chat-messages"
         style={{
-          backgroundImage: 'url("/whatsapp-bg-light.png")',
-          backgroundRepeat: 'repeat'
+          minHeight: 0,
+          scrollBehavior: 'smooth'
         }}
       >
-        {Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
-          <div key={date} className="space-y-2">
-            <div className="flex justify-center">
-              <span className="bg-gray-200 text-gray-600 text-xs px-4 py-1 rounded-full">
-                {formatDateHeader(date)}
-              </span>
-            </div>
-
-            {dateMessages.map((message) => (
-              <div
-                key={message._id}
-                className={`flex ${message.senderId === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+        <AnimatePresence mode="wait">
+          {loadingMessages ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="h-full flex flex-col items-center justify-center text-center"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-8 h-8 border-3 border-green-500 border-t-transparent rounded-full mb-4"
+              />
+              <p className="text-gray-600 font-medium">Loading discussion...</p>
+            </motion.div>
+          ) : messages.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="h-full flex flex-col items-center justify-center text-center"
+            >
+              <motion.div
+                animate={{
+                  y: [0, -10, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="h-20 w-20 rounded-full bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center mb-4 shadow-lg"
               >
-                <div
-                  className={`max-w-[70%] rounded-lg p-3 ${message.senderId === currentUser?.id
-                    ? 'bg-[#dcf8c6]'
-                    : 'bg-white'
-                    }`}
-                >
-                  <div
-                    className="text-sm font-semibold mb-1"
-                    style={{
-                      color: message.isSociety ? '#1a73e8' :
-                        generateResidentColor(message.senderId)
-                    }}
+                <MessageSquare className="h-10 w-10 text-white" />
+              </motion.div>
+              <p className="text-gray-800 font-medium text-lg">No messages yet</p>
+              <p className="text-gray-500 mt-1">Start the discussion as society admin! 💬</p>
+            </motion.div>
+          ) : (
+            Object.entries(groupMessagesByDate(messages)).map(([date, dateMessages]) => (
+              <motion.div
+                key={date}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-3"
+              >
+                <div className="flex justify-center">
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-gray-100 text-gray-600 text-xs px-3 py-1.5 rounded-full font-medium shadow-sm"
                   >
-                    {message.senderName}
-                  </div>
-
-                  <div className="text-gray-800">
-                    {message.isDeleted ? (
-                      <span className="italic text-gray-500">This message was deleted</span>
-                    ) : (
-                      message.content
-                    )}
-                  </div>
-
-                  <div className="flex justify-between items-center mt-1">
-                    <div className="flex items-center text-xs text-gray-500">
-                      {formatMessageTime(message.timestamp)}
-                      <MessageStatus messageId={message._id} senderId={message.senderId} />
-                    </div>
-                    {!message.isDeleted && message.senderId === currentUser?.id && (
-                      <button
-                        onClick={() => handleDeleteMessage(message._id)}
-                        className="text-gray-400 hover:text-red-500 text-xs"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
+                    {formatDateHeader(new Date(date))}
+                  </motion.div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ))}
+
+                <AnimatePresence>
+                  {dateMessages.map((message, index) => {
+                    const isCurrentUserMessage = message.senderId === currentUser?.id;
+                    
+                    return (
+                      <motion.div
+                        key={message._id || index}
+                        initial={{
+                          opacity: 0,
+                          x: isCurrentUserMessage ? 20 : -20,
+                          scale: 0.95
+                        }}
+                        animate={{
+                          opacity: 1,
+                          x: 0,
+                          scale: 1
+                        }}
+                        transition={{
+                          duration: 0.3,
+                          delay: index * 0.05
+                        }}
+                        className={`flex ${isCurrentUserMessage ? 'justify-end' : 'justify-start'} items-end space-x-2 group`}
+                      >
+                        {!isCurrentUserMessage && shouldShowAvatar(message, index, dateMessages) && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: index * 0.05 + 0.1 }}
+                            className="h-7 w-7 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm relative"
+                            style={{ backgroundColor: generateResidentColor(message.senderId) }}
+                          >
+                            <span className="text-white text-xs font-medium">
+                              {message.senderName?.charAt(0).toUpperCase()}
+                            </span>
+                            {message.isSociety && (
+                              <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-0.5">
+                                <Shield className="w-2 h-2 text-white" />
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+
+                        {!isCurrentUserMessage && !shouldShowAvatar(message, index, dateMessages) && (
+                          <div className="w-7"></div>
+                        )}
+
+                        <div className="max-w-[280px] sm:max-w-[320px] space-y-1 relative">
+                          {!isCurrentUserMessage && shouldShowAvatar(message, index, dateMessages) && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.05 + 0.15 }}
+                              className="text-xs text-gray-500 font-medium ml-1 flex items-center gap-1"
+                            >
+                              {message.senderName}
+                              {message.isSociety && (
+                                <Shield className="w-3 h-3 text-blue-600" />
+                              )}
+                            </motion.div>
+                          )}
+
+                          <motion.div
+                            whileHover={{ scale: 1.02 }}
+                            className={`px-4 py-2.5 rounded-[18px] shadow-sm transition-all duration-200 relative ${
+                              isCurrentUserMessage
+                                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white'
+                                : message.isSociety
+                                ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-gray-800 border border-blue-200'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {renderMessageContent(message)}
+                            
+                            {/* Society admin delete button - can delete any message */}
+                            {!message.isDeleted && (
+                              <motion.button
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => confirmDeleteMessage(message._id, message.senderName)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200"
+                                title="Delete message (Society Admin)"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </motion.button>
+                            )}
+                          </motion.div>
+
+                          <div className={`flex items-center text-xs ${isCurrentUserMessage ? 'justify-end' : 'justify-start'}`}>
+                            <span className="text-gray-400">
+                              {formatMessageTime(message.timestamp)}
+                            </span>
+                            {isCurrentUserMessage && (
+                              <MessageStatus messageId={message._id} senderId={message.senderId} />
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </motion.div>
+            ))
+          )}
+        </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="bg-white p-4 shadow-lg">
-        <div className="flex space-x-2">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-            placeholder="Type a message..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!newMessage.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      {/* Selected Files Preview */}
+      <AnimatePresence>
+        {selectedFiles.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white border-t border-gray-100 p-3"
           >
-            Send
-          </button>
-        </div>
-      </div>
-    </div>
+            <div className="flex overflow-x-auto space-x-2 pb-1">
+              {selectedFiles.map((file, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="relative flex-shrink-0 group"
+                >
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    className="h-14 w-14 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 shadow-sm"
+                  >
+                    {file.type.startsWith('image/') ? (
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`Preview ${index}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <Paperclip className="h-6 w-6 text-gray-400" />
+                      </div>
+                    )}
+                  </motion.div>
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => removeSelectedFile(index)}
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 shadow-lg"
+                    disabled={sending}
+                  >
+                    <X className="h-3 w-3" />
+                  </motion.button>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Message Input */}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+        className="p-3 bg-white border-t border-gray-100 relative z-10"
+      >
+        <form onSubmit={handleSendMessage}>
+          <div className="flex items-center bg-gray-50 rounded-full overflow-hidden shadow-sm border border-gray-200 transition-all duration-200 focus-within:shadow-md focus-within:border-green-300">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => fileInputRef.current?.click()}
+              className="p-3 text-gray-500 hover:text-green-500 transition-colors duration-200"
+              disabled={sending}
+            >
+              <ImageIcon size={20} />
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                className="hidden"
+                multiple
+                accept="image/*,video/*,audio/*,application/pdf"
+                disabled={sending}
+              />
+            </motion.button>
+
+            <input
+              ref={inputRef}
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage(e)}
+              placeholder="Share your thoughts in the discussion..."
+              className="flex-1 py-3 px-2 bg-transparent focus:outline-none text-gray-700 placeholder-gray-400"
+              disabled={sending}
+            />
+
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              disabled={sending || (!newMessage.trim() && !selectedFiles.length)}
+              className={`p-3 transition-colors duration-200 ${sending || (!newMessage.trim() && !selectedFiles.length)
+                  ? 'text-gray-400'
+                  : 'text-green-500 hover:text-green-600'
+                }`}
+            >
+              {sending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send size={20} />
+              )}
+            </motion.button>
+          </div>
+        </form>
+      </motion.div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowDeleteModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"
+                >
+                  <AlertTriangle className="w-8 h-8 text-red-500" />
+                </motion.div>
+                
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Delete Message</h3>
+                <p className="text-gray-600 mb-2">
+                  Are you sure you want to delete this message from{' '}
+                  <span className="font-medium text-gray-800">{messageToDelete?.senderName}</span>?
+                </p>
+                <p className="text-sm text-gray-500 mb-6">
+                  This action cannot be undone. As society admin, you can delete any message.
+                </p>
+                
+                <div className="flex gap-3 justify-center">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowDeleteModal(false)}
+                    className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors duration-200"
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleDeleteMessage}
+                    className="px-6 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-200 font-medium"
+                  >
+                    Delete Message
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Image Viewer */}
+      <AnimatePresence>
+        {viewerOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center"
+            onClick={closeImageViewer}
+          >
+            <div
+              className="relative w-full h-full flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <motion.button
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={closeImageViewer}
+                className="absolute top-4 right-4 text-white hover:text-gray-300 z-10 bg-black/50 p-2 rounded-full"
+                aria-label="Close viewer"
+              >
+                <X size={24} />
+              </motion.button>
+
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/70 backdrop-blur-sm rounded-full py-2 px-4 flex items-center space-x-4 z-10"
+              >
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => handleZoom(-0.2)}
+                  className="text-white hover:text-gray-300 disabled:opacity-50 transition-colors duration-200"
+                  disabled={zoomLevel <= 0.5}
+                  aria-label="Zoom out"
+                >
+                  <ZoomOut size={18} />
+                </motion.button>
+
+                <span className="text-white text-sm font-medium">{Math.round(zoomLevel * 100)}%</span>
+
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => handleZoom(0.2)}
+                  className="text-white hover:text-gray-300 disabled:opacity-50 transition-colors duration-200"
+                  disabled={zoomLevel >= 3}
+                  aria-label="Zoom in"
+                >
+                  <ZoomIn size={18} />
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setZoomLevel(1)}
+                  className="text-white hover:text-gray-300 ml-2 transition-colors duration-200"
+                  aria-label="Reset zoom"
+                >
+                  {zoomLevel > 1 ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                </motion.button>
+              </motion.div>
+
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                ref={imageRef}
+                className={`transform transition-transform duration-200 ${isDragging ? 'cursor-grabbing' : zoomLevel > 1 ? 'cursor-grab' : 'cursor-default'}`}
+                style={{
+                  transform: `scale(${zoomLevel}) translate(${position.x / zoomLevel}px, ${position.y / zoomLevel}px)`,
+                }}
+                onMouseDown={(e) => {
+                  if (zoomLevel <= 1) return;
+                  setIsDragging(true);
+                  setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+                }}
+                onMouseMove={(e) => {
+                  if (!isDragging) return;
+                  setPosition({
+                    x: e.clientX - dragStart.x,
+                    y: e.clientY - dragStart.y
+                  });
+                }}
+                onMouseUp={() => setIsDragging(false)}
+                onMouseLeave={() => setIsDragging(false)}
+              >
+                <img
+                  src={currentImage}
+                  alt="Enlarged view"
+                  className="max-h-[85vh] max-w-[90vw] object-contain shadow-2xl rounded-lg"
+                  draggable="false"
+                />
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

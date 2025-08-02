@@ -34,6 +34,17 @@ html {
   background: #f1f1f1; /* Background color of the track */
 }
 
+/* tailwind input number arrow remover */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+
 /* Firefox */
 * {
   scrollbar-width: thin;  /* Makes scrollbar thin */

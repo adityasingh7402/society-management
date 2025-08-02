@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Loader2, Building, Ticket } from 'lucide-react';
+import { Loader2, Building, Ticket, Eye } from 'lucide-react';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { usePermissions } from "../../../components/PermissionsContext";
 import AccessDenied from "../widget/societyComponents/accessRestricted";
+import MaintenanceDetailsPopup from '../../../components/MaintenanceDetailsPopup';
 
 export default function Tickets() {
   const permissions = usePermissions();
@@ -21,6 +22,10 @@ export default function Tickets() {
   const [societyId, setSocietyId] = useState("");
   const [expandedRow, setExpandedRow] = useState(null);
   const [expandedImage, setExpandedImage] = useState(null);
+  
+  // State for popup
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [showDetailsPopup, setShowDetailsPopup] = useState(false);
 
   useEffect(() => {
     fetchTickets();
@@ -147,6 +152,18 @@ export default function Tickets() {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  // Handler for opening ticket details popup
+  const handleViewTicket = (ticket) => {
+    setSelectedTicket(ticket);
+    setShowDetailsPopup(true);
+  };
+
+  // Handler for closing ticket details popup
+  const handleClosePopup = () => {
+    setSelectedTicket(null);
+    setShowDetailsPopup(false);
   };
 
   // Add this state for active tab
@@ -397,23 +414,32 @@ export default function Tickets() {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <select
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      handleStatusChange(ticket._id, e.target.value);
-                                      e.target.value = "";
-                                    }
-                                  }}
-                                  className="block w-full pl-3 pr-10 py-1 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                                >
-                                  <option value="">Change Status</option>
-                                  <option value="Approved">Approve</option>
-                                  <option value="Assigned">Assign</option>
-                                  <option value="In Progress">In Progress</option>
-                                  <option value="Completed">Complete</option>
-                                  <option value="Rejected">Reject</option>
-                                </select>
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => handleViewTicket(ticket)}
+                                    className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                  >
+                                    <Eye className="mr-1 h-3 w-3" />
+                                    View
+                                  </button>
+                                  <select
+                                    value=""
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        handleStatusChange(ticket._id, e.target.value);
+                                        e.target.value = "";
+                                      }
+                                    }}
+                                    className="block w-full pl-3 pr-10 py-1 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                  >
+                                    <option value="">Change Status</option>
+                                    <option value="Approved">Approve</option>
+                                    <option value="Assigned">Assign</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Complete</option>
+                                    <option value="Rejected">Reject</option>
+                                  </select>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -544,23 +570,32 @@ export default function Tickets() {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <select
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      handleStatusChange(ticket._id, e.target.value);
-                                      e.target.value = "";
-                                    }
-                                  }}
-                                  className="block w-full pl-3 pr-10 py-1 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                                >
-                                  <option value="">Change Status</option>
-                                  <option value="Approved">Approve</option>
-                                  <option value="Assigned">Assign</option>
-                                  <option value="In Progress">In Progress</option>
-                                  <option value="Completed">Complete</option>
-                                  <option value="Rejected">Reject</option>
-                                </select>
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => handleViewTicket(ticket)}
+                                    className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                  >
+                                    <Eye className="mr-1 h-3 w-3" />
+                                    View
+                                  </button>
+                                  <select
+                                    value=""
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        handleStatusChange(ticket._id, e.target.value);
+                                        e.target.value = "";
+                                      }
+                                    }}
+                                    className="block w-full pl-3 pr-10 py-1 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                  >
+                                    <option value="">Change Status</option>
+                                    <option value="Approved">Approve</option>
+                                    <option value="Assigned">Assign</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Complete</option>
+                                    <option value="Rejected">Reject</option>
+                                  </select>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -595,6 +630,56 @@ export default function Tickets() {
           </>
         )}
       </main>
+
+      {/* Maintenance Details Popup */}
+      {showDetailsPopup && selectedTicket && (
+        <MaintenanceDetailsPopup
+          ticket={selectedTicket}
+          onClose={handleClosePopup}
+          onComment={async (ticket, comment) => {
+            try {
+              const token = localStorage.getItem('Society');
+              const response = await fetch(`/api/Maintenance-Api/add-comment`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  ticketId: ticket._id,
+                  comment: comment
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to add comment');
+              }
+
+              const data = await response.json();
+              
+              // Update the ticket in the state with the new comment from API response
+              const updatedTickets = tickets.map(t =>
+                t._id === ticket._id 
+                  ? {...t, comments: [...t.comments, data.data.newComment] }
+                  : t
+              );
+              setTickets(updatedTickets);
+              
+              // Update the selected ticket as well
+              setSelectedTicket(prev => ({
+                ...prev,
+                comments: [...prev.comments, data.data.newComment]
+              }));
+              
+              toast.success('Comment added successfully');
+            } catch (error) {
+              console.error('Error adding comment:', error);
+              toast.error('Failed to add comment');
+            }
+          }}
+          userRole="society"
+        />
+      )}
     </div>
   );
 }

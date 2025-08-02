@@ -28,14 +28,10 @@ export default async function handler(req, res) {
     } = req.query;
 
     // Build filter object
-    const filter = {};
+    const filter = { status: 'Delivered' };
 
     if (societyId) {
       filter.societyId = societyId;
-    }
-
-    if (status) {
-      filter.status = status;
     }
 
     if (deliveryCompany) {
