@@ -1,12 +1,12 @@
-import connectToDatabase from "../../../lib/mongodb.js";
-import mongoose from 'mongoose';
-import ScheduledBill from '../../../models/ScheduledBill.js';
-import UtilityBill from '../../../models/UtilityBill.js';
-import MaintenanceBill from '../../../models/MaintenanceBill.js';
-import AmenityBill from '../../../models/AmenityBill.js';
-import JournalVoucher from '../../../models/JournalVoucher.js';
-import Ledger from '../../../models/Ledger.js';
-import BillHead from '../../../models/BillHead.js'; // Added import for BillHead
+const connectToDatabase = require("../../../lib/mongodb.js");
+const mongoose = require('mongoose');
+const ScheduledBill = require('../../../models/ScheduledBill.js');
+const UtilityBill = require('../../../models/UtilityBill.js');
+const MaintenanceBill = require('../../../models/MaintenanceBill.js');
+const AmenityBill = require('../../../models/AmenityBill.js');
+const JournalVoucher = require('../../../models/JournalVoucher.js');
+const Ledger = require('../../../models/Ledger.js');
+const BillHead = require('../../../models/BillHead.js'); // Added import for BillHead
 
 // Helper function to generate unique voucher number with retries
 async function generateUniqueVoucherNumber(societyId, billHeadCode, date, residentId, session, retryCount = 0) {
@@ -73,7 +73,7 @@ async function generateUniqueVoucherNumber(societyId, billHeadCode, date, reside
   }
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -458,4 +458,7 @@ export default async function handler(req, res) {
     console.error('Error in generate-monthly-bills:', error);
     return res.status(500).json({ error: error.message || 'Internal server error' });
   }
-} 
+}
+
+module.exports = handler;
+module.exports.default = handler;
