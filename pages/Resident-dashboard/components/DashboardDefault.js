@@ -75,7 +75,7 @@ const AndroidDashboard = ({ onLoaded }) => {
           if (decoded && decoded.role) {
             setUserRole(decoded.role);
             // Only main residents can access wallet and bills
-            setIsAuthorized(decoded.role === 'resident');
+            set(decoded.role === 'resident');
           }
         }
       } catch (error) {
@@ -699,16 +699,7 @@ const AndroidDashboard = ({ onLoaded }) => {
   const fetchMaintenanceRequests = async () => {
     try {
       const token = localStorage.getItem("Resident");
-      if (!token) {
-        setLoadingStats(false);
-        return;
-      }
-
-      if (!residentDetails._id) {
-        console.log('No residentId found in resident details');
-        setLoadingStats(false);
-        return;
-      }
+      if (!token) return;
 
       const response = await fetch(`/api/Maintenance-Api/get-resident-tickets?residentId=${residentDetails._id}`, {
         headers: {
@@ -717,7 +708,7 @@ const AndroidDashboard = ({ onLoaded }) => {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json(); 
         const tickets = data.data || [];
         
         // Count open/pending requests - matching the JSON structure
@@ -727,15 +718,9 @@ const AndroidDashboard = ({ onLoaded }) => {
           ticket.status === 'In Progress'
         ).length || 0;
         setOpenRequests(openRequestsCount);
-      } else {
-        console.error('Failed to fetch maintenance requests:', response.status);
-        setOpenRequests(0);
       }
     } catch (error) {
       console.error('Error fetching maintenance requests:', error);
-      setOpenRequests(0);
-    } finally {
-      setLoadingStats(false);
     }
   };
 
@@ -864,8 +849,6 @@ const AndroidDashboard = ({ onLoaded }) => {
               </button>
             </div>
           </div>
-
-          {/* Notifications List */}
           <div className="divide-y divide-gray-100 max-h-[70vh] overflow-y-auto bg-gray-50">
             {/* Property Messages */}
             {propertyMessages.map((message) => (
