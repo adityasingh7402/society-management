@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from "next/router";
 import Link from 'next/link';
+import jwt from 'jsonwebtoken';
 import {
   UserCircle, Bell, MessageCircleMore, ShoppingCart, Siren,
   Wrench, PieChart, FileText, Home, ClipboardList, Package,
@@ -59,6 +60,34 @@ const AndroidDashboard = ({ onLoaded }) => {
   const DRAG_THRESHOLD = 50; // Minimum drag distance to trigger menu action
   const [greeting, setGreeting] = useState('');
   
+  // Role-based access control for main residents only
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Check user role on component mount
+  useEffect(() => {
+    const checkUserRole = () => {
+      try {
+        const token = localStorage.getItem('Resident');
+        if (token) {
+          const decoded = jwt.decode(token);
+          if (decoded && decoded.role) {
+            setUserRole(decoded.role);
+            // Only main residents can access wallet and bills
+            setIsAuthorized(decoded.role === 'resident');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking user role:', error);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkUserRole();
+  }, []);
+
   // Stats data
   const [walletBalance, setWalletBalance] = useState(0);
   const [totalPendingBills, setTotalPendingBills] = useState(0);
@@ -416,8 +445,8 @@ const AndroidDashboard = ({ onLoaded }) => {
     }
   ];
 
-  // Remove the state and localStorage logic and replace with static array
-  const quickLinks = [
+  // Role-based quickLinks
+  const quickLinks = userRole === 'resident' ? [
     {
       id: 'gateUpdates',
       icon: Bell,
@@ -449,6 +478,39 @@ const AndroidDashboard = ({ onLoaded }) => {
       href: '/Resident-dashboard/Community',
       color: 'bg-gradient-to-br from-purple-400 to-purple-600',
       shadowColor: 'shadow-purple-200'
+    }
+  ] : [
+    {
+      id: 'gateUpdates',
+      icon: Bell,
+      label: 'Gate Updates',
+      href: '/Resident-dashboard/components/VisitorEntry',
+      color: 'bg-gradient-to-br from-pink-400 to-pink-600',
+      shadowColor: 'shadow-pink-200'
+    },
+    {
+      id: 'propertyMarketplace',
+      icon: ClipboardList,
+      label: 'Property',
+      href: '/Resident-dashboard/components/PropertyMarketplace',
+      color: 'bg-gradient-to-br from-blue-400 to-blue-600',
+      shadowColor: 'shadow-blue-200'
+    },
+    {
+      id: 'productMarketplace',
+      icon: ShoppingCart,
+      label: 'Product',
+      href: '/Resident-dashboard/components/Marketplace',
+      color: 'bg-gradient-to-br from-yellow-400 to-yellow-600',
+      shadowColor: 'shadow-yellow-200'
+    },
+    {
+      id: 'announcements',
+      icon: Megaphone,
+      label: 'Notice',
+      href: '/Resident-dashboard/components/Announcements',
+      color: 'bg-gradient-to-br from-red-400 to-red-600',
+      shadowColor: 'shadow-red-200'
     }
   ];
 
@@ -637,7 +699,16 @@ const AndroidDashboard = ({ onLoaded }) => {
   const fetchMaintenanceRequests = async () => {
     try {
       const token = localStorage.getItem("Resident");
-      if (!token) return;
+      if (!token) {
+        setLoadingStats(false);
+        return;
+      }
+
+      if (!residentDetails._id) {
+        console.log('No residentId found in resident details');
+        setLoadingStats(false);
+        return;
+      }
 
       const response = await fetch(`/api/Maintenance-Api/get-resident-tickets?residentId=${residentDetails._id}`, {
         headers: {
@@ -656,26 +727,35 @@ const AndroidDashboard = ({ onLoaded }) => {
           ticket.status === 'In Progress'
         ).length || 0;
         setOpenRequests(openRequestsCount);
+      } else {
+        console.error('Failed to fetch maintenance requests:', response.status);
+        setOpenRequests(0);
       }
     } catch (error) {
       console.error('Error fetching maintenance requests:', error);
+      setOpenRequests(0);
+    } finally {
+      setLoadingStats(false);
     }
   };
 
-  // Fetch all stats data when resident details are loaded
+  // Fetch all stats data when resident details are loaded - only for authorized users
   useEffect(() => {
     if (residentDetails?._id) {
-      fetchWalletBalance();
+      // Only fetch wallet balance for authorized users (main residents)
+      if (isAuthorized) {
+        fetchWalletBalance();
+      }
       fetchMaintenanceRequests();
     }
-  }, [residentDetails._id]);
+  }, [residentDetails._id, isAuthorized]);
 
-  // Fetch pending bills when residentId is available
+  // Fetch pending bills when residentId is available - only for authorized users
   useEffect(() => {
-    if (residentDetails?._id) {
+    if (residentDetails?._id && isAuthorized) {
       fetchPendingBills();
     }
-  }, [residentDetails._id]);
+  }, [residentDetails._id, isAuthorized]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 relative">
@@ -1186,42 +1266,46 @@ const AndroidDashboard = ({ onLoaded }) => {
         </div>
         {/* Quick Stats Cards */}
         <div className="grid grid-cols-2 gap-4 mb-8 px-4">
-          {/* Wallet Balance Card */}
-          <Link href="/Resident-dashboard/components/WalletDashboard">
-            <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80 cursor-pointer">
-              {/* Background gradient decoration */}
-              <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-blue-500/20 to-blue-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
-              <div className="flex flex-col relative z-10">
-                <p className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">Wallet Balance</p>
-                {loadingStats ? (
-                  <p className="text-base font-medium text-gray-500 italic">Loading...</p>
-                ) : (
-                  <p className="text-base font-medium text-gray-600 group-hover:text-blue-900 transition-colors duration-200">₹{walletBalance.toFixed(2)}</p>
-                )}
-                <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
-                  <Store className="w-6 h-6 text-blue-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+          {/* Wallet Balance Card - Only visible to main residents */}
+          {isAuthorized && (
+            <Link href="/Resident-dashboard/components/WalletDashboard">
+              <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80 cursor-pointer">
+                {/* Background gradient decoration */}
+                <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-blue-500/20 to-blue-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+                <div className="flex flex-col relative z-10">
+                  <p className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">Wallet Balance</p>
+                  {loadingStats ? (
+                    <p className="text-base font-medium text-gray-500 italic">Loading...</p>
+                  ) : (
+                    <p className="text-base font-medium text-gray-600 group-hover:text-blue-900 transition-colors duration-200">₹{walletBalance.toFixed(2)}</p>
+                  )}
+                  <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
+                    <Store className="w-6 h-6 text-blue-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+                  </div>
                 </div>
               </div>
-            </div>
-          </Link>
-          {/* Total Pending Bills */}
-          <Link href="/Resident-dashboard/components/Bills">
-            <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80 cursor-pointer">
-              {/* Background gradient decoration */}
-              <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-red-500/20 to-red-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
-              <div className="flex flex-col relative z-10">
-                <p className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">Due Bills</p>
-                {loadingStats ? (
-                  <p className="text-base font-medium text-gray-500 italic">Loading...</p>
-                ) : (
-                  <p className="text-base font-medium text-gray-600 group-hover:text-red-900 transition-colors duration-200">₹{totalPendingBills.toFixed(2)}</p>
-                )}
-                <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
-                  <Lightbulb className="w-6 h-6 text-red-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+            </Link>
+          )}
+          {/* Total Pending Bills - Only visible to main residents */}
+          {isAuthorized && (
+            <Link href="/Resident-dashboard/components/Bills">
+              <div className="bg-white/85 rounded-xl p-4 shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300 border border-gray-100/80 cursor-pointer">
+                {/* Background gradient decoration */}
+                <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tr from-red-500/20 to-red-200/30 rounded-full transform group-hover:scale-110 transition-transform duration-300"></div>
+                <div className="flex flex-col relative z-10">
+                  <p className="text-xs font-medium text-gray-600 group-hover:text-gray-900 transition-colors duration-200">Due Bills</p>
+                  {loadingStats ? (
+                    <p className="text-base font-medium text-gray-500 italic">Loading...</p>
+                  ) : (
+                    <p className="text-base font-medium text-gray-600 group-hover:text-red-900 transition-colors duration-200">₹{totalPendingBills.toFixed(2)}</p>
+                  )}
+                  <div className="absolute bottom-0 right-1 w-16 h-16 flex items-center justify-center">
+                    <Lightbulb className="w-6 h-6 text-red-500 opacity-80 group-hover:scale-110 transform transition-all duration-300" />
+                  </div>
                 </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+          )}
         </div>
         
         {/* Second row of stats */}

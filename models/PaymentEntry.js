@@ -4,8 +4,7 @@ import './AmenityBill';  // Import AmenityBill model first to ensure it's regist
 const PaymentEntrySchema = new mongoose.Schema({
   societyId: {
     type: String,
-    required: true,
-    index: true
+    required: true
   },
   residentId: {
     type: mongoose.Schema.Types.ObjectId,

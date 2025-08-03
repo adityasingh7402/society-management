@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const MaintenanceBillSchema = new mongoose.Schema({
   societyId: { 
@@ -242,4 +242,4 @@ MaintenanceBillSchema.methods.calculateLateFee = function() {
   return lateFee;
 };
 
-export default mongoose.models.MaintenanceBill || mongoose.model('MaintenanceBill', MaintenanceBillSchema);
+module.exports = mongoose.models.MaintenanceBill || mongoose.model('MaintenanceBill', MaintenanceBillSchema);

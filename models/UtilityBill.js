@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const UtilityBillSchema = new mongoose.Schema({
   societyId: { 
@@ -244,4 +244,4 @@ UtilityBillSchema.methods.calculateLateFee = function() {
   return lateFee;
 };
 
-export default mongoose.models.UtilityBill || mongoose.model('UtilityBill', UtilityBillSchema);
+module.exports = mongoose.models.UtilityBill || mongoose.model('UtilityBill', UtilityBillSchema);

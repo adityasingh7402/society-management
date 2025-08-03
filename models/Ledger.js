@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const LedgerSchema = new mongoose.Schema({
   societyId: {
@@ -286,4 +286,4 @@ LedgerSchema.statics.createCategoryLedgers = async function(societyId, billCateg
   return { incomeLedger, receivableLedger };
 };
 
-export default mongoose.models.Ledger || mongoose.model('Ledger', LedgerSchema); 
+module.exports = mongoose.models.Ledger || mongoose.model('Ledger', LedgerSchema);

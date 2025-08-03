@@ -236,7 +236,7 @@ const walletTransactionSchema = new mongoose.Schema({
 // Indexes for better performance
 walletTransactionSchema.index({ walletId: 1 });
 walletTransactionSchema.index({ residentId: 1 });
-walletTransactionSchema.index({ transactionId: 1 });
+// transactionId already has unique: true, so no need for separate index
 walletTransactionSchema.index({ type: 1 });
 walletTransactionSchema.index({ status: 1 });
 walletTransactionSchema.index({ createdAt: -1 });

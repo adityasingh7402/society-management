@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const AmenityBillSchema = new mongoose.Schema({
   societyId: { 
@@ -241,4 +241,4 @@ AmenityBillSchema.methods.calculateLateFee = function() {
   return lateFee;
 };
 
-export default mongoose.models.AmenityBill || mongoose.model('AmenityBill', AmenityBillSchema); 
+module.exports = mongoose.models.AmenityBill || mongoose.model('AmenityBill', AmenityBillSchema);

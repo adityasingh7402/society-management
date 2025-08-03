@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const scheduledBillSchema = new mongoose.Schema({
   societyId: {
@@ -283,4 +283,4 @@ scheduledBillSchema.pre('save', function(next) {
   next();
 });
 
-export default mongoose.models.ScheduledBill || mongoose.model('ScheduledBill', scheduledBillSchema);
+module.exports = mongoose.models.ScheduledBill || mongoose.model('ScheduledBill', scheduledBillSchema);

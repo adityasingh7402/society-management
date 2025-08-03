@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 // Constants for validation
 const CATEGORIES = ['Maintenance', 'Utility', 'Amenity', 'Service', 'Other'];
@@ -513,4 +513,4 @@ billHeadSchema.statics.analyzeByCategory = async function(societyId, startDate, 
 
 const BillHead = mongoose.models.BillHead || mongoose.model('BillHead', billHeadSchema);
 
-export default BillHead; 
+module.exports = BillHead;

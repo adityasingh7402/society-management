@@ -3,13 +3,11 @@ import mongoose from 'mongoose';
 const ResidentBillSchema = new mongoose.Schema({
   societyId: {
     type: String,
-    required: true,
-    index: true
+    required: true
   },
   billNumber: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   residentId: {
     type: mongoose.Schema.Types.ObjectId,

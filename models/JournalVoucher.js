@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const JournalVoucherSchema = new mongoose.Schema({
   societyId: {
@@ -352,4 +352,4 @@ JournalVoucherSchema.pre('save', function(next) {
 
 // Export the model
 const JournalVoucher = mongoose.models.JournalVoucher || mongoose.model('JournalVoucher', JournalVoucherSchema);
-export default JournalVoucher; 
+module.exports = JournalVoucher;
