@@ -1376,7 +1376,7 @@ export default function MaintenanceBills() {
         totalAmount: totalWithAdditional,
         additionalCharges: additionalCharges.map(charge => ({
           billHeadId: charge.billHeadId,
-          chargeType: normalizeChargeType(charge.chargeType),
+          chargeType: getValidChargeType(availableCharges.find(bh => bh._id === charge.billHeadId || bh.name === charge.chargeType)),
           amount: charge.amount,
           ledgerId: charge.ledgerId,
           unitUsage: charge.unitUsage,
@@ -1503,7 +1503,7 @@ export default function MaintenanceBills() {
         totalAmount: billCalculation.totalAmount,
         additionalCharges: additionalCharges.map(charge => ({
           billHeadId: charge.billHeadId,
-          chargeType: normalizeChargeType(charge.chargeType),
+          chargeType: getValidChargeType(availableCharges.find(bh => bh._id === charge.billHeadId || bh.name === charge.chargeType)),
           amount: charge.amount,
           ledgerId: charge.ledgerId,
           unitUsage: charge.unitUsage,
@@ -1899,7 +1899,7 @@ export default function MaintenanceBills() {
 
     // If it's a fixed amount bill head, automatically add the charge
     if (billHead.calculationType === 'Fixed') {
-      const normalizedChargeType = normalizeChargeType(billHead.name);
+      const normalizedChargeType = getValidChargeType(billHead);
       const newCharge = {
         billHeadId: billHead._id,
         chargeType: normalizedChargeType,
@@ -1999,7 +1999,7 @@ export default function MaintenanceBills() {
       }
     }
 
-    const normalizedChargeType = normalizeChargeType(selectedAdditionalCharge.name);
+    const normalizedChargeType = getValidChargeType(selectedAdditionalCharge);
     const newCharge = {
       billHeadId: selectedAdditionalCharge._id,
       chargeType: normalizedChargeType,
@@ -2034,33 +2034,37 @@ export default function MaintenanceBills() {
     }
   };
 
-  // Update normalizeChargeType function to handle all cases
-  const normalizeChargeType = (name) => {
-    // Convert to lowercase and trim for consistent comparison
-    const normalizedName = name.toLowerCase().trim();
-
-    // Map of common variations to correct enum values
-    const chargeTypeMap = {
-      'soceity charges': 'Society Charges',
-      'society charges': 'Society Charges',
-      'societycharges': 'Society Charges',
-      'society': 'Society Charges',
-      'maintenance': 'Maintenance',
-      'maintenance charges': 'Maintenance',
-      'maintenancecharges': 'Maintenance',
-      'repair': 'Repair',
-      'repair charges': 'Repair',
-      'repaircharges': 'Repair',
-      'utility': 'Utility',
-      'utility charges': 'Utility',
-      'utilitycharges': 'Utility',
-      'other': 'Other',
-      'other charges': 'Other',
-      'othercharges': 'Other'
+  // Utility function to map bill head subCategory to valid enum values
+  const getValidChargeType = (billHead) => {
+    if (!billHead) return 'Miscellaneous';
+    
+    // Map subCategory to valid enum values
+    const subCategoryToEnum = {
+      'Processing Fees': 'Processing Fees',
+      'Society Charges': 'Society Charges',
+      'Platform Charges': 'Platform Charges',
+      'Transfer Charges': 'Transfer Charges',
+      'NOC Charges': 'NOC Charges',
+      'Late Payment Charges': 'Late Payment Charges',
+      'Legal Charges': 'Legal Charges',
+      'Documentation Charges': 'Documentation Charges',
+      'Administrative Charges': 'Administrative Charges',
+      'Event Charges': 'Event Charges',
+      'Other': 'Miscellaneous'
     };
-
-    // Return the mapped value or 'Other' if not found
-    return chargeTypeMap[normalizedName] || 'Other';
+    
+    // Try to map by subCategory first
+    if (billHead.subCategory && subCategoryToEnum[billHead.subCategory]) {
+      return subCategoryToEnum[billHead.subCategory];
+    }
+    
+    // Try to map by name as fallback
+    if (billHead.name && subCategoryToEnum[billHead.name]) {
+      return subCategoryToEnum[billHead.name];
+    }
+    
+    // Default to Miscellaneous if no match found
+    return 'Miscellaneous';
   };
 
   return (

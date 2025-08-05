@@ -55,6 +55,7 @@ const AmenityBillSchema = new mongoose.Schema({
         'Documentation Charges',
         'Administrative Charges',
         'Event Charges',
+        'Payment charge',
         'Miscellaneous'
       ]
     },

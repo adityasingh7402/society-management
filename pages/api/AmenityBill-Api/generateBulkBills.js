@@ -4,6 +4,17 @@ import AmenityBill from '../../../models/AmenityBill';
 import BillHead from '../../../models/BillHead';
 import JournalVoucher from '../../../models/JournalVoucher';
 import Ledger from '../../../models/Ledger';
+import { logActionDirect, logSuccess, logFailure } from '../../../services/loggingService';
+
+// Helper function to extract client IP address
+function getClientIP(req) {
+  return req.headers['x-forwarded-for'] || 
+         req.headers['x-real-ip'] || 
+         req.connection?.remoteAddress || 
+         req.socket?.remoteAddress ||
+         (req.connection?.socket ? req.connection.socket.remoteAddress : null) ||
+         'unknown';
+}
 
 // Helper function to generate unique voucher number
 async function generateUniqueVoucherNumber(societyId, billHeadCode, date, session, retryCount = 0) {
@@ -64,8 +75,13 @@ export default async function handler(req, res) {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!decoded || !decoded.id) {
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (!decoded || !decoded.id) {
+        throw new Error('Invalid token payload');
+      }
+    } catch (tokenError) {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
@@ -184,15 +200,22 @@ export default async function handler(req, res) {
             }
 
             // Additional charges (normalize and validate)
-            const additionalCharges = Array.isArray(billData.additionalCharges) ? billData.additionalCharges.map(charge => ({
-              ...charge,
-              chargeType: charge.chargeType && typeof charge.chargeType === 'string' ? charge.chargeType.trim() : '',
-              amount: Number(charge.amount) || 0,
-              ledgerId: charge.ledgerId
-            })) : [];
+            const additionalCharges = Array.isArray(billData.additionalCharges) ? billData.additionalCharges.map(async (charge) => {
+              // Get the bill head for this charge to use its subCategory
+              const chargeBillHead = await BillHead.findById(charge.billHeadId).session(session);
+              return {
+                ...charge,
+                chargeType: chargeBillHead?.subCategory || 'Miscellaneous',
+                amount: Number(charge.amount) || 0,
+                ledgerId: charge.ledgerId
+              };
+            }) : [];
+            
+            // Resolve all the async operations
+            const resolvedAdditionalCharges = await Promise.all(additionalCharges);
 
             // Calculate total amount
-            const totalAmount = baseAmount + gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount + additionalCharges.reduce((sum, c) => sum + (c.amount || 0), 0);
+            const totalAmount = baseAmount + gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount + resolvedAdditionalCharges.reduce((sum, c) => sum + (c.amount || 0), 0);
 
             // Create amenity bill
             const amenityBill = new AmenityBill({
@@ -212,7 +235,7 @@ export default async function handler(req, res) {
               gstDetails,
               latePaymentDetails: billHead.latePaymentConfig,
               totalAmount,
-              additionalCharges,
+              additionalCharges: resolvedAdditionalCharges,
               issueDate: billData.issueDate,
               dueDate: billData.dueDate,
               periodType: billData.periodType || 'Monthly',  // Set default value
@@ -329,8 +352,8 @@ export default async function handler(req, res) {
             }
 
             // Add additional charges credit entries
-            if (additionalCharges.length > 0) {
-              for (const charge of additionalCharges) {
+            if (resolvedAdditionalCharges.length > 0) {
+              for (const charge of resolvedAdditionalCharges) {
                 const chargeLedger = await Ledger.findById(charge.ledgerId).session(session);
                 if (!chargeLedger) {
                   throw new Error(`Ledger not found for additional charge: ${charge.chargeType}`);
@@ -385,14 +408,34 @@ export default async function handler(req, res) {
             // Save the updated bill
             await amenityBill.save({ session });
 
-            // Add to success results
+            // Add to success results with more details
             results.success.push({
               residentId: billData.residentId,
               billId: amenityBill._id,
-              billNumber: amenityBill.billNumber
+              billNumber: amenityBill.billNumber,
+              flatNumber: billData.flatNumber,
+              blockName: billData.blockName,
+              ownerName: billData.ownerName,
+              totalAmount: amenityBill.totalAmount
             });
           } catch (error) {
             console.error(`Error generating bill for resident ${billData.residentId}:`, error);
+            
+            // Log the individual bill generation failure
+            await logFailure(
+              'AMENITY_BILL_CREATE',
+              req,
+              error.message,
+              {
+                residentId: billData.residentId,
+                societyId: billData.societyId,
+                billHeadId: billData.billHeadId,
+                errorStack: error.stack
+              },
+              error.code,
+              error.stack
+            );
+            
             results.failed.push({
               residentId: billData.residentId,
               error: error.message
@@ -401,10 +444,8 @@ export default async function handler(req, res) {
           }
         }
 
-        // If any bill failed, abort the transaction
-        if (hasError) {
-          await session.abortTransaction();
-        }
+        // Don't abort transaction for individual bill failures - we want to save successful ones
+        // Transaction will only abort if there's a critical system error
       });
 
     } catch (error) {
@@ -417,6 +458,50 @@ export default async function handler(req, res) {
       await session.endSession();
     }
 
+    // Log successful bulk bill generation with detailed resident information
+    if (results.success.length > 0) {
+      await logSuccess(
+        'AMENITY_BULK_BILLS_CREATE',
+        req,
+        {
+          successfulBills: results.success.length,
+          failedBills: results.failed.length,
+          totalBills: bills.length,
+          generatedBills: results.success.map(bill => ({
+            residentId: bill.residentId,
+            billId: bill.billId,
+            billNumber: bill.billNumber,
+            // Find the original bill data to get more details
+            ...(() => {
+              const originalBill = bills.find(b => b.residentId === bill.residentId);
+              return {
+                flatNumber: originalBill?.flatNumber,
+                blockName: originalBill?.blockName,
+                ownerName: originalBill?.ownerName,
+                totalAmount: originalBill?.totalAmount || 'N/A'
+              };
+            })()
+          })),
+          failedBills: results.failed
+        }
+      );
+    }
+    
+    // Log failures if any occurred
+    if (results.failed.length > 0) {
+      await logFailure(
+        'AMENITY_BULK_BILLS_CREATE',
+        req,
+        `${results.failed.length} bills failed to generate`,
+        {
+          successfulBills: results.success.length,
+          failedBills: results.failed.length,
+          totalBills: bills.length,
+          failures: results.failed
+        }
+      );
+    }
+
     return res.status(200).json({
       message: `Generated ${results.success.length} bills successfully, ${results.failed.length} failed`,
       results
@@ -424,6 +509,20 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error generating bulk bills:', error);
+    
+    // Log the bulk bill generation failure
+    await logFailure(
+      'AMENITY_BULK_BILLS_CREATE',
+      req,
+      error.message,
+      {
+        billsCount: req.body?.bills?.length || 0,
+        errorStack: error.stack
+      },
+      error.code,
+      error.stack
+    );
+    
     return res.status(500).json({ error: error.message || 'Failed to generate bills' });
   }
 } 

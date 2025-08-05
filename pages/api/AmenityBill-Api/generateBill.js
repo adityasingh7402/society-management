@@ -5,6 +5,7 @@ import Ledger from '../../../models/Ledger';
 import JournalVoucher from '../../../models/JournalVoucher';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import { logAction, logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -25,15 +26,22 @@ export default async function handler(req, res) {
       session.startTransaction();
 
       await connectToDatabase();
-    
+
       // Verify token
       const token = req.headers.authorization?.split(' ')[1];
       if (!token) {
+        await logFailure('TOKEN_VALIDATION', req, 'No token provided');
         return res.status(401).json({ error: 'No token provided' });
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      if (!decoded || !decoded.id) {
+      let decoded;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (!decoded || !decoded.id) {
+          throw new Error('Invalid token payload');
+        }
+      } catch (tokenError) {
+        await logFailure('TOKEN_VALIDATION', req, tokenError.message);
         return res.status(401).json({ error: 'Invalid token' });
       }
 
@@ -250,6 +258,21 @@ export default async function handler(req, res) {
       // Save the bill
       await amenityBill.save({ session });
 
+      // Log successful bill creation
+      await logSuccess(
+        'AMENITY_BILL_CREATE',
+        req,
+        {
+          billId: amenityBill._id,
+          billNumber: amenityBill.billNumber,
+          societyId: societyId,
+          residentId: residentId,
+          totalAmount: totalAmount
+        },
+        amenityBill._id.toString(),
+        'amenity_bill'
+      );
+
       await session.commitTransaction();
       return { success: true, data: amenityBill };
 
@@ -267,6 +290,22 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error in generateBill:', error);
+    
+    // Log the error
+    await logFailure(
+      'AMENITY_BILL_CREATE',
+      req,
+      error.message,
+      {
+        societyId: req.body?.societyId,
+        billHeadId: req.body?.billHeadId,
+        residentId: req.body?.residentId,
+        errorStack: error.stack
+      },
+      error.code,
+      error.stack
+    );
+    
     res.status(500).json({ error: error.message || 'Internal server error' });
   } finally {
     if (session) {

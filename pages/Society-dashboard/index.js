@@ -23,8 +23,9 @@ import BillHeads from "./components/BillHeads";
 import GeneralLedger from './components/GeneralLedger';
 import ScheduledBills from './components/ScheduledBills';
 import ManageMembers from './components/ManageMembers';
+import LogsOverview from './components/LogsOverview';
 import LoadingScreen from './widget/societyComponents/loaderScreen';
-import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt, FaUserClock, FaFileInvoiceDollar, FaUserCog } from "react-icons/fa";
+import { FaUserTie, FaUsers, FaClipboardList, FaWrench, FaMoneyBill, FaStickyNote, FaBullhorn, FaPoll, FaComments, FaUserShield, FaBox, FaExclamationTriangle, FaFileAlt, FaUserClock, FaFileInvoiceDollar, FaUserCog, FaHistory } from "react-icons/fa";
 import { CiLogout } from "react-icons/ci";
 import React from "react";
 import { motion } from "framer-motion";
@@ -39,6 +40,7 @@ const NAV_SECTIONS = [
       { label: "Dashboard", component: "DashboardDefault", icon: null, requiredPermissions: null },
       { label: "Society Profile", component: "SocietyProfile", icon: null, requiredPermissions: null },
       { label: "Apartment Structure", component: "ApartmentStructureForm", icon: null, requiredPermissions: null },
+      { label: "Activity Logs", component: "LogsOverview", icon: <FaHistory className="mr-3" />, requiredPermissions: ["full_access"] },
     ],
   },
   {
@@ -225,6 +227,8 @@ export default function Home() {
                 return <ManageMembers />;
             case "DailyAttendanceProfile":
                 return <DailyAttendanceProfile />;
+            case "LogsOverview":
+                return <LogsOverview />;
             default:
                 return <DashboardDefault />;
         }

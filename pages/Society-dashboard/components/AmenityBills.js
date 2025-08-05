@@ -959,12 +959,37 @@ export default function AmenityBills() {
     }
   };
 
-  // Utility function to normalize chargeType
-  const normalizeChargeType = (name) => {
-    // Correct common typos and ensure exact match
-    if (name === 'Soceity Charges') return 'Society Charges';
-    // Add more corrections if needed
-    return name;
+  // Utility function to map bill head subCategory to valid enum values
+  const getValidChargeType = (billHead) => {
+    if (!billHead) return 'Miscellaneous';
+    
+    // Map subCategory to valid enum values
+    const subCategoryToEnum = {
+      'Processing Fees': 'Processing Fees',
+      'Society Charges': 'Society Charges',
+      'Platform Charges': 'Platform Charges',
+      'Transfer Charges': 'Transfer Charges',
+      'NOC Charges': 'NOC Charges',
+      'Late Payment Charges': 'Late Payment Charges',
+      'Legal Charges': 'Legal Charges',
+      'Documentation Charges': 'Documentation Charges',
+      'Administrative Charges': 'Administrative Charges',
+      'Event Charges': 'Event Charges',
+      'Other': 'Miscellaneous'
+    };
+    
+    // Try to map by subCategory first
+    if (billHead.subCategory && subCategoryToEnum[billHead.subCategory]) {
+      return subCategoryToEnum[billHead.subCategory];
+    }
+    
+    // Try to map by name as fallback
+    if (billHead.name && subCategoryToEnum[billHead.name]) {
+      return subCategoryToEnum[billHead.name];
+    }
+    
+    // Default to Miscellaneous if no match found
+    return 'Miscellaneous';
   };
 
   // Update notification function to auto-dismiss
@@ -1087,7 +1112,7 @@ export default function AmenityBills() {
         totalAmount: billCalculation.totalAmount,
         additionalCharges: additionalCharges.map(charge => ({
           billHeadId: charge.billHeadId || (availableCharges.find(bh => bh.name === charge.chargeType)?._id),
-          chargeType: normalizeChargeType(charge.chargeType),
+          chargeType: getValidChargeType(availableCharges.find(bh => bh._id === charge.billHeadId || bh.name === charge.chargeType)),
           amount: charge.amount,
           ledgerId: charge.ledgerId,
           unitUsage: charge.unitUsage,
@@ -1184,7 +1209,7 @@ export default function AmenityBills() {
 
     const newCharge = {
       billHeadId: selectedAdditionalCharge._id,
-      chargeType: normalizeChargeType(selectedAdditionalCharge.name),
+      chargeType: getValidChargeType(selectedAdditionalCharge),
       amount,
       ledgerId: selectedAdditionalCharge.accountingConfig.incomeLedgerId,
       unitUsage: selectedAdditionalCharge.calculationType === 'Fixed' ? 1 : parseFloat(document.getElementById('additionalChargeUnits').value),
@@ -1301,7 +1326,7 @@ export default function AmenityBills() {
         totalAmount: billCalculation.totalAmount,
         additionalCharges: additionalCharges.map(charge => ({
           billHeadId: charge.billHeadId || (availableCharges.find(bh => bh.name === charge.chargeType)?._id),
-          chargeType: normalizeChargeType(charge.chargeType),
+          chargeType: getValidChargeType(availableCharges.find(bh => bh._id === charge.billHeadId || bh.name === charge.chargeType)),
           amount: charge.amount,
           ledgerId: charge.ledgerId,
           unitUsage: charge.unitUsage,
