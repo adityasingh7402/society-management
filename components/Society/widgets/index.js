@@ -7,4 +7,5 @@ export { default as BillDetailsPopup } from './BillDetailsPopup';
 export { default as PaymentEntryPopup } from './PaymentEntryPopup';
 export { default as TagsPopup } from './TagsPopup';
 export { default as Notification } from './Notification';
-export { default as UpdatePopup } from './UpdatePopup'; 
+export { default as UpdatePopup } from './UpdatePopup';
+export { default as ResidentSelectionTable } from './ResidentSelectionTable';

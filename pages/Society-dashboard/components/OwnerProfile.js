@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import PreloaderSociety from '../../components/PreloaderSociety';
-import { Eye, User, Tag } from 'lucide-react';
+import { Eye, User, Tag, Users } from 'lucide-react';
 import { useRouter } from 'next/router';
 import DetailPopup from '../../../components/Society/widgets/DetailPopup';
 import UpdatePopup from '../../../components/Society/widgets/UpdatePopup';
 import Notification from '../../../components/Society/widgets/Notification';
 import TagsPopup from '../../../components/Society/widgets/TagsPopup';
+import MembersPopup from '../../../components/MembersPopup';
 
 export default function OwnerProfile() {
   const [approvedResidents, setApprovedResidents] = useState([]);
@@ -13,6 +14,7 @@ export default function OwnerProfile() {
   const [selectedResident, setSelectedResident] = useState(null);
   const [showDetailPopup, setShowDetailPopup] = useState(false);
   const [showTagsPopup, setShowTagsPopup] = useState(false);
+  const [showMembersPopup, setShowMembersPopup] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [showUpdatePopup, setShowUpdatePopup] = useState(false);
   const [updateFormData, setUpdateFormData] = useState({
@@ -186,6 +188,12 @@ export default function OwnerProfile() {
     setShowTagsPopup(true);
   };
 
+  // Handle view members
+  const handleViewMembers = (resident) => {
+    setSelectedResident(resident);
+    setShowMembersPopup(true);
+  };
+
   // Auto-hide notification after 3 seconds
   useEffect(() => {
     if (notification.show) {
@@ -229,6 +237,7 @@ export default function OwnerProfile() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flat</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Affiliated Persons</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved By</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved At</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -263,6 +272,18 @@ export default function OwnerProfile() {
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                           Approved
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleViewMembers(resident)}
+                          className="flex items-center space-x-2 text-blue-600 hover:text-blue-900 transition-colors"
+                          title="View Family Members & Tenants"
+                        >
+                          <Users size={16} />
+                          <span className="text-sm font-medium">
+                            {resident.members ? resident.members.length : 0}
+                          </span>
+                        </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{resident.approvedBy?.adminName || 'N/A'}</div>
@@ -312,6 +333,7 @@ export default function OwnerProfile() {
           onUpdate={handleUpdateClick}
           onDelete={handleDeleteProfile}
           onViewTags={handleViewTags}
+          onViewMembers={handleViewMembers}
         />
       )}
 
@@ -330,6 +352,14 @@ export default function OwnerProfile() {
         <TagsPopup
           resident={selectedResident}
           onClose={() => setShowTagsPopup(false)}
+        />
+      )}
+
+      {/* Members Popup Component */}
+      {showMembersPopup && selectedResident && (
+        <MembersPopup
+          resident={selectedResident}
+          onClose={() => setShowMembersPopup(false)}
         />
       )}
     </div>

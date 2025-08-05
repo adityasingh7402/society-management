@@ -159,15 +159,45 @@ export default async function handler(req, res) {
 
             // Calculate base amount
             let baseAmount = 0;
+            let unitUsage = billData.unitUsage;
+            
             switch (billHead.calculationType) {
               case 'Fixed':
                 baseAmount = billHead.fixedAmount;
+                unitUsage = 1; // Set default unit usage for fixed amount
                 break;
               case 'PerUnit':
+                if (!billData.unitUsage || billData.unitUsage <= 0) {
+                  results.failed.push({
+                    residentId: billData.residentId,
+                    error: 'Unit usage is required for per-unit calculation'
+                  });
+                  continue;
+                }
                 baseAmount = billData.unitUsage * billHead.perUnitRate;
+                unitUsage = billData.unitUsage;
                 break;
               case 'Formula':
-                // Implement formula calculation if needed
+                if (!billData.unitUsage || billData.unitUsage <= 0) {
+                  results.failed.push({
+                    residentId: billData.residentId,
+                    error: 'Unit usage is required for formula calculation'
+                  });
+                  continue;
+                }
+                try {
+                  const formula = billHead.formula
+                    .replace(/\$\{unitUsage\}/g, billData.unitUsage)
+                    .replace(/\$\{rate\}/g, billHead.perUnitRate);
+                  baseAmount = eval(formula);
+                  unitUsage = billData.unitUsage;
+                } catch (error) {
+                  results.failed.push({
+                    residentId: billData.residentId,
+                    error: 'Error calculating formula: ' + error.message
+                  });
+                  continue;
+                }
                 break;
               default:
                 results.failed.push({
@@ -228,7 +258,7 @@ export default async function handler(req, res) {
               ownerMobile: billData.ownerMobile,
               ownerEmail: billData.ownerEmail,
               baseAmount,
-              unitUsage: billData.unitUsage,
+              unitUsage: unitUsage, // Use the calculated unitUsage variable
               perUnitRate: billHead.perUnitRate,
               formula: billHead.formula,
               periodType: billData.periodType || 'Monthly', // Explicitly set periodType

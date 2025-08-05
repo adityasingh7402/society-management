@@ -75,7 +75,7 @@ const AndroidDashboard = ({ onLoaded }) => {
           if (decoded && decoded.role) {
             setUserRole(decoded.role);
             // Only main residents can access wallet and bills
-            set(decoded.role === 'resident');
+            setIsAuthorized(decoded.role === 'resident');
           }
         }
       } catch (error) {
@@ -699,7 +699,17 @@ const AndroidDashboard = ({ onLoaded }) => {
   const fetchMaintenanceRequests = async () => {
     try {
       const token = localStorage.getItem("Resident");
-      if (!token) return;
+      if (!token) {
+        setOpenRequests(0);
+        return;
+      }
+
+      // Check if we have residentId
+      if (!residentDetails._id) {
+        console.log('No residentId found in resident details');
+        setOpenRequests(0);
+        return;
+      }
 
       const response = await fetch(`/api/Maintenance-Api/get-resident-tickets?residentId=${residentDetails._id}`, {
         headers: {
@@ -718,9 +728,18 @@ const AndroidDashboard = ({ onLoaded }) => {
           ticket.status === 'In Progress'
         ).length || 0;
         setOpenRequests(openRequestsCount);
+      } else {
+        // If API call fails, set to 0
+        console.log('Failed to fetch maintenance requests:', response.status);
+        setOpenRequests(0);
       }
     } catch (error) {
       console.error('Error fetching maintenance requests:', error);
+      // Set to 0 on error
+      setOpenRequests(0);
+    } finally {
+      // Always ensure loading state is cleared
+      setLoadingStats(false);
     }
   };
 
@@ -730,6 +749,9 @@ const AndroidDashboard = ({ onLoaded }) => {
       // Only fetch wallet balance for authorized users (main residents)
       if (isAuthorized) {
         fetchWalletBalance();
+      } else {
+        // For non-authorized users, ensure loading state is cleared
+        setLoadingStats(false);
       }
       fetchMaintenanceRequests();
     }

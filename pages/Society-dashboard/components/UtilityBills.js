@@ -11,7 +11,8 @@ import {
   BlockSelector, 
   FloorSelector, 
   BillDetailsPopup,
-  PaymentEntryPopup 
+  PaymentEntryPopup,
+  ResidentSelectionTable 
 } from '../../../components/Society/widgets';
 
 export default function UtilityBills() {
@@ -100,6 +101,12 @@ export default function UtilityBills() {
   // Add state for selected additional charge
   const [selectedAdditionalCharge, setSelectedAdditionalCharge] = useState(null);
 
+  // Add new state for enhanced resident selection
+  const [selectedResidents, setSelectedResidents] = useState([]);
+  const [residentUnitUsages, setResidentUnitUsages] = useState({});
+  const [calculationResults, setCalculationResults] = useState({});
+  const [showResidentCalculation, setShowResidentCalculation] = useState(false);
+
   // Toggle functions for expanding/collapsing sections
   const toggleBlock = (blockName) => {
     setOpenBlocks(prev => ({ ...prev, [blockName]: !prev[blockName] }));
@@ -137,16 +144,16 @@ export default function UtilityBills() {
     const structured = {};
     
     // Filter out residents without flatDetails
-    const residentsWithFlats = residentsArray.filter(resident => 
-      resident.flatDetails && resident.flatDetails.blockName && resident.flatDetails.flatNumber
-    );
-    
-    residentsWithFlats.forEach(resident => {
-      // Add null checks and handle both floorNumber and floorIndex
-      const flatDetails = resident.flatDetails || {};
-      const blockName = flatDetails.blockName || 'Unassigned';
-      const floorNumber = flatDetails.floorIndex?.toString() || flatDetails.floorNumber?.toString() || 'Ground';
-      const flatNumber = flatDetails.flatNumber || 'Unassigned';
+      const residentsWithFlats = residentsArray.filter(resident => 
+        resident.flatDetails && resident.flatDetails.blockName && resident.flatDetails.flatNumber && resident.societyVerification === 'Approved'
+      );
+      
+      residentsWithFlats.forEach(resident => {
+        // Add null checks and handle both floorNumber and floorIndex
+        const flatDetails = resident.flatDetails || {};
+        const blockName = flatDetails.blockName || 'Unassigned';
+        const floorNumber = flatDetails.floorIndex?.toString() || flatDetails.floorNumber?.toString() || 'Ground';
+        const flatNumber = flatDetails.flatNumber || 'Unassigned';
 
       console.log('Processing resident:', resident.name, { blockName, floorNumber, flatNumber });
 
@@ -762,7 +769,10 @@ export default function UtilityBills() {
 
   // Add bulk generation handler
   const handleBulkGeneration = async () => {
-    if (!selectedBillHead || !showCalculation) {
+    // For bulk/block/floor generation, check showResidentCalculation instead of showCalculation
+    const calculationCheck = billGenerationType === 'individual' ? showCalculation : showResidentCalculation;
+    
+    if (!selectedBillHead || !calculationCheck) {
       setNotificationWithTimeout('Please select bill head and calculate amount first', 'error');
       return;
     }
@@ -821,6 +831,17 @@ export default function UtilityBills() {
       
       // Prepare bills data for bulk generation
       const billsData = residentsToProcess.map(resident => {
+        // Determine unit usage based on calculation type and generation type
+        let unitUsage;
+        if (selectedBillHead.calculationType === 'Fixed') {
+          unitUsage = 1; // Fixed amount always uses 1 unit
+        } else if (billGenerationType === 'individual') {
+          unitUsage = formData.unitUsage; // Use form data for individual
+        } else {
+          // For bulk generation, check if resident-specific usage is available
+          unitUsage = residentUnitUsages[resident._id] || formData.unitUsage || 1;
+        }
+        
         // Create the bill data object
         const billData = {
         societyId: societyData._id,
@@ -832,7 +853,7 @@ export default function UtilityBills() {
         ownerName: resident.name || '',
         ownerMobile: resident.phone || '',
         ownerEmail: resident.email || '',
-        unitUsage: formData.unitUsage,
+        unitUsage: unitUsage,
           // Explicitly set periodType from form data
           periodType: formData.periodType,
         baseAmount: billCalculation.baseAmount,
@@ -846,14 +867,18 @@ export default function UtilityBills() {
           igstPercentage: selectedBillHead.gstConfig?.igstPercentage || 0
         },
         totalAmount: billCalculation.totalAmount,
-        additionalCharges: additionalCharges.map(charge => ({
-          billHeadId: charge.billHeadId || (availableCharges.find(bh => bh.name === charge.chargeType)?._id),
-          chargeType: normalizeChargeType(charge.chargeType),
-          amount: charge.amount,
-          ledgerId: charge.ledgerId,
-          unitUsage: charge.unitUsage,
-          calculationType: charge.calculationType
-        })),
+        additionalCharges: additionalCharges.map(charge => {
+          // Find the bill head to get proper charge type
+          const billHead = availableCharges.find(bh => bh._id === charge.billHeadId || bh.name === charge.chargeType);
+          return {
+            billHeadId: charge.billHeadId || billHead?._id,
+            chargeType: getValidChargeType(billHead),
+            amount: charge.amount,
+            ledgerId: charge.ledgerId,
+            unitUsage: charge.unitUsage,
+            calculationType: charge.calculationType
+          };
+        }),
         issueDate: formData.issueDate,
         dueDate: formData.dueDate,
         billHeadDetails: {
@@ -990,14 +1015,18 @@ export default function UtilityBills() {
           igstPercentage: selectedBillHead.gstConfig?.igstPercentage || 0
         },
         totalAmount: totalWithAdditional,
-        additionalCharges: additionalCharges.map(charge => ({
-          billHeadId: charge.billHeadId,
-          chargeType: normalizeChargeType(charge.chargeType),
-          amount: charge.amount,
-          ledgerId: charge.ledgerId,
-          unitUsage: charge.unitUsage,
-          calculationType: charge.calculationType
-        }))
+        additionalCharges: additionalCharges.map(charge => {
+          // Find the bill head to get proper charge type
+          const billHead = availableCharges.find(bh => bh._id === charge.billHeadId || bh.name === charge.chargeType);
+          return {
+            billHeadId: charge.billHeadId,
+            chargeType: getValidChargeType(billHead),
+            amount: charge.amount,
+            ledgerId: charge.ledgerId,
+            unitUsage: charge.unitUsage,
+            calculationType: charge.calculationType
+          };
+        })
       };
 
       console.log('Sending bill data:', billData); // Add this for debugging
@@ -1448,6 +1477,9 @@ export default function UtilityBills() {
     
     // Reset selections
     setSelectedResident(null);
+    setSelectedResidents([]);
+    setResidentUnitUsages({});
+    setCalculationResults({});
     setSelectedBlock('');
     setSelectedFloor('');
     setSelectedFlat('');
@@ -1612,12 +1644,37 @@ export default function UtilityBills() {
     }
   };
 
-  // Utility function to normalize chargeType
-  const normalizeChargeType = (name) => {
-    // Correct common typos and ensure exact match
-    if (name === 'Soceity Charges') return 'Society Charges';
-    // Add more corrections if needed
-    return name;
+  // Utility function to map bill head subCategory to valid enum values
+  const getValidChargeType = (billHead) => {
+    if (!billHead) return 'Miscellaneous';
+    
+    // Map subCategory to valid enum values
+    const subCategoryToEnum = {
+      'Processing Fees': 'Processing Fees',
+      'Society Charges': 'Society Charges',
+      'Platform Charges': 'Platform Charges',
+      'Transfer Charges': 'Transfer Charges',
+      'NOC Charges': 'NOC Charges',
+      'Late Payment Charges': 'Late Payment Charges',
+      'Legal Charges': 'Legal Charges',
+      'Documentation Charges': 'Documentation Charges',
+      'Administrative Charges': 'Administrative Charges',
+      'Event Charges': 'Event Charges',
+      'Other': 'Miscellaneous'
+    };
+    
+    // Try to map by subCategory first
+    if (billHead.subCategory && subCategoryToEnum[billHead.subCategory]) {
+      return subCategoryToEnum[billHead.subCategory];
+    }
+    
+    // Try to map by name as fallback
+    if (billHead.name && subCategoryToEnum[billHead.name]) {
+      return subCategoryToEnum[billHead.name];
+    }
+    
+    // Default to Miscellaneous if no match found
+    return 'Miscellaneous';
   };
 
   // Update the main return JSX to include the modals
@@ -1659,7 +1716,7 @@ export default function UtilityBills() {
 
         {showForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center overflow-y-auto z-40">
-            <div className="bg-white rounded-lg p-6 w-full max-w-6xl m-4 mt-24 max-h-[90vh] overflow-y-auto my-auto mx-auto">
+            <div className="bg-white rounded-lg p-6 w-full max-w-[85%] m-4 mt-24 max-h-[90vh] overflow-y-auto my-auto mx-auto">
               <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pt-2 pb-4 border-b z-10">
                 <h2 className="text-xl font-semibold text-gray-900">
                   {billGenerationType === 'individual' && 'Generate Bill for Individual Resident'}
@@ -1916,14 +1973,14 @@ export default function UtilityBills() {
                         </select>
                       </div>
 
-                  {/* Units Input - Common for all types but with different handling */}
-                  {selectedBillHead && renderUnitsInput()}
+                  {/* Units Input - Only show for individual bill generation */}
+                  {selectedBillHead && billGenerationType === 'individual' && renderUnitsInput()}
 
                   {/* Additional Charges */}
                   {selectedBillHead && renderAdditionalCharges()}
 
-                  {/* Calculate Button */}
-                  {renderCalculateButton()}
+                  {/* Calculate Button - Only show for individual bill generation */}
+                  {billGenerationType === 'individual' && renderCalculateButton()}
 
                   {/* Bill Details - Show calculation results */}
                       {renderBillDetails()}
@@ -1968,34 +2025,7 @@ export default function UtilityBills() {
 
                   {(billGenerationType === 'block' || billGenerationType === 'floor') && (
                     <div>
-                      {bulkResidents.length > 0 ? (
-                        <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
-                          <h3 className="font-medium text-green-800 mb-2">Selected Residents</h3>
-                          <p className="text-green-700">
-                            {bulkResidents.length} residents will be billed with these details.
-                          </p>
-                          <div className="mt-4 max-h-40 overflow-y-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Name</th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Flat</th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {bulkResidents.map((resident) => (
-                                  <tr key={resident._id}>
-                                    <td className="px-3 py-2 whitespace-nowrap text-sm">{resident.name}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-sm">
-                                      {resident.flatDetails?.flatNumber}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ) : (
+                      {bulkResidents.length === 0 && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
                           <p className="text-yellow-800">
                             {billGenerationType === 'block' ? 'Please select a block from the left panel.' : 'Please select a block and floor from the left panel.'}
@@ -2032,7 +2062,100 @@ export default function UtilityBills() {
                     </div>
                   )}
 
-                      {/* Form Actions */}
+
+                  {(billGenerationType === 'block' || billGenerationType === 'floor' || billGenerationType === 'bulk') && (
+                    <ResidentSelectionTable
+                      residents={billGenerationType === 'bulk' ? residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber && r.societyVerification === 'Approved') : bulkResidents}
+                      selectedResidents={selectedResidents}
+                      onResidentToggle={(resident, isSelected) => {
+                        setSelectedResidents(prevSelected => {
+                          if (isSelected) {
+                            // Add resident if not already selected
+                            const alreadySelected = prevSelected.find(res => res._id === resident._id);
+                            if (!alreadySelected) {
+                              return [...prevSelected, resident];
+                            } else {
+                              return prevSelected;
+                            }
+                          } else {
+                            // Remove resident if selected
+                            return prevSelected.filter((res) => res._id !== resident._id);
+                          }
+                        });
+                      }}
+                      onUnitUsageChange={(residentId, unitUsage) => {
+                        setResidentUnitUsages((prev) => ({
+                          ...prev,
+                          [residentId]: unitUsage,
+                        }));
+                      }}
+                      billHead={selectedBillHead}
+                      additionalCharges={additionalCharges}
+                      onCalculate={() => {
+                        // Perform calculation logic for selected residents
+                        const newCalculationResults = {};
+                        selectedResidents.forEach((resident) => {
+                          const usage = residentUnitUsages[resident._id] || '0';
+                          let baseAmount = 0;
+                          switch (selectedBillHead.calculationType) {
+                            case 'Fixed':
+                              baseAmount = selectedBillHead.fixedAmount;
+                              break;
+                            case 'PerUnit':
+                              baseAmount = parseFloat(usage) * selectedBillHead.perUnitRate;
+                              break;
+                            case 'Formula':
+                              const formula = selectedBillHead.formula
+                                .replace(/\${unitUsage}/g, usage)
+                                .replace(/\${rate}/g, selectedBillHead.perUnitRate);
+                              baseAmount = eval(formula);
+                              break;
+                            default:
+                              baseAmount = 0;
+                          }
+
+                          // Calculate GST
+                          let gstDetails = selectedBillHead.gstConfig?.isGSTApplicable
+                            ? {
+                                cgstAmount: (baseAmount * selectedBillHead.gstConfig.cgstPercentage) / 100,
+                                sgstAmount: (baseAmount * selectedBillHead.gstConfig.sgstPercentage) / 100,
+                                igstAmount: (baseAmount * selectedBillHead.gstConfig.igstPercentage) / 100,
+                                total: 0
+                              }
+                            : {
+                                cgstAmount: 0,
+                                sgstAmount: 0,
+                                igstAmount: 0,
+                                total: 0
+                              };
+                          gstDetails.total = gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
+
+                          // Calculate additional charges total
+                          const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+                          
+                          console.log('Calculation for resident:', resident.name, {
+                            baseAmount,
+                            gstAmount: gstDetails.total,
+                            additionalChargesTotal,
+                            totalBeforeAdditional: baseAmount + gstDetails.total,
+                            finalTotal: baseAmount + gstDetails.total + additionalChargesTotal
+                          });
+
+                          newCalculationResults[resident._id] = {
+                            baseAmount,
+                            gstAmount: gstDetails.total,
+                            additionalChargesTotal,
+                            totalAmount: baseAmount + gstDetails.total + additionalChargesTotal
+                          };
+                        });
+
+                        setCalculationResults(newCalculationResults);
+                        setShowResidentCalculation(true);
+                      }}
+                      showCalculation={showResidentCalculation}
+                      calculationResults={calculationResults}
+                    />
+                  )}
                       <div className="flex justify-end space-x-4 mt-6">
                         <button
                           type="button"
@@ -2045,14 +2168,14 @@ export default function UtilityBills() {
                       type="button"
                           className="bg-blue-600 text-white px-4 py-2 rounded-lg"
                       disabled={
-                        !showCalculation || 
-                        (billGenerationType === 'individual' && !selectedResident) ||
-                        ((billGenerationType === 'block' || billGenerationType === 'floor') && bulkResidents.length === 0) ||
+                        (billGenerationType === 'individual' && (!showCalculation || !selectedResident)) ||
+                        ((billGenerationType === 'block' || billGenerationType === 'floor') && (bulkResidents.length === 0 || !showResidentCalculation)) ||
+                        (billGenerationType === 'bulk' && !showResidentCalculation) ||
                         isGeneratingBulk
                       }
                       onClick={
-                        billGenerationType === 'individual' 
-                          ? handleSubmit 
+                        billGenerationType === 'individual'
+                          ? handleSubmit
                           : () => handleBulkGeneration()
                       }
                     >

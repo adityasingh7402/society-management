@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Tag, AlertTriangle, User, Home, CheckCircle, Phone, Mail, MapPin, Edit3, Trash2, X } from 'lucide-react';
+import { Tag, AlertTriangle, User, Home, CheckCircle, Phone, Mail, MapPin, Edit3, Trash2, X, Users } from 'lucide-react';
 
-export default function DetailPopup({ resident, onClose, onUpdate, onDelete, onViewTags }) {
+export default function DetailPopup({ resident, onClose, onUpdate, onDelete, onViewTags, onViewMembers }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Helper function to format address
@@ -105,6 +105,16 @@ export default function DetailPopup({ resident, onClose, onUpdate, onDelete, onV
                       <Tag size={14} />
                       <span>View Tags</span>
                     </button>
+                    
+                    {onViewMembers && (
+                      <button
+                        onClick={() => onViewMembers(resident)}
+                        className="w-full px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors duration-200 flex items-center justify-center space-x-2"
+                      >
+                        <Users size={14} />
+                        <span>View Members ({resident.members ? resident.members.length : 0})</span>
+                      </button>
+                    )}
                     
                     <button
                       onClick={handleDelete}

@@ -8,14 +8,68 @@ import {
 import useRoleAccess from '../../../hooks/useRoleAccess';
 
 const VisitorEntry = () => {
+    const router = useRouter();
+    
     // Allow main residents and tenants to access visitor entry
-    // main_resident = primary resident user type
+    // resident = primary resident user type
     // tenant = member with tenant role
     const { isAuthorized, loading: authLoading } = useRoleAccess([
-        'main_resident', // Main resident can access
+        'resident', // Main resident can access
         'tenant' // Tenant role can access
     ]);
 
+    const [visitors, setVisitors] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [residentDetails, setResidentDetails] = useState(null);
+    const [showPopup, setShowPopup] = useState(false);
+    const [popupMessage, setPopupMessage] = useState('');
+    const [popupType, setPopupType] = useState('');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [expandedVisitor, setExpandedVisitor] = useState(null);
+    const [processingId, setProcessingId] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    // Add state for full-screen image view
+    const [fullScreenImage, setFullScreenImage] = useState(null);
+    
+    // Fetch resident details on component mount
+    useEffect(() => {
+        // Only fetch if authorized to avoid unnecessary API calls
+        if (!authLoading && isAuthorized) {
+            const fetchResidentProfile = async () => {
+                try {
+                    const token = localStorage.getItem("Resident");
+                    if (!token) {
+                        router.push("/login");
+                        return;
+                    }
+
+                    const response = await fetch("/api/Resident-Api/get-resident-details", {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Failed to fetch resident profile");
+                    }
+
+                    const data = await response.json();
+                    setResidentDetails(data);
+
+                    // After getting resident details, fetch visitors
+                    fetchVisitors(data);
+                } catch (error) {
+                    console.error("Error fetching resident profile:", error);
+                    setError("Failed to load your profile. Please login again.");
+                    router.push("/login");
+                }
+            };
+
+            fetchResidentProfile();
+        }
+    }, [router, authLoading, isAuthorized]);
+    
     if (authLoading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -49,56 +103,6 @@ const VisitorEntry = () => {
             </div>
         );
     }
-    
-    const router = useRouter();
-    const [visitors, setVisitors] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [residentDetails, setResidentDetails] = useState(null);
-    const [showPopup, setShowPopup] = useState(false);
-    const [popupMessage, setPopupMessage] = useState('');
-    const [popupType, setPopupType] = useState('');
-    const [filterStatus, setFilterStatus] = useState('all');
-    const [expandedVisitor, setExpandedVisitor] = useState(null);
-    const [processingId, setProcessingId] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    // Add state for full-screen image view
-    const [fullScreenImage, setFullScreenImage] = useState(null);
-
-    // Fetch resident details on component mount
-    useEffect(() => {
-        const fetchResidentProfile = async () => {
-            try {
-                const token = localStorage.getItem("Resident");
-                if (!token) {
-                    router.push("/login");
-                    return;
-                }
-
-                const response = await fetch("/api/Resident-Api/get-resident-details", {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (!response.ok) {
-                    throw new Error("Failed to fetch resident profile");
-                }
-
-                const data = await response.json();
-                setResidentDetails(data);
-
-                // After getting resident details, fetch visitors
-                fetchVisitors(data);
-            } catch (error) {
-                console.error("Error fetching resident profile:", error);
-                setError("Failed to load your profile. Please login again.");
-                router.push("/login");
-            }
-        };
-
-        fetchResidentProfile();
-    }, [router]);
 
     // Fetch visitors based on resident flat details
     const fetchVisitors = async (resident) => {
