@@ -1,11 +1,27 @@
 import connectToDatabase from '../../../lib/mongodb';
 import Security from '../../../models/Security';
+import { logSuccess, logFailure } from '../../../services/loggingService';
+import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
   await connectToDatabase();
 
   if (req.method !== 'PUT') {
     return res.status(405).json({ message: 'Method Not Allowed' });
+  }
+
+  // Verify token and authorization
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: Token missing.' });
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    await logFailure('UPDATE_SECURITY_PROFILE', req, 'Unauthorized: Invalid token');
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 
   try {
@@ -30,10 +46,18 @@ export default async function handler(req, res) {
 
     // Validate required fields
     if (!securityId) {
+      await logFailure('UPDATE_SECURITY_PROFILE', req, 'Security ID is required', {
+        errorType: 'VALIDATION_ERROR'
+      });
       return res.status(400).json({ error: 'Security ID is required.' });
     }
 
     if (!guardName || !guardPhone) {
+      await logFailure('UPDATE_SECURITY_PROFILE', req, 'Guard name and phone are required', {
+        securityId,
+        providedFields: { guardName: !!guardName, guardPhone: !!guardPhone },
+        errorType: 'VALIDATION_ERROR'
+      });
       return res.status(400).json({ error: 'Guard name and phone are required.' });
     }
 
@@ -138,8 +162,25 @@ export default async function handler(req, res) {
     );
 
     if (!updatedSecurity) {
+      await logFailure('UPDATE_SECURITY_PROFILE', req, 'Security profile not found', {
+        securityId,
+        errorType: 'SECURITY_NOT_FOUND'
+      });
       return res.status(404).json({ error: 'Security profile not found.' });
     }
+
+    // Log successful security profile update
+    await logSuccess('UPDATE_SECURITY_PROFILE', req, {
+      securityId: updatedSecurity.securityId,
+      guardName: updatedSecurity.guardName,
+      guardPhone: updatedSecurity.guardPhone,
+      societyId: updatedSecurity.societyId,
+      societyName: updatedSecurity.societyName,
+      shiftStart: updatedSecurity.shiftTimings?.start,
+      shiftEnd: updatedSecurity.shiftTimings?.end,
+      societyVerification: updatedSecurity.societyVerification,
+      additionalNumbersCount: updatedSecurity.additionalNumbers?.length || 0
+    }, updatedSecurity._id, 'security_guard');
 
     // Return success response with updated data
     return res.status(200).json({
@@ -159,6 +200,14 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error updating security profile:', error);
+    
+    // Log the failure
+    await logFailure('UPDATE_SECURITY_PROFILE', req, error.message, {
+      securityId: req.body?.securityId,
+      guardName: req.body?.guardName,
+      errorType: error.name,
+      errorCode: error.code
+    });
     
     if (error.name === 'ValidationError') {
       return res.status(400).json({ 

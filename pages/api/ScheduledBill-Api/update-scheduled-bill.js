@@ -2,6 +2,7 @@ import connectToDatabase from "../../../lib/mongodb";
 import ScheduledBill from '../../../models/ScheduledBill';
 import BillHead from '../../../models/BillHead';
 import jwt from 'jsonwebtoken';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
@@ -13,16 +14,19 @@ export default async function handler(req, res) {
 
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
+      await logFailure('SCHEDULED_BILL_UPDATE', req, 'No authorization token provided', { scheduledBillId: req.query?.id });
       return res.status(401).json({ error: 'No token provided' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || !decoded.id) {
+      await logFailure('SCHEDULED_BILL_UPDATE', req, 'Invalid authorization token', { scheduledBillId: req.query?.id });
       return res.status(401).json({ error: 'Invalid token' });
     }
 
     const { id, societyId } = req.query;
     if (!societyId) {
+      await logFailure('SCHEDULED_BILL_UPDATE', req, 'Society ID is required', { scheduledBillId: id });
       return res.status(400).json({ error: 'Society ID is required' });
     }
 
@@ -32,6 +36,10 @@ export default async function handler(req, res) {
     if (updateData.billHeadId) {
       const billHead = await BillHead.findById(updateData.billHeadId);
       if (!billHead) {
+        await logFailure('SCHEDULED_BILL_UPDATE', req, 'Bill head not found', {
+          scheduledBillId: id,
+          billHeadId: updateData.billHeadId
+        });
         return res.status(404).json({ error: 'Bill head not found' });
       }
 
@@ -71,6 +79,10 @@ export default async function handler(req, res) {
     );
 
     if (!scheduledBill) {
+      await logFailure('SCHEDULED_BILL_UPDATE', req, 'Scheduled bill not found or permission denied', {
+        scheduledBillId: id,
+        societyId: societyId
+      });
       return res.status(404).json({ error: 'Scheduled bill not found' });
     }
 
@@ -85,6 +97,19 @@ export default async function handler(req, res) {
       await scheduledBill.save();
     }
 
+    // Log successful update
+    await logSuccess('SCHEDULED_BILL_UPDATE', req, {
+      scheduledBillId: scheduledBill._id,
+      title: scheduledBill.title,
+      frequency: scheduledBill.frequency,
+      totalAmount: scheduledBill.totalAmount,
+      residentCount: scheduledBill.selectedResidents?.length || 0,
+      additionalChargesCount: scheduledBill.additionalCharges?.length || 0,
+      hasFrequencyChange: !!(updateData.frequency || updateData.customFrequencyDays),
+      hasDateChange: !!(updateData.startDate || updateData.endDate),
+      hasStatusChange: !!updateData.status
+    }, scheduledBill._id, 'ScheduledBill');
+
     return res.status(200).json({
       message: 'Scheduled bill updated successfully',
       data: scheduledBill
@@ -92,6 +117,15 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error in update-scheduled-bill:', error);
+    
+    // Log the failure
+    await logFailure('SCHEDULED_BILL_UPDATE', req, error.message, {
+      scheduledBillId: req.query?.id,
+      societyId: req.query?.societyId,
+      title: req.body?.title,
+      errorType: error.name
+    });
+    
     return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 } 

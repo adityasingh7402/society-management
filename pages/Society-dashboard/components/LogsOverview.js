@@ -361,22 +361,34 @@ export default function LogsOverview() {
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Detail</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {grouped[group.key].map((log) => (
                           <tr key={log._id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 whitespace-nowrap">{log.userId}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {log.userName || log.userId}
+                              <br />
+                              <small className="text-gray-600">({log.userRole || 'Unknown'})</small>
+                            </td>
                             <td className="px-4 py-3 whitespace-nowrap">{log.actionType}</td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               {log.status === 'success' && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Success</span>}
                               {log.status === 'failed' && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Failed</span>}
                               {log.status === 'attempted' && <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Attempted</span>}
                             </td>
-                            <td className="px-4 py-3 whitespace-nowrap">{log.details?.description || 'N/A'}</td>
                             <td className="px-4 py-3 whitespace-nowrap">{formatDate(log.timestamp)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <button
+                                onClick={() => setSelectedLog(log)}
+                                className="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors"
+                                title="View Details"
+                              >
+                                <Eye className="w-5 h-5" />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>

@@ -18,9 +18,7 @@ export default function ScheduledBillModal({
     customFrequencyDays: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: '',
-    dueDays: 15,
     unitUsage: '',
-    periodType: 'Monthly',
     baseAmount: 0,
     totalAmount: 0,
     selectedResidents: []
@@ -57,7 +55,54 @@ export default function ScheduledBillModal({
     compoundingFrequency: 'Monthly'
   });
 
+  // Additional charges state
+  const [additionalCharges, setAdditionalCharges] = useState([]);
+  const [availableCharges, setAvailableCharges] = useState([]);
+  const [selectedAdditionalCharge, setSelectedAdditionalCharge] = useState(null);
+
+
   const router = useRouter();
+
+  // Fetch available charges for additionalCharges dropdown
+  const fetchAvailableCharges = async () => {
+    try {
+      const token = localStorage.getItem('Society');
+      if (!token) {
+        router.push('/societyLogin');
+        return;
+      }
+
+      // Get society details first
+      const societyResponse = await fetch('/api/Society-Api/get-society-details', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!societyResponse.ok) {
+        throw new Error('Failed to fetch society details');
+      }
+
+      const societyData = await societyResponse.json();
+      const societyId = societyData.societyId; // Use societyId (code) instead of _id
+
+      // Fetch bill heads of category 'Other' for additional charges
+      const response = await fetch(`/api/BillHead-Api/get-bill-heads?societyId=${societyId}&category=Other`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch available charges');
+      }
+
+      const data = await response.json();
+      setAvailableCharges(data.data || []);
+    } catch (error) {
+      console.error('Error fetching available charges:', error);
+    }
+  };
 
   useEffect(() => {
     if (selectedBill) {
@@ -119,6 +164,7 @@ export default function ScheduledBillModal({
       }
     }
     fetchResidents();
+    fetchAvailableCharges();
   }, [selectedBill, billHeads]);
 
   const fetchResidents = async () => {
@@ -197,6 +243,237 @@ export default function ScheduledBillModal({
     return structured;
   };
 
+  // Add handleAdditionalChargeSelect function
+  const handleAdditionalChargeSelect = (e) => {
+    const billHeadId = e.target.value;
+    const billHead = availableCharges.find(bh => bh._id === billHeadId);
+    
+    // Clear selection if no bill head found
+    if (!billHead) {
+      setSelectedAdditionalCharge(null);
+      return;
+    }
+    
+    // Check if this charge is already added
+    const isChargeAlreadyAdded = additionalCharges.some(
+      charge => charge.billHeadId === billHead._id
+    );
+
+    if (isChargeAlreadyAdded) {
+      alert('This charge has already been added');
+      e.target.value = ''; // Reset dropdown
+      return;
+    }
+    
+    setSelectedAdditionalCharge(billHead);
+    
+    // If it's a fixed amount bill head, automatically add the charge
+    if (billHead.calculationType === 'Fixed') {
+      const normalizedChargeType = getValidChargeType(billHead);
+      const newCharge = {
+        billHeadId: billHead._id,
+        chargeType: normalizedChargeType,
+        amount: billHead.fixedAmount,
+        ledgerId: billHead.accountingConfig.incomeLedgerId,
+        unitUsage: 1,
+        calculationType: billHead.calculationType
+      };
+      setAdditionalCharges([...additionalCharges, newCharge]);
+      // Trigger recalculation instead of setting to false
+      setTimeout(() => {
+        if (selectedBillHead) {
+          recalculateWithAdditionalCharges([...additionalCharges, newCharge]);
+        }
+      }, 100);
+      setSelectedAdditionalCharge(null); // Clear selection after adding
+      e.target.value = ''; // Reset dropdown
+    }
+  };
+
+  // Calculate additional charge function
+  const calculateAdditionalCharge = () => {
+    if (!selectedAdditionalCharge) {
+      return;
+    }
+
+    // Check if this charge is already added
+    const isChargeAlreadyAdded = additionalCharges.some(
+      charge => charge.billHeadId === selectedAdditionalCharge._id
+    );
+
+    if (isChargeAlreadyAdded) {
+      setSelectedAdditionalCharge(null);
+      if (document.getElementById('additionalChargeSelect')) {
+        document.getElementById('additionalChargeSelect').value = '';
+      }
+      return;
+    }
+
+    let amount = 0;
+    let unitUsage = 1;
+
+    // For fixed amount, no need to check for input
+    if (selectedAdditionalCharge.calculationType === 'Fixed') {
+      amount = selectedAdditionalCharge.fixedAmount;
+    } else {
+      // For PerUnit and Formula, check input element and value
+      const inputElement = document.getElementById('additionalChargeUnits');
+      if (!inputElement) {
+        alert('Units input not found');
+        return;
+      }
+
+      unitUsage = parseFloat(inputElement.value);
+      if (!unitUsage || isNaN(unitUsage)) {
+        alert('Please enter valid units');
+        return;
+      }
+
+      switch (selectedAdditionalCharge.calculationType) {
+        case 'PerUnit':
+          amount = unitUsage * selectedAdditionalCharge.perUnitRate;
+          break;
+        case 'Formula':
+          try {
+            const formula = selectedAdditionalCharge.formula
+              .replace(/\$\{unitUsage\}/g, unitUsage)
+              .replace(/\$\{rate\}/g, selectedAdditionalCharge.perUnitRate);
+            amount = eval(formula);
+          } catch (error) {
+            console.error('Formula evaluation error:', error);
+            alert('Error calculating formula: ' + error.message);
+            return;
+          }
+          break;
+      }
+    }
+
+    const normalizedChargeType = getValidChargeType(selectedAdditionalCharge);
+    const newCharge = {
+      billHeadId: selectedAdditionalCharge._id,
+      chargeType: normalizedChargeType,
+      amount,
+      ledgerId: selectedAdditionalCharge.accountingConfig.incomeLedgerId,
+      unitUsage,
+      calculationType: selectedAdditionalCharge.calculationType
+    };
+
+    const newCharges = [...additionalCharges, newCharge];
+    setAdditionalCharges(newCharges);
+    // Trigger recalculation with new charges
+    setTimeout(() => {
+      if (selectedBillHead) {
+        recalculateWithAdditionalCharges(newCharges);
+      }
+    }, 100);
+
+    // Reset selection
+    setSelectedAdditionalCharge(null);
+    if (document.getElementById('additionalChargeSelect')) {
+      document.getElementById('additionalChargeSelect').value = '';
+    }
+    if (document.getElementById('additionalChargeUnits')) {
+      document.getElementById('additionalChargeUnits').value = '';
+    }
+  };
+
+  // Helper function to recalculate totals when additional charges are modified
+  const recalculateWithAdditionalCharges = (charges) => {
+    if (!selectedBillHead) return;
+
+    let baseAmount = 0;
+    switch (selectedBillHead.calculationType) {
+      case 'Fixed':
+        baseAmount = selectedBillHead.fixedAmount;
+        break;
+      case 'PerUnit':
+        baseAmount = parseFloat(formData.unitUsage) * selectedBillHead.perUnitRate;
+        break;
+      case 'Formula':
+        try {
+          const formula = selectedBillHead.formula
+            .replace(/\$\{unitUsage\}/g, formData.unitUsage)
+            .replace(/\$\{rate\}/g, selectedBillHead.perUnitRate);
+          baseAmount = eval(formula);
+        } catch (error) {
+          console.error('Formula evaluation error:', error);
+          return;
+        }
+        break;
+    }
+
+    // Calculate GST
+    const gstDetails = {
+      isGSTApplicable: selectedBillHead.gstConfig?.isGSTApplicable || false,
+      cgstPercentage: selectedBillHead.gstConfig?.cgstPercentage || 0,
+      sgstPercentage: selectedBillHead.gstConfig?.sgstPercentage || 0,
+      igstPercentage: selectedBillHead.gstConfig?.igstPercentage || 0,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      total: 0
+    };
+
+    if (gstDetails.isGSTApplicable) {
+      gstDetails.cgstAmount = (baseAmount * gstDetails.cgstPercentage) / 100;
+      gstDetails.sgstAmount = (baseAmount * gstDetails.sgstPercentage) / 100;
+      gstDetails.igstAmount = (baseAmount * gstDetails.igstPercentage) / 100;
+      gstDetails.total = gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
+    }
+
+    const additionalChargesTotal = charges.reduce((sum, charge) => sum + charge.amount, 0);
+    const totalAmount = baseAmount + gstDetails.total + additionalChargesTotal;
+
+    setBillCalculation({
+      baseAmount,
+      gstDetails,
+      additionalChargesTotal,
+      totalAmount
+    });
+
+    setFormData(prev => ({
+      ...prev,
+      baseAmount,
+      totalAmount,
+      gstDetails
+    }));
+
+    setShowCalculation(true);
+  };
+
+  // Utility function to map bill head subCategory to valid enum values
+  const getValidChargeType = (billHead) => {
+    if (!billHead) return 'Miscellaneous';
+    
+    // Map subCategory to valid enum values
+    const subCategoryToEnum = {
+      'Processing Fees': 'Processing Fees',
+      'Society Charges': 'Society Charges',
+      'Platform Charges': 'Platform Charges',
+      'Transfer Charges': 'Transfer Charges',
+      'NOC Charges': 'NOC Charges',
+      'Late Payment Charges': 'Late Payment Charges',
+      'Legal Charges': 'Legal Charges',
+      'Documentation Charges': 'Documentation Charges',
+      'Administrative Charges': 'Administrative Charges',
+      'Event Charges': 'Event Charges',
+      'Other': 'Miscellaneous'
+    };
+    
+    // Try to map by subCategory first
+    if (billHead.subCategory && subCategoryToEnum[billHead.subCategory]) {
+      return subCategoryToEnum[billHead.subCategory];
+    }
+    
+    // Try to map by name as fallback
+    if (billHead.name && subCategoryToEnum[billHead.name]) {
+      return subCategoryToEnum[billHead.name];
+    }
+    
+    // Default to Miscellaneous if no match found
+    return 'Miscellaneous';
+  };
+
   const handleBillHeadChange = (e) => {
     const billHeadId = e.target.value;
     const billHead = billHeads.find(bh => bh._id === billHeadId);
@@ -242,11 +519,13 @@ export default function ScheduledBillModal({
           gstDetails.total = gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
         }
 
-        const totalAmount = baseAmount + gstDetails.total;
+        const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+        const totalAmount = baseAmount + gstDetails.total + additionalChargesTotal;
 
         setBillCalculation({
           baseAmount,
           gstDetails,
+          additionalChargesTotal,
           totalAmount
         });
 
@@ -307,11 +586,13 @@ export default function ScheduledBillModal({
       gstDetails.total = gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
     }
 
-    const totalAmount = baseAmount + gstDetails.total;
+    const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+    const totalAmount = baseAmount + gstDetails.total + additionalChargesTotal;
 
     setBillCalculation({
       baseAmount,
       gstDetails,
+      additionalChargesTotal,
       totalAmount
     });
 
@@ -449,7 +730,10 @@ export default function ScheduledBillModal({
       selectedResidents,
       baseAmount: billCalculation.baseAmount,
       gstDetails: billCalculation.gstDetails,
-      totalAmount: billCalculation.totalAmount
+      additionalCharges: additionalCharges, // Include additional charges
+      totalAmount: billCalculation.totalAmount,
+      periodType: formData.frequency, // Set periodType to same as frequency
+      dueDays: selectedBillHead?.latePaymentConfig?.gracePeriodDays || 15 // Use grace period days as due days
     };
 
     onSubmit(submitData);
@@ -575,11 +859,32 @@ export default function ScheduledBillModal({
                   required
                 >
                   <option value="">Select Bill Head</option>
-                  {billHeads.map(bh => (
-                    <option key={bh._id} value={bh._id}>
-                      {bh.name} ({bh.code})
-                    </option>
-                  ))}
+                  {/* Maintenance Bills */}
+                  {billHeads.filter(bh => bh.category === 'Maintenance').length > 0 && (
+                    <optgroup label="Maintenance Bills">
+                      {billHeads
+                        .filter(bh => bh.category === 'Maintenance')
+                        .map(bh => (
+                          <option key={bh._id} value={bh._id}>
+                            {bh.name} ({bh.code})
+                          </option>
+                        ))
+                      }
+                    </optgroup>
+                  )}
+                  {/* Amenity Bills */}
+                  {billHeads.filter(bh => bh.category === 'Amenity').length > 0 && (
+                    <optgroup label="Amenity Bills">
+                      {billHeads
+                        .filter(bh => bh.category === 'Amenity')
+                        .map(bh => (
+                          <option key={bh._id} value={bh._id}>
+                            {bh.name} ({bh.code})
+                          </option>
+                        ))
+                      }
+                    </optgroup>
+                  )}
                 </select>
               </div>
             </div>
@@ -619,7 +924,7 @@ export default function ScheduledBillModal({
             </div>
 
             {/* Dates */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Start Date</label>
                 <input
@@ -639,38 +944,11 @@ export default function ScheduledBillModal({
                   onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Due Days</label>
-                <input
-                  type="number"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                  value={formData.dueDays}
-                  onChange={(e) => setFormData(prev => ({ ...prev, dueDays: e.target.value }))}
-                  min="1"
-                  required
-                />
-              </div>
             </div>
 
             {/* Bill Calculation */}
             {selectedBillHead && (
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Period Type</label>
-                  <select
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                    value={formData.periodType}
-                    onChange={(e) => setFormData(prev => ({ ...prev, periodType: e.target.value }))}
-                    required
-                  >
-                    <option value="Daily">Daily</option>
-                    <option value="Weekly">Weekly</option>
-                    <option value="Monthly">Monthly</option>
-                    <option value="Quarterly">Quarterly</option>
-                    <option value="HalfYearly">Half Yearly</option>
-                    <option value="Yearly">Yearly</option>
-                  </select>
-                </div>
 
                 {/* Show calculation details for Fixed type */}
                 {selectedBillHead.calculationType === 'Fixed' && (
@@ -729,6 +1007,112 @@ export default function ScheduledBillModal({
                   </div>
                 )}
 
+                {/* Additional Charges Section */}
+                {selectedBillHead && (
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium text-gray-700">Additional Charges</h4>
+                    
+                    {/* Additional Charges Dropdown */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Select Additional Charge</label>
+                      <select
+                        id="additionalChargeSelect"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                        value={selectedAdditionalCharge?._id || ''}
+                        onChange={handleAdditionalChargeSelect}
+                      >
+                        <option value="">Select Additional Charge</option>
+                        {availableCharges.map((bh) => (
+                          <option key={bh._id} value={bh._id}>
+                            {bh.name} ({bh.code}) - {bh.calculationType}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Units input for non-Fixed charges */}
+                    {selectedAdditionalCharge && selectedAdditionalCharge.calculationType !== 'Fixed' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          {selectedAdditionalCharge.calculationType === 'PerUnit' ? 'Units Used' : 'Units (for formula calculation)'}
+                        </label>
+                        <div className="mt-1">
+                          <input
+                            id="additionalChargeUnits"
+                            type="number"
+                            className="block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                            min="0"
+                            step="0.01"
+                            required
+                          />
+                        </div>
+                        {selectedAdditionalCharge.calculationType === 'PerUnit' && (
+                          <p className="mt-1 text-sm text-gray-500">
+                            Rate per unit: ₹{selectedAdditionalCharge.perUnitRate}
+                          </p>
+                        )}
+                        {selectedAdditionalCharge.calculationType === 'Formula' && (
+                          <p className="mt-1 text-sm text-gray-500">
+                            Formula: {selectedAdditionalCharge.formula}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Add charge button for non-Fixed charges */}
+                    {selectedAdditionalCharge && selectedAdditionalCharge.calculationType !== 'Fixed' && (
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center"
+                          onClick={calculateAdditionalCharge}
+                        >
+                          Add Charge
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Display added charges */}
+                    {additionalCharges.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        <h4 className="font-medium text-gray-900">Added Charges:</h4>
+                        {additionalCharges.map((charge, index) => (
+                          <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                            <div>
+                              <span className="font-medium">{charge.chargeType}</span>
+                              {charge.unitUsage && charge.calculationType !== 'Fixed' && (
+                                <span className="text-sm text-gray-500 ml-2">
+                                  ({charge.unitUsage} units)
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <span className="font-medium">₹{charge.amount.toFixed(2)}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newCharges = [...additionalCharges];
+                                  newCharges.splice(index, 1);
+                                  setAdditionalCharges(newCharges);
+                                  // Recalculate after removing charge
+                                  setTimeout(() => {
+                                    if (selectedBillHead) {
+                                      recalculateWithAdditionalCharges(newCharges);
+                                    }
+                                  }, 100);
+                                }}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Calculate button only for non-Fixed types */}
                 {selectedBillHead.calculationType !== 'Fixed' && (
                   <div className="flex justify-end">
@@ -765,6 +1149,13 @@ export default function ScheduledBillModal({
                           <span>₹{billCalculation.gstDetails.igstAmount.toFixed(2)}</span>
                         </div>
                       </>
+                    )}
+                    {/* Additional Charges in calculation summary */}
+                    {billCalculation.additionalChargesTotal > 0 && (
+                      <div className="flex justify-between">
+                        <span>Additional Charges:</span>
+                        <span>₹{billCalculation.additionalChargesTotal.toFixed(2)}</span>
+                      </div>
                     )}
                     <div className="flex justify-between font-medium pt-2 border-t">
                       <span>Total Amount:</span>

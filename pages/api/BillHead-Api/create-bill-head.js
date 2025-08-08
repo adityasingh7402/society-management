@@ -2,6 +2,7 @@ import connectToDatabase from "../../../lib/mongodb";
 import BillHead from '../../../models/BillHead';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 // Validation functions
 const validateBillHead = (data) => {
@@ -254,11 +255,13 @@ export default async function handler(req, res) {
     // Get user ID from token
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
+      await logFailure('BILLHEAD_CREATE', req, 'No authorization token provided');
       return res.status(401).json({ error: 'No token provided' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || !decoded.id) {
+      await logFailure('BILLHEAD_CREATE', req, 'Invalid authorization token');
       return res.status(401).json({ error: 'Invalid token' });
     }
 
@@ -267,6 +270,28 @@ export default async function handler(req, res) {
     const adminName = decoded.name || 'Admin'; // Fallback if name is not in token
 
     const { societyId, ...billHeadData } = req.body;
+
+    // Validate bill head data
+    const validation = validateBillHead({ societyId, ...billHeadData });
+    if (!validation.isValid) {
+      await logFailure('BILLHEAD_CREATE', req, 'Validation failed', {
+        validationErrors: validation.errors,
+        billHeadCode: billHeadData.code,
+        billHeadName: billHeadData.name,
+        category: billHeadData.category
+      });
+      return res.status(400).json({ error: 'Validation failed', details: validation.errors });
+    }
+
+    // Check for duplicate code in the same society
+    const existingBillHead = await BillHead.findOne({ societyId, code: billHeadData.code });
+    if (existingBillHead) {
+      await logFailure('BILLHEAD_CREATE', req, 'Duplicate bill head code', {
+        billHeadCode: billHeadData.code,
+        existingBillHeadId: existingBillHead._id
+      });
+      return res.status(409).json({ error: 'Bill head with this code already exists' });
+    }
 
     // Create required ledgers first
     const ledgers = await createRequiredLedgers(
@@ -296,9 +321,40 @@ export default async function handler(req, res) {
     });
 
     await billHead.save();
+
+    // Log successful creation
+    await logSuccess('BILLHEAD_CREATE', req, {
+      billHeadId: billHead._id,
+      code: billHead.code,
+      name: billHead.name,
+      category: billHead.category,
+      subCategory: billHead.subCategory,
+      calculationType: billHead.calculationType,
+      amount: billHead.calculationType === 'Fixed' ? billHead.fixedAmount : 
+              billHead.calculationType === 'PerUnit' ? billHead.perUnitRate : 'formula/custom',
+      isGSTApplicable: billHead.gstConfig?.isGSTApplicable || false,
+      isLatePaymentApplicable: billHead.latePaymentConfig?.isLatePaymentChargeApplicable || false,
+      status: billHead.status,
+      ledgersCreated: {
+        income: ledgers.incomeLedger.name,
+        receivable: ledgers.receivableLedger.name,
+        gst: ledgers.gstLedger.name
+      }
+    }, billHead._id, 'BillHead');
+
     return res.status(201).json({ message: 'Bill head created successfully', data: billHead });
   } catch (error) {
     console.error('Error in create-bill-head:', error);
+    
+    // Log the failure
+    await logFailure('BILLHEAD_CREATE', req, error.message, {
+      billHeadCode: req.body?.code,
+      billHeadName: req.body?.name,
+      category: req.body?.category,
+      errorType: error.name,
+      hasToken: !!req.headers.authorization
+    });
+    
     return res.status(500).json({ error: error.message || 'Internal server error' });
   }
-} 
+}

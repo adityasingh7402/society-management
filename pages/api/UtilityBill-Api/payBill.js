@@ -7,6 +7,7 @@ import Ledger from '../../../models/Ledger';
 import connectDB from '../../../lib/mongodb';
 import { verifyToken } from '../../../utils/auth';
 import mongoose from 'mongoose';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -20,11 +21,13 @@ export default async function handler(req, res) {
     // Verify authentication
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
+      await logFailure('UTILITY_PAYMENT_RECORD', req, 'No authorization token provided');
       return res.status(401).json({ message: 'No token provided' });
     }
 
     const decoded = await verifyToken(token);
     if (!decoded || !decoded.id) {
+      await logFailure('UTILITY_PAYMENT_RECORD', req, 'Invalid authorization token');
       return res.status(401).json({ message: 'Invalid token' });
     }
 
@@ -242,6 +245,22 @@ export default async function handler(req, res) {
     });
     await bill.save();
 
+    // Log successful payment recording
+    await logSuccess('UTILITY_PAYMENT_RECORD', req, {
+      billId: billId,
+      billNumber: bill.billNumber,
+      amount: amount,
+      paymentMethod: paymentMethod,
+      transactionId: transactionId,
+      receiptNumber: receiptNumber,
+      residentId: bill.residentId,
+      societyId: bill.societyId,
+      originalBillStatus: 'Pending',
+      newBillStatus: bill.status,
+      lateFee: lateFee,
+      isWalletPayment: paymentMethod === 'Wallet'
+    }, bill._id, 'UtilityBill');
+
     res.status(200).json({
       message: 'Payment recorded successfully',
       data: {
@@ -253,6 +272,14 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error recording payment:', error);
+    
+    // Log the failure
+    await logFailure('UTILITY_PAYMENT_RECORD', req, error.message, {
+      billId: req.body?.billId,
+      amount: req.body?.amount,
+      paymentMethod: req.body?.paymentMethod,
+      errorType: error.name
+    });
     
     // Return 400 for business logic errors
     if (error.message.includes('Wallet not found') || 

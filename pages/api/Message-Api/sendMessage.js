@@ -1,4 +1,5 @@
-// In your /api/Message-Api/sendMessage.js file, add discussionId support:
+import connectDB from '../../../lib/mongodb';
+import MessageG from '../../../models/MessageG';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,10 +8,10 @@ export default async function handler(req, res) {
 
   try {
     await connectDB();
-    const { societyCode, senderId, senderName, content, isSociety, discussionId } = req.body;
+    const { societyId, senderId, senderName, content, isSociety, discussionId } = req.body;
 
-    const message = new Message({
-      societyId: societyCode,
+    const message = new MessageG({
+      societyId,
       senderId,
       senderName,
       content,

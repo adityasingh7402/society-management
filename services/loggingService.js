@@ -59,20 +59,30 @@ export async function logAction({
     // Extract user information from request or use provided values
     if (req) {
       // Extract from token if available
-      const token = req.headers.authorization?.split(' ')[1];
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
+      
       if (token) {
         try {
           const decoded = jwt.verify(token, process.env.JWT_SECRET);
-          logData.userId = decoded.phone || decoded.id || 'unknown';
-          logData.userName = decoded.name || null;
+          
+          // More flexible user ID extraction
+          logData.userId = decoded.phone || decoded.id || decoded.managerPhone || decoded.guardPhone || 'unknown';
+          logData.userName = decoded.name || decoded.managerName || decoded.guardName || null;
           logData.userRole = decoded.role || null;
           
-          // Extract societyId from token (use societyPin which is the MongoDB ObjectId)
-          logData.societyId = societyId || decoded.societyPin || decoded.societyId || null;
+          // Extract societyId from token or provided parameter
+          logData.societyId = societyId || decoded.societyPin || decoded.societyId || decoded.id || null;
           
-          // Determine user type based on token or endpoint
+          // Determine user type based on token content and endpoint
           if (req.url?.includes('/Society-Api/')) {
-            logData.userType = decoded.role === 'manager' ? 'society_manager' : 'society_member';
+            if (decoded.role === 'manager' || decoded.managerPhone) {
+              logData.userType = 'society_manager';
+            } else if (decoded.role && decoded.role !== 'manager') {
+              logData.userType = 'society_member';
+            } else {
+              logData.userType = 'society_user';
+            }
           } else if (req.url?.includes('/Resident-Api/')) {
             logData.userType = 'resident';
           } else if (req.url?.includes('/Security-Api/')) {
@@ -80,17 +90,29 @@ export async function logAction({
           } else if (req.url?.includes('/Tenant-Api/')) {
             logData.userType = 'tenant';
           } else {
-            logData.userType = 'system';
+            // Try to determine from token content
+            if (decoded.societyId || decoded.societyPin) {
+              logData.userType = 'society_user';
+            } else if (decoded.phone && !decoded.role) {
+              logData.userType = 'resident';
+            } else {
+              logData.userType = 'system';
+            }
           }
         } catch (tokenError) {
           // If token is invalid, log as anonymous attempt
-          logData.userId = 'anonymous';
-          logData.userType = 'system';
-          logData.errorMessage = logData.errorMessage || `Token error: ${tokenError.message}`;
+          console.log(`Token verification failed for ${actionType}: ${tokenError.message}`);
+          logData.userId = 'invalid_token';
+          logData.userType = 'anonymous';
+          // Don't override existing error messages
+          if (!logData.errorMessage) {
+            logData.errorMessage = `Token error: ${tokenError.message}`;
+          }
         }
       } else {
+        console.log(`No token found for ${actionType} on ${req.url}`);
         logData.userId = 'no_token';
-        logData.userType = 'system';
+        logData.userType = 'anonymous';
       }
 
       // Extract request metadata

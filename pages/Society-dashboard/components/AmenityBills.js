@@ -11,7 +11,8 @@ import {
   BlockSelector, 
   FloorSelector, 
   BillDetailsPopup,
-  PaymentEntryPopup 
+  PaymentEntryPopup,
+  ResidentSelectionTable
 } from '../../../components/Society/widgets';
 
 export default function AmenityBills() {
@@ -99,6 +100,13 @@ export default function AmenityBills() {
 
   // Add state for selected additional charge
   const [selectedAdditionalCharge, setSelectedAdditionalCharge] = useState(null);
+
+  // Additional states for bulk generation and resident selection
+  const [selectedResidents, setSelectedResidents] = useState([]);
+  const [filteredResidents, setFilteredResidents] = useState([]);
+  const [residentUnitUsages, setResidentUnitUsages] = useState({});
+  const [calculationResults, setCalculationResults] = useState({});
+  const [showResidentCalculation, setShowResidentCalculation] = useState(false);
 
   // Add handleAdditionalChargeSelect function
   const handleAdditionalChargeSelect = (e) => {
@@ -275,6 +283,15 @@ export default function AmenityBills() {
               Formula: {selectedAdditionalCharge.formula}
             </p>
           )}
+          <div className="mt-3">
+            <button
+              type="button"
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+              onClick={calculateAdditionalCharge}
+            >
+              Add Charge
+            </button>
+          </div>
         </div>
       )}
 
@@ -1747,6 +1764,261 @@ export default function AmenityBills() {
 
                   {/* Bill Details */}
                   {renderBillDetails()}
+
+                  {/* Dates - Common for all types */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Issue Date</label>
+                      <input
+                        type="date"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                        value={formData.issueDate}
+                        onChange={(e) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            issueDate: e.target.value
+                          }));
+                          setShowCalculation(false);
+                        }}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Due Date</label>
+                      <input
+                        type="date"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                        value={formData.dueDate}
+                        onChange={(e) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            dueDate: e.target.value
+                          }));
+                          setShowCalculation(false);
+                        }}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Different content based on bill generation type */}
+                  {(billGenerationType === 'block' || billGenerationType === 'floor') && (
+                    <div>
+                      {bulkResidents.length > 0 ? (
+                        <ResidentSelectionTable 
+                          residents={bulkResidents}
+                          selectedResidents={selectedResidents}
+                          onResidentToggle={(resident, isSelected) => {
+                            if (isSelected) {
+                              setSelectedResidents(prev => [...prev, resident]);
+                            } else {
+                              setSelectedResidents(prev => prev.filter(r => r._id !== resident._id));
+                            }
+                          }}
+                          onUnitUsageChange={(residentId, unitUsage) => {
+                            setResidentUnitUsages(prev => ({
+                              ...prev,
+                              [residentId]: unitUsage
+                            }));
+                          }}
+                          billHead={selectedBillHead}
+                          onCalculate={() => {
+                            if (selectedResidents.length === 0) {
+                              setNotificationWithTimeout('Please select at least one resident', 'error');
+                              return;
+                            }
+                            
+                            if (!selectedBillHead) {
+                              setNotificationWithTimeout('Please select a bill head first', 'error');
+                              return;
+                            }
+                            
+                            // Calculate for each selected resident
+                            const newCalculationResults = {};
+                            selectedResidents.forEach(resident => {
+                              let baseAmount = 0;
+                              const unitUsage = residentUnitUsages[resident._id] || formData.unitUsage || 1;
+                              
+                              switch (selectedBillHead.calculationType) {
+                                case 'Fixed':
+                                  baseAmount = selectedBillHead.fixedAmount;
+                                  break;
+                                case 'PerUnit':
+                                  baseAmount = parseFloat(unitUsage) * selectedBillHead.perUnitRate;
+                                  break;
+                                case 'Formula':
+                                  try {
+                                    const formula = selectedBillHead.formula
+                                      .replace(/\$\{unitUsage\}/g, unitUsage)
+                                      .replace(/\$\{rate\}/g, selectedBillHead.perUnitRate);
+                                    baseAmount = eval(formula);
+                                  } catch (error) {
+                                    console.error('Formula evaluation error:', error);
+                                    baseAmount = 0;
+                                  }
+                                  break;
+                                default:
+                                  baseAmount = 0;
+                              }
+                              
+                              // Calculate GST
+                              let gstDetails = selectedBillHead.gstConfig?.isGSTApplicable
+                                ? {
+                                    cgstAmount: (baseAmount * selectedBillHead.gstConfig.cgstPercentage) / 100,
+                                    sgstAmount: (baseAmount * selectedBillHead.gstConfig.sgstPercentage) / 100,
+                                    igstAmount: (baseAmount * selectedBillHead.gstConfig.igstPercentage) / 100,
+                                    total: 0
+                                  }
+                                : {
+                                    cgstAmount: 0,
+                                    sgstAmount: 0,
+                                    igstAmount: 0,
+                                    total: 0
+                                  };
+                              gstDetails.total = gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
+                              
+                              // Calculate additional charges total
+                              const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+                              
+                              newCalculationResults[resident._id] = {
+                                baseAmount,
+                                gstAmount: gstDetails.total,
+                                additionalChargesTotal,
+                                totalAmount: baseAmount + gstDetails.total + additionalChargesTotal
+                              };
+                            });
+                            
+                            setCalculationResults(newCalculationResults);
+                            setShowResidentCalculation(true);
+                          }}
+                          showCalculation={showResidentCalculation}
+                          calculationResults={calculationResults}
+                          additionalCharges={additionalCharges}
+                          residentUnitUsages={residentUnitUsages}
+                        />
+                      ) : (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
+                          <p className="text-yellow-800">
+                            {billGenerationType === 'block' ? 'Please select a block from the left panel.' : 'Please select a block and floor from the left panel.'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {billGenerationType === 'bulk' && (
+                    <div>
+                      {/* Add ResidentSelectionTable for bulk generation */}
+                      {selectedBillHead && residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber).length > 0 && (
+                        <ResidentSelectionTable 
+                          residents={residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber)}
+                          selectedResidents={selectedResidents.length > 0 ? selectedResidents : residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber)}
+                          onResidentToggle={(resident, isSelected) => {
+                            // For bulk generation, we'll auto-select all residents but allow deselection
+                            if (isSelected) {
+                              setSelectedResidents(prev => {
+                                const exists = prev.find(r => r._id === resident._id);
+                                return exists ? prev : [...prev, resident];
+                              });
+                            } else {
+                              setSelectedResidents(prev => prev.filter(r => r._id !== resident._id));
+                            }
+                          }}
+                          onUnitUsageChange={(residentId, unitUsage) => {
+                            setResidentUnitUsages(prev => ({
+                              ...prev,
+                              [residentId]: unitUsage
+                            }));
+                          }}
+                          billHead={selectedBillHead}
+                          onCalculate={() => {
+                            if (!selectedBillHead) {
+                              setNotificationWithTimeout('Please select a bill head first', 'error');
+                              return;
+                            }
+                            
+                            // Get all eligible residents if none selected
+                            const residentsToCalculate = selectedResidents.length > 0 
+                              ? selectedResidents 
+                              : residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber);
+                            
+                            if (residentsToCalculate.length === 0) {
+                              setNotificationWithTimeout('No eligible residents found', 'error');
+                              return;
+                            }
+                            
+                            // Calculate for each resident
+                            const newCalculationResults = {};
+                            residentsToCalculate.forEach(resident => {
+                              let baseAmount = 0;
+                              const unitUsage = residentUnitUsages[resident._id] || formData.unitUsage || 1;
+                              
+                              switch (selectedBillHead.calculationType) {
+                                case 'Fixed':
+                                  baseAmount = selectedBillHead.fixedAmount;
+                                  break;
+                                case 'PerUnit':
+                                  baseAmount = parseFloat(unitUsage) * selectedBillHead.perUnitRate;
+                                  break;
+                                case 'Formula':
+                                  try {
+                                    const formula = selectedBillHead.formula
+                                      .replace(/\$\{unitUsage\}/g, unitUsage)
+                                      .replace(/\$\{rate\}/g, selectedBillHead.perUnitRate);
+                                    baseAmount = eval(formula);
+                                  } catch (error) {
+                                    console.error('Formula evaluation error:', error);
+                                    baseAmount = 0;
+                                  }
+                                  break;
+                                default:
+                                  baseAmount = 0;
+                              }
+                              
+                              // Calculate GST
+                              let gstDetails = selectedBillHead.gstConfig?.isGSTApplicable
+                                ? {
+                                    cgstAmount: (baseAmount * selectedBillHead.gstConfig.cgstPercentage) / 100,
+                                    sgstAmount: (baseAmount * selectedBillHead.gstConfig.sgstPercentage) / 100,
+                                    igstAmount: (baseAmount * selectedBillHead.gstConfig.igstPercentage) / 100,
+                                    total: 0
+                                  }
+                                : {
+                                    cgstAmount: 0,
+                                    sgstAmount: 0,
+                                    igstAmount: 0,
+                                    total: 0
+                                  };
+                              gstDetails.total = gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
+                              
+                              // Calculate additional charges total
+                              const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+                              
+                              newCalculationResults[resident._id] = {
+                                baseAmount,
+                                gstAmount: gstDetails.total,
+                                additionalChargesTotal,
+                                totalAmount: baseAmount + gstDetails.total + additionalChargesTotal
+                              };
+                            });
+                            
+                            // Auto-select all residents if none were selected
+                            if (selectedResidents.length === 0) {
+                              setSelectedResidents(residentsToCalculate);
+                            }
+                            
+                            setCalculationResults(newCalculationResults);
+                            setShowResidentCalculation(true);
+                          }}
+                          showCalculation={showResidentCalculation}
+                          calculationResults={calculationResults}
+                          additionalCharges={additionalCharges}
+                          residentUnitUsages={residentUnitUsages}
+                          bulkMode={true} // Add a prop to indicate bulk mode
+                        />
+                      )}
+                    </div>
+                  )}
 
                   {/* Form Actions */}
                   <div className="flex justify-end space-x-4 mt-6">

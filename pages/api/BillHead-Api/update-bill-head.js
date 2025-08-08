@@ -2,6 +2,7 @@ import connectToDatabase from "../../../lib/mongodb";
 import BillHead from '../../../models/BillHead';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 // Add the createRequiredLedgers function from create-bill-head.js
 const createRequiredLedgers = async (societyId, category, subCategory, userId) => {
@@ -130,11 +131,13 @@ export default async function handler(req, res) {
     // Get user ID from token
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
+      await logFailure('BILLHEAD_UPDATE', req, 'No authorization token provided');
       return res.status(401).json({ error: 'No token provided' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || !decoded.id) {
+      await logFailure('BILLHEAD_UPDATE', req, 'Invalid authorization token');
       return res.status(401).json({ error: 'Invalid token' });
     }
 
@@ -143,12 +146,14 @@ export default async function handler(req, res) {
 
     // Validate required fields
     if (!billHeadId) {
+      await logFailure('BILLHEAD_UPDATE', req, 'Missing billHeadId parameter', { billHeadId });
       return res.status(400).json({ message: 'Bill head ID is required' });
     }
 
     // Check if bill head exists
     const existingBillHead = await BillHead.findById(billHeadId).session(session);
     if (!existingBillHead) {
+      await logFailure('BILLHEAD_UPDATE', req, 'Bill head not found', { billHeadId });
       return res.status(404).json({ message: 'Bill head not found' });
     }
 
@@ -161,17 +166,35 @@ export default async function handler(req, res) {
       }).session(session);
 
       if (duplicateCode) {
+        await logFailure('BILLHEAD_UPDATE', req, 'Duplicate bill head code', {
+          billHeadId,
+          newCode: updateData.code,
+          existingCode: existingBillHead.code,
+          duplicateId: duplicateCode._id
+        });
         return res.status(400).json({ message: 'Bill head code already exists' });
       }
       updateData.code = updateData.code.toUpperCase();
     }
 
+    // Track changes for logging
+    const changes = {};
+    const oldValues = {};
+    
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] !== existingBillHead[key]) {
+        changes[key] = updateData[key];
+        oldValues[key] = existingBillHead[key];
+      }
+    });
+
     // Check if category or subcategory is being updated
+    let newLedgers = null;
     if ((updateData.category && updateData.category !== existingBillHead.category) ||
         (updateData.subCategory && updateData.subCategory !== existingBillHead.subCategory)) {
       
       // Create new ledgers for the updated category/subcategory
-      const ledgers = await createRequiredLedgers(
+      newLedgers = await createRequiredLedgers(
         existingBillHead.societyId,
         updateData.category || existingBillHead.category,
         updateData.subCategory || existingBillHead.subCategory,
@@ -180,9 +203,9 @@ export default async function handler(req, res) {
 
       // Update the accounting config with new ledger IDs
       updateData.accountingConfig = {
-        incomeLedgerId: ledgers.incomeLedger._id,
-        receivableLedgerId: ledgers.receivableLedger._id,
-        gstLedgerId: ledgers.gstLedger._id
+        incomeLedgerId: newLedgers.incomeLedger._id,
+        receivableLedgerId: newLedgers.receivableLedger._id,
+        gstLedgerId: newLedgers.gstLedger._id
       };
     }
 
@@ -201,6 +224,24 @@ export default async function handler(req, res) {
 
     await session.commitTransaction();
 
+    // Log successful update
+    await logSuccess('BILLHEAD_UPDATE', req, {
+      billHeadId: updatedBillHead._id,
+      code: updatedBillHead.code,
+      name: updatedBillHead.name,
+      category: updatedBillHead.category,
+      subCategory: updatedBillHead.subCategory,
+      calculationType: updatedBillHead.calculationType,
+      status: updatedBillHead.status,
+      changes,
+      oldValues,
+      newLedgersCreated: newLedgers ? {
+        income: newLedgers.incomeLedger.name,
+        receivable: newLedgers.receivableLedger.name,
+        gst: newLedgers.gstLedger.name
+      } : null
+    }, updatedBillHead._id, 'BillHead');
+
     res.status(200).json({
       message: 'Bill head updated successfully',
       data: updatedBillHead
@@ -211,6 +252,15 @@ export default async function handler(req, res) {
       await session.abortTransaction();
     }
     console.error('Error updating bill head:', error);
+    
+    // Log the failure
+    await logFailure('BILLHEAD_UPDATE', req, error.message, {
+      billHeadId: req.query?.billHeadId,
+      updateData: req.body,
+      errorType: error.name,
+      hasToken: !!req.headers.authorization
+    });
+    
     res.status(500).json({ message: 'Internal server error', error: error.message });
   } finally {
     if (session) {

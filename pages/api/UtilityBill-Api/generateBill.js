@@ -5,6 +5,7 @@ import Ledger from '../../../models/Ledger';
 import JournalVoucher from '../../../models/JournalVoucher';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -29,11 +30,13 @@ export default async function handler(req, res) {
       // Verify token
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
+        await logFailure('UTILITY_BILL_CREATE', req, 'No authorization token provided');
         return res.status(401).json({ error: 'No token provided' });
     }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || !decoded.id) {
+        await logFailure('UTILITY_BILL_CREATE', req, 'Invalid authorization token');
         return res.status(401).json({ error: 'Invalid token' });
     }
 
@@ -362,6 +365,22 @@ export default async function handler(req, res) {
       await utilityBill.save({ session });
 
       await session.commitTransaction();
+      
+      // Log successful creation
+      await logSuccess('UTILITY_BILL_CREATE', req, {
+        billId: utilityBill._id,
+        billNumber: utilityBill.billNumber,
+        billHeadName: billHead.name,
+        residentName: ownerName,
+        flatNumber: flatNumber,
+        blockName: blockName,
+        unitUsage: unitUsage,
+        baseAmount: utilityBill.baseAmount,
+        totalAmount: utilityBill.totalAmount,
+        periodType: utilityBill.periodType,
+        hasAdditionalCharges: (additionalCharges || []).length > 0
+      }, utilityBill._id, 'UtilityBill');
+      
       return { success: true, data: utilityBill };
     } catch (error) {
       await session.abortTransaction();
@@ -377,6 +396,16 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error in generateBill:', error);
+    
+    // Log the failure
+    await logFailure('UTILITY_BILL_CREATE', req, error.message, {
+      billHeadId: req.body?.billHeadId,
+      flatNumber: req.body?.flatNumber,
+      blockName: req.body?.blockName,
+      residentId: req.body?.residentId,
+      errorType: error.name
+    });
+    
     res.status(500).json({ error: error.message || 'Internal server error' });
     } finally {
     if (session) {

@@ -22,6 +22,11 @@ const messageGSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  discussionId: {
+    type: String,
+    default: null,
+    index: true
+  },
   isDeleted: {
     type: Boolean,
     default: false

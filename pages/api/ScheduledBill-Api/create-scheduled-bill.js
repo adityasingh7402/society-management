@@ -2,6 +2,7 @@ import connectToDatabase from "../../../lib/mongodb";
 import ScheduledBill from '../../../models/ScheduledBill';
 import BillHead from '../../../models/BillHead';
 import jwt from 'jsonwebtoken';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,11 +15,13 @@ export default async function handler(req, res) {
     // Get token from header
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
+      await logFailure('SCHEDULED_BILL_CREATE', req, 'No authorization token provided');
       return res.status(401).json({ error: 'No token provided' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || !decoded.id) {
+      await logFailure('SCHEDULED_BILL_CREATE', req, 'Invalid authorization token');
       return res.status(401).json({ error: 'Invalid token' });
     }
 
@@ -27,6 +30,10 @@ export default async function handler(req, res) {
     // Verify bill head exists and get its details
     const billHead = await BillHead.findById(scheduledBillData.billHeadId);
     if (!billHead) {
+      await logFailure('SCHEDULED_BILL_CREATE', req, 'Bill head not found', {
+        billHeadId: scheduledBillData.billHeadId,
+        title: scheduledBillData.title
+      });
       return res.status(404).json({ error: 'Bill head not found' });
     }
 
@@ -81,6 +88,20 @@ export default async function handler(req, res) {
 
     await scheduledBill.save();
 
+    // Log successful creation
+    await logSuccess('SCHEDULED_BILL_CREATE', req, {
+      scheduledBillId: scheduledBill._id,
+      title: scheduledBill.title,
+      billHeadName: billHead.name,
+      billHeadCode: billHead.code,
+      frequency: scheduledBill.frequency,
+      totalAmount: scheduledBill.totalAmount,
+      residentCount: scheduledBill.selectedResidents?.length || 0,
+      additionalChargesCount: scheduledBill.additionalCharges?.length || 0,
+      startDate: scheduledBill.startDate,
+      endDate: scheduledBill.endDate
+    }, scheduledBill._id, 'ScheduledBill');
+
     return res.status(201).json({
       message: 'Scheduled bill created successfully',
       data: scheduledBill
@@ -88,6 +109,15 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error in create-scheduled-bill:', error);
+    
+    // Log the failure
+    await logFailure('SCHEDULED_BILL_CREATE', req, error.message, {
+      title: req.body?.title,
+      billHeadId: req.body?.billHeadId,
+      frequency: req.body?.frequency,
+      errorType: error.name
+    });
+    
     return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 } 

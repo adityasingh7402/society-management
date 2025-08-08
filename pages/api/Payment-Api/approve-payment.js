@@ -1,6 +1,7 @@
 import connectToDatabase from '../../../lib/mongodb';
 import PaymentEntry from '../../../models/PaymentEntry';
 import { verifyToken } from '../../../utils/auth';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -11,11 +12,13 @@ export default async function handler(req, res) {
     // Verify authentication
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
+      await logFailure('PAYMENT_APPROVE', req, 'No authorization token provided', { paymentId: req.body?.paymentId });
       return res.status(401).json({ message: 'No token provided' });
     }
 
     const decoded = await verifyToken(token);
     if (!decoded) {
+      await logFailure('PAYMENT_APPROVE', req, 'Invalid authorization token', { paymentId: req.body?.paymentId });
       return res.status(401).json({ message: 'Invalid token' });
     }
 
@@ -31,6 +34,7 @@ export default async function handler(req, res) {
     // Get payment entry
     const payment = await PaymentEntry.findById(paymentId);
     if (!payment) {
+      await logFailure('PAYMENT_APPROVE', req, 'Payment not found', { paymentId });
       return res.status(404).json({ message: 'Payment not found' });
     }
 
@@ -47,6 +51,21 @@ export default async function handler(req, res) {
     try {
       // Process approval/rejection
       await payment.processApproval(decoded.Id, action, remarks);
+      
+      // Log successful approval/rejection
+      await logSuccess('PAYMENT_APPROVE', req, {
+        paymentId: payment._id,
+        action: action,
+        remarks: remarks,
+        billId: payment.billId,
+        billType: payment.billType,
+        amount: payment.amount,
+        paymentMode: payment.paymentMode,
+        residentId: payment.residentId,
+        societyId: payment.societyId,
+        voucherId: payment.voucherId,
+        approver: decoded.Id
+      }, payment._id, 'PaymentEntry');
 
       return res.status(200).json({
         message: `Payment ${action.toLowerCase()} successfully`,
@@ -56,6 +75,13 @@ export default async function handler(req, res) {
       });
 
     } catch (error) {
+      // Log approval/rejection failure
+      await logFailure('PAYMENT_APPROVE', req, error.message, {
+        paymentId: paymentId,
+        action: action,
+        errorType: error.name
+      });
+      
       return res.status(400).json({ 
         message: `Error ${action.toLowerCase()}ing payment`,
         error: error.message
@@ -64,6 +90,14 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error processing payment approval:', error);
+    
+    // Log the general failure
+    await logFailure('PAYMENT_APPROVE', req, error.message, {
+      paymentId: req.body?.paymentId,
+      action: req.body?.action,
+      errorType: error.name
+    });
+    
     return res.status(500).json({ 
       message: 'Error processing payment approval',
       error: error.message

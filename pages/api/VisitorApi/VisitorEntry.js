@@ -2,6 +2,7 @@ import connectToDatabase from '../../../lib/mongodb';
 import Visitor from '../../../models/Visitor';
 import Resident from '../../../models/Resident'; // Make sure to import your Resident model
 import admin from 'firebase-admin';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 // Initialize Firebase Admin (do this once at the top of your file)
 if (!admin.apps.length) {
@@ -38,6 +39,17 @@ export default async function handler(req, res) {
 
       // Validate required fields
       if (!societyId || !blockName || !flatNumber || !residentId || !visitorName || !entryTime) {
+        await logFailure('CREATE_VISITOR_ENTRY', req, 'Missing required fields', {
+          providedFields: { 
+            societyId: !!societyId, 
+            blockName: !!blockName, 
+            flatNumber: !!flatNumber, 
+            residentId: !!residentId, 
+            visitorName: !!visitorName, 
+            entryTime: !!entryTime 
+          },
+          errorType: 'VALIDATION_ERROR'
+        });
         return res.status(400).json({ success: false, error: 'Missing required fields' });
       }
 
@@ -108,6 +120,22 @@ export default async function handler(req, res) {
       }
       console.log(notifications)
 
+      // Log successful visitor entry creation
+      await logSuccess('CREATE_VISITOR_ENTRY', req, {
+        message: 'Visitor entry created successfully',
+        visitorId: savedVisitor._id.toString(),
+        visitorName: savedVisitor.visitorName,
+        visitorReason: savedVisitor.visitorReason || 'Not specified',
+        residentId: savedVisitor.residentId,
+        societyId: savedVisitor.societyId,
+        blockName: savedVisitor.blockName,
+        flatNumber: savedVisitor.flatNumber,
+        guardName: savedVisitor.guardName || 'Unknown',
+        entryTime: savedVisitor.entryTime,
+        status: savedVisitor.status,
+        notificationSent: !!(resident && resident.fcmTokens && resident.fcmTokens.length > 0)
+      }, savedVisitor._id.toString(), 'visitor_entry');
+
       res.status(201).json({ 
         success: true, 
         message: 'Visitor entry created successfully', 
@@ -116,6 +144,16 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error('Error creating visitor entry:', error);
+      
+      // Log failure
+      await logFailure('CREATE_VISITOR_ENTRY', req, 'Failed to create visitor entry', {
+        errorMessage: error.message,
+        errorType: error.name || 'UNKNOWN_ERROR',
+        visitorName: req.body?.visitorName,
+        societyId: req.body?.societyId,
+        residentId: req.body?.residentId
+      });
+      
       res.status(500).json({ 
         success: false, 
         error: 'Internal server error', 

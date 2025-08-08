@@ -6,6 +6,7 @@ import JournalVoucher from '../../../models/JournalVoucher';
 import Society from '../../../models/Society';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -30,11 +31,13 @@ export default async function handler(req, res) {
       // Verify token
       const token = req.headers.authorization?.split(' ')[1];
       if (!token) {
+        await logFailure('MAINTENANCE_BILL_CREATE', req, 'No authorization token provided');
         return res.status(401).json({ error: 'No token provided' });
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       if (!decoded || !decoded.id) {
+        await logFailure('MAINTENANCE_BILL_CREATE', req, 'Invalid authorization token');
         return res.status(401).json({ error: 'Invalid token' });
       }
 
@@ -332,6 +335,21 @@ export default async function handler(req, res) {
       await maintenanceBill.save({ session });
 
       await session.commitTransaction();
+      
+      // Log successful creation
+      await logSuccess('MAINTENANCE_BILL_CREATE', req, {
+        billId: maintenanceBill._id,
+        billNumber: maintenanceBill.billNumber,
+        billHeadName: billHead.name,
+        residentName: ownerName,
+        flatNumber: flatNumber,
+        blockName: blockName,
+        baseAmount: maintenanceBill.baseAmount,
+        totalAmount: maintenanceBill.totalAmount,
+        periodType: maintenanceBill.periodType,
+        hasAdditionalCharges: (req.body.additionalCharges || []).length > 0
+      }, maintenanceBill._id, 'MaintenanceBill');
+      
       return { success: true, data: maintenanceBill };
     } catch (error) {
       await session.abortTransaction();
@@ -347,6 +365,16 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error in generateBill:', error);
+    
+    // Log the failure
+    await logFailure('MAINTENANCE_BILL_CREATE', req, error.message, {
+      billHeadId: req.body?.billHeadId,
+      flatNumber: req.body?.flatNumber,
+      blockName: req.body?.blockName,
+      residentId: req.body?.residentId,
+      errorType: error.name
+    });
+    
     res.status(500).json({ error: error.message || 'Internal server error' });
   } finally {
     if (session) {

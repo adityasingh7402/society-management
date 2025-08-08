@@ -2,10 +2,12 @@ import { Server } from 'socket.io';
 import { verifyToken } from '../../utils/auth';
 import Message from '../../models/Message';
 import Resident from '../../models/Resident';
+import Society from '../../models/Society';
 import connectDB from '../../lib/mongodb';
 
 const ioHandler = async (req, res) => {
   // Always set proper headers to avoid CORS issues
+  // Force restart - timestamp: 2025-08-08
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
@@ -96,20 +98,112 @@ const ioHandler = async (req, res) => {
 
           console.log(`User connected: ${id}`);
           
-          // Check if user exists in database
-          const user = await Resident.findById(id).select('_id').lean();
+          // Check if user exists in database - check both Resident and Society collections
+          // Also check for members within these collections
+          let user = null;
+          let userType = null;
+          let parentId = null;
+          
+          console.log(`Searching for user with ID: ${id}`);
+          
+          // First, try to find as main resident
+          try {
+            user = await Resident.findById(id).select('_id name phone').lean();
+            if (user) {
+              console.log(`Found as main resident:`, user);
+              userType = 'main_resident';
+            }
+          } catch (residentError) {
+            console.log(`Error searching in Resident collection:`, residentError.message);
+          }
+          
+          if (!user) {
+            // Try to find as main society
+            try {
+              console.log(`Searching in Society collection for ID: ${id}`);
+              user = await Society.findById(id).select('_id societyId societyName managerName managerPhone').lean();
+              if (user) {
+                console.log(`Found as main society by _id:`, user);
+                userType = 'main_society';
+              } else {
+                console.log(`No society found with _id: ${id}, trying societyId field...`);
+                // Try searching by societyId field in case JWT id refers to that
+                user = await Society.findOne({ societyId: id }).select('_id societyId societyName managerName managerPhone').lean();
+                if (user) {
+                  console.log(`Found as main society by societyId:`, user);
+                  userType = 'main_society';
+                } else {
+                  console.log(`No society found with societyId: ${id}`);
+                }
+              }
+            } catch (societyError) {
+              console.log(`Error searching in Society collection:`, societyError.message);
+            }
+          }
+          
+          if (!user) {
+            // Try to find as resident member
+            const residentWithMember = await Resident.findOne({
+              'members._id': id
+            }, {
+              'members.$': 1,
+              '_id': 1
+            }).lean();
+            
+            if (residentWithMember && residentWithMember.members.length > 0) {
+              user = residentWithMember.members[0];
+              userType = 'resident_member';
+              parentId = residentWithMember._id;
+            } else {
+              // Try to find as society member
+              const societyWithMember = await Society.findOne({
+                'members._id': id
+              }, {
+                'members.$': 1,
+                '_id': 1
+              }).lean();
+              
+              if (societyWithMember && societyWithMember.members.length > 0) {
+                user = societyWithMember.members[0];
+                userType = 'society_member';
+                parentId = societyWithMember._id;
+              }
+            }
+          }
+          
           if (!user) {
             console.log(`Socket connection rejected: User ${id} not found in database`);
             socket.emit('auth_error', { message: 'User not found' });
             socket.disconnect();
             return;
           }
+          
+          console.log(`User found: ${id}, type: ${userType}, parentId: ${parentId}`);
+          
+          // Store user info in socket for later use
+          socket.userInfo = { id, userType, parentId, user };
 
           // Join a room with the user's ID
           socket.join(id);
 
-          // Update user's online status
-          await Resident.findByIdAndUpdate(id, { isOnline: true, lastSeen: new Date() });
+          // Update user's online status based on user type
+          try {
+            if (userType === 'main_resident') {
+              await Resident.findByIdAndUpdate(id, { isOnline: true, lastSeen: new Date() });
+            } else if (userType === 'main_society') {
+              // For societies, we could add an online status field if needed
+              // Currently societies don't have isOnline field in the schema
+            } else if (userType === 'resident_member') {
+              await Resident.findOneAndUpdate(
+                { 'members._id': id },
+                { 'members.$.lastSeen': new Date() }
+              );
+            } else if (userType === 'society_member') {
+              // Society members don't have lastSeen in schema, but we could add it if needed
+            }
+          } catch (updateError) {
+            console.error('Error updating user online status:', updateError);
+          }
           
           // Send success acknowledgment
           socket.emit('auth_success', { id });
@@ -208,15 +302,101 @@ const ioHandler = async (req, res) => {
             }
           });
 
+          // Handle society chat room joining
+          socket.on('join_society_chat', async (data) => {
+            try {
+              const { societyCode, userId, userName, isSociety } = data;
+              
+              if (!societyCode) {
+                console.error('Invalid society chat join data:', data);
+                return;
+              }
+              
+              const roomName = `society_${societyCode}`;
+              socket.join(roomName);
+              console.log(`User ${userId} (${userName}) joined society chat room: ${roomName}`);
+              
+              // Store room info in socket
+              socket.societyRoom = roomName;
+              socket.societyCode = societyCode;
+              
+            } catch (error) {
+              console.error('Error handling society chat join:', error);
+            }
+          });
+
+          // Handle society chat messages
+          socket.on('society_chat_message', async (data) => {
+            try {
+              const { societyCode, from, senderName, text, messageId, timestamp, isSociety } = data;
+              
+              if (!societyCode || !messageId) {
+                console.error('Invalid society chat message data:', data);
+                socket.emit('error', { message: 'Invalid message data' });
+                return;
+              }
+              
+              const roomName = `society_${societyCode}`;
+              console.log(`Society message from ${from} (${senderName}) to room ${roomName}, messageId: ${messageId}`);
+              
+              // Emit to all users in the society chat room (excluding sender)
+              socket.to(roomName).emit('chat_message', {
+                from: from,
+                senderName: senderName,
+                text: text || '',
+                timestamp: timestamp || new Date().toISOString(),
+                id: messageId,
+                isSociety: isSociety || false
+              });
+              
+            } catch (error) {
+              console.error('Error handling society chat message:', error);
+              socket.emit('error', { message: 'Failed to send society message' });
+            }
+          });
+
+          // Handle society message deletion
+          socket.on('society_message_deleted', async (data) => {
+            try {
+              const { societyCode, messageId, deletedBy } = data;
+              
+              if (!societyCode || !messageId) {
+                console.error('Invalid society message delete data:', data);
+                return;
+              }
+              
+              const roomName = `society_${societyCode}`;
+              console.log(`Society message ${messageId} deleted by ${deletedBy} in room ${roomName}`);
+              
+              // Emit to all users in the society chat room
+              socket.to(roomName).emit('message_deleted', {
+                messageId,
+                deletedBy
+              });
+              
+            } catch (error) {
+              console.error('Error handling society message deletion:', error);
+            }
+          });
+
           // Handle disconnect
           socket.on('disconnect', async (reason) => {
             console.log(`User disconnected: ${id}, reason: ${reason}`);
-            if (id) {
+            if (id && socket.userInfo) {
               try {
-                await Resident.findByIdAndUpdate(id, { 
-                  isOnline: false, 
-                  lastSeen: new Date() 
-                });
+                const { userType } = socket.userInfo;
+                if (userType === 'main_resident') {
+                  await Resident.findByIdAndUpdate(id, { 
+                    isOnline: false, 
+                    lastSeen: new Date() 
+                  });
+                } else if (userType === 'resident_member') {
+                  await Resident.findOneAndUpdate(
+                    { 'members._id': id },
+                    { 'members.$.lastSeen': new Date() }
+                  );
+                }
+                // Society users don't have online status tracking currently
               } catch (error) {
                 console.error('Error updating user status on disconnect:', error);
               }

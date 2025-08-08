@@ -147,14 +147,34 @@ const scheduledBillSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'BillHead'
     },
-    chargeType: String,
-    amount: Number,
-    ledgerId: String,
+    chargeType: {
+      type: String,
+      enum: [
+        'Society Charges',
+        'Platform Charges',
+        'Transfer Charges',
+        'NOC Charges',
+        'Processing Fees',
+        'Late Payment Charges',
+        'Legal Charges',
+        'Documentation Charges',
+        'Administrative Charges',
+        'Event Charges',
+        'Miscellaneous'
+      ]
+    },
+    amount: { type: Number, required: true },
+    ledgerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Ledger',
+      required: true
+    },
     unitUsage: Number,
     calculationType: {
       type: String,
       enum: ['Fixed', 'PerUnit', 'Formula']
-    }
+    },
+    description: String
   }],
   totalAmount: {
     type: Number,

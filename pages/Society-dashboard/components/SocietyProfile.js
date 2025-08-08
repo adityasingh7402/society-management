@@ -122,7 +122,7 @@ export default function SocietyProfile() {
             }
 
             const data = await response.json();
-            alert('Profile updated successfully!');
+            alert('Society profile updated successfully! All resident and security guard information has been automatically updated with the new society details.');
             setFormData(data.data); // Update form data with the response data
             setShowModal(false);
             setEditMode(false);
@@ -664,6 +664,11 @@ export default function SocietyProfile() {
                             <CheckCircle className="mr-2 text-blue-600" size={22} />
                             Confirm Changes
                         </h2>
+                        <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                            <p className="text-sm text-blue-800">
+                                <strong>Note:</strong> These changes will be automatically applied to all residents and security guards in this society, including their address information and member records.
+                            </p>
+                        </div>
                         <div className="space-y-4 bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="bg-white p-3 rounded-lg border border-gray-200">

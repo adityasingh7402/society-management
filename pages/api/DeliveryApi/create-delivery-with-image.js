@@ -6,6 +6,7 @@ import cloudinary from 'cloudinary';
 import { IncomingForm } from 'formidable';
 import fs from 'fs';
 import mongoose from 'mongoose';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
@@ -124,6 +125,17 @@ export default async function handler(req, res) {
 
       // Validate required fields
       if (!societyId || !blockName || !flatNumber || !residentId || !deliveryPersonName || !deliveryTime) {
+        await logFailure('CREATE_DELIVERY_ENTRY', req, 'Missing required fields', {
+          providedFields: {
+            societyId: !!societyId,
+            blockName: !!blockName,
+            flatNumber: !!flatNumber,
+            residentId: !!residentId,
+            deliveryPersonName: !!deliveryPersonName,
+            deliveryTime: !!deliveryTime
+          },
+          errorType: 'VALIDATION_ERROR'
+        });
         return res.status(400).json({ 
           success: false, 
           error: 'Missing required fields' 
@@ -133,6 +145,12 @@ export default async function handler(req, res) {
       // Validate image file
       const imageFile = files.image;
       if (!imageFile) {
+        await logFailure('CREATE_DELIVERY_ENTRY', req, 'Delivery image is required', {
+          societyId,
+          residentId,
+          deliveryPersonName,
+          errorType: 'VALIDATION_ERROR'
+        });
         return res.status(400).json({ 
           success: false, 
           error: 'Delivery image is required' 
@@ -217,6 +235,25 @@ export default async function handler(req, res) {
         fs.unlinkSync(tempFilePath);
       }
 
+      // Log successful delivery creation
+      await logSuccess('CREATE_DELIVERY_ENTRY', req, {
+        message: 'Delivery entry created successfully with image',
+        deliveryId: savedDelivery._id.toString(),
+        deliveryPersonName: savedDelivery.deliveryPersonName,
+        deliveryCompany: savedDelivery.deliveryCompany || 'Unknown',
+        deliveryItems: savedDelivery.deliveryItems || 'Package',
+        deliveryType: savedDelivery.deliveryType,
+        residentId: savedDelivery.recipientId,
+        societyId: savedDelivery.societyId,
+        blockName: savedDelivery.blockName,
+        flatNumber: savedDelivery.flatNumber,
+        guardName: savedDelivery.guardName,
+        deliveryTime: savedDelivery.deliveryTime,
+        receivedTime: savedDelivery.receivedTime,
+        status: savedDelivery.status,
+        hasImage: !!uploadedImageUrl
+      }, savedDelivery._id.toString(), 'delivery_entry');
+
       // Success response
       res.status(201).json({
         success: true,
@@ -259,6 +296,16 @@ export default async function handler(req, res) {
           console.error('Error cleaning up temp file:', fileError);
         }
       }
+
+      // Log failure
+      await logFailure('CREATE_DELIVERY_ENTRY', req, 'Failed to create delivery entry', {
+        errorMessage: error.message,
+        errorType: error.name || 'UNKNOWN_ERROR',
+        deliveryPersonName: fields.deliveryPersonName,
+        societyId: fields.societyId,
+        residentId: fields.residentId,
+        hasUploadedImage: !!uploadedImageUrl
+      });
 
       res.status(500).json({
         success: false,

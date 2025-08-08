@@ -384,7 +384,7 @@ export default function SocietyChat() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          societyCode: currentUser.societyCode,
+          societyId: currentUser.societyCode,
           senderId: currentUser.id,
           senderName: currentUser.name,
           content: newMessage,

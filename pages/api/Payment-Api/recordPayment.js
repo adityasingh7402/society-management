@@ -9,6 +9,7 @@ import JournalVoucher from '../../../models/JournalVoucher';
 import Wallet from '../../../models/Wallet';
 import WalletTransaction from '../../../models/WalletTransaction';
 import { verifyToken } from '../../../utils/auth';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,12 +19,14 @@ export default async function handler(req, res) {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     if (!token) {
+      await logFailure('PAYMENT_RECORD', req, 'No authorization token provided');
       return res.status(401).json({ error: 'No token provided' });
     }
 
     // Use verifyToken helper instead of direct jwt verification
     const decoded = await verifyToken(token);
     if (!decoded || !decoded.id) {
+      await logFailure('PAYMENT_RECORD', req, 'Invalid authorization token');
       return res.status(401).json({ error: 'Invalid token' });
     }
 
@@ -261,6 +264,23 @@ export default async function handler(req, res) {
     await updateLedgerBalance(paymentLedger._id, amount, 'debit');
     await updateLedgerBalance(receivableLedger._id, amount, 'credit');
 
+    // Log successful payment recording
+    await logSuccess('PAYMENT_RECORD', req, {
+      paymentId: payment._id,
+      billId: billId,
+      billType: billType,
+      billNumber: bill.billNumber,
+      amount: amount,
+      paymentMethod: paymentMethod,
+      transactionId: transactionId,
+      voucherNumber: voucherNumber,
+      residentId: bill.residentId,
+      societyId: bill.societyId,
+      originalBillStatus: 'Pending',
+      newBillStatus: bill.status,
+      isWalletPayment: paymentMethod === 'Wallet'
+    }, payment._id, 'PaymentEntry');
+
     return res.status(200).json({ 
       success: true, 
       data: {
@@ -273,6 +293,16 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error in recordPayment:', error);
+    
+    // Log the failure
+    await logFailure('PAYMENT_RECORD', req, error.message, {
+      billId: req.body?.billId,
+      billType: req.body?.billType,
+      amount: req.body?.amount,
+      paymentMethod: req.body?.paymentMethod,
+      errorType: error.name
+    });
+    
     return res.status(500).json({ 
       success: false,
       error: error.message || 'Failed to record payment' 

@@ -12,7 +12,8 @@ import {
   BlockSelector,
   FloorSelector,
   BillDetailsPopup,
-  PaymentEntryPopup
+  PaymentEntryPopup,
+  ResidentSelectionTable
 } from '../../../components/Society/widgets';
 
 export default function MaintenanceBills() {
@@ -68,9 +69,12 @@ export default function MaintenanceBills() {
   const [selectedBillForPayment, setSelectedBillForPayment] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  // Additional states for bulk generation
+  // Additional states for bulk generation and resident selection
   const [selectedResidents, setSelectedResidents] = useState([]);
   const [filteredResidents, setFilteredResidents] = useState([]);
+  const [residentUnitUsages, setResidentUnitUsages] = useState({});
+  const [calculationResults, setCalculationResults] = useState({});
+  const [showResidentCalculation, setShowResidentCalculation] = useState(false);
   const [bulkFilter, setBulkFilter] = useState({ block: '', floor: '' });
   const [bulkBillType, setBulkBillType] = useState('');
   const [bulkDescription, setBulkDescription] = useState('');
@@ -884,16 +888,16 @@ export default function MaintenanceBills() {
                 </select>
               </div>
 
-              {/* Units Input - Common for all types but with different handling */}
-              {selectedBillHead && renderUnitsInput()}
+              {/* Units Input - Only show for individual bill generation */}
+              {selectedBillHead && billGenerationType === 'individual' && renderUnitsInput()}
 
-              {/* Additional Charges */}
+              {/* Additional Charges - Show for all types but only individual can modify */}
               {selectedBillHead && renderAdditionalCharges()}
 
-              {/* Calculate Button */}
-              {renderCalculateButton()}
+              {/* Calculate Button - Only show for individual generation */}
+              {billGenerationType === 'individual' && renderCalculateButton()}
 
-              {/* Bill Details - Show calculation results */}
+              {/* Bill Details - Show calculation results for all types */}
               {renderBillDetails()}
 
               {/* Dates - Common for all types */}
@@ -937,32 +941,72 @@ export default function MaintenanceBills() {
               {(billGenerationType === 'block' || billGenerationType === 'floor') && (
                 <div>
                   {bulkResidents.length > 0 ? (
-                    <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
-                      <h3 className="font-medium text-green-800 mb-2">Selected Residents</h3>
-                      <p className="text-green-700">
-                        {bulkResidents.length} residents will be billed with these details.
-                      </p>
-                      <div className="mt-4 max-h-40 overflow-y-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Name</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Flat</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {bulkResidents.map((resident) => (
-                              <tr key={resident._id}>
-                                <td className="px-3 py-2 whitespace-nowrap text-sm">{resident.name}</td>
-                                <td className="px-3 py-2 whitespace-nowrap text-sm">
-                                  {resident.flatDetails?.flatNumber}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                    <ResidentSelectionTable 
+                      residents={bulkResidents}
+                      selectedResidents={selectedResidents}
+                      onResidentToggle={(resident, isSelected) => {
+                        if (isSelected) {
+                          setSelectedResidents(prev => [...prev, resident]);
+                        } else {
+                          setSelectedResidents(prev => prev.filter(r => r._id !== resident._id));
+                        }
+                      }}
+                      onUnitUsageChange={() => {}} // No-op for maintenance bills since they're fixed
+                      billHead={{
+                        ...selectedBillHead,
+                        calculationType: 'Fixed' // Always treat as fixed for maintenance
+                      }}
+                      onCalculate={() => {
+                        if (selectedResidents.length === 0) {
+                          setNotificationWithTimeout('Please select at least one resident', 'error');
+                          return;
+                        }
+                        
+                        if (!selectedBillHead) {
+                          setNotificationWithTimeout('Please select a bill head first', 'error');
+                          return;
+                        }
+                        
+                        // Calculate for each selected resident (all same amount since maintenance is fixed)
+                        const newCalculationResults = {};
+                        selectedResidents.forEach(resident => {
+                          // For maintenance bills, always use fixed amount
+                          let baseAmount = selectedBillHead.fixedAmount || 0;
+                          
+                          // Calculate GST
+                          let gstDetails = selectedBillHead.gstConfig?.isGSTApplicable
+                            ? {
+                                cgstAmount: (baseAmount * selectedBillHead.gstConfig.cgstPercentage) / 100,
+                                sgstAmount: (baseAmount * selectedBillHead.gstConfig.sgstPercentage) / 100,
+                                igstAmount: (baseAmount * selectedBillHead.gstConfig.igstPercentage) / 100,
+                                total: 0
+                              }
+                            : {
+                                cgstAmount: 0,
+                                sgstAmount: 0,
+                                igstAmount: 0,
+                                total: 0
+                              };
+                          gstDetails.total = gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
+                          
+                          // Calculate additional charges total
+                          const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+                          
+                          newCalculationResults[resident._id] = {
+                            baseAmount,
+                            gstAmount: gstDetails.total,
+                            additionalChargesTotal,
+                            totalAmount: baseAmount + gstDetails.total + additionalChargesTotal
+                          };
+                        });
+                        
+                        setCalculationResults(newCalculationResults);
+                        setShowResidentCalculation(true);
+                      }}
+                      showCalculation={showResidentCalculation}
+                      calculationResults={calculationResults}
+                      additionalCharges={additionalCharges}
+                    />
                   ) : (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
                       <p className="text-yellow-800">
@@ -974,28 +1018,115 @@ export default function MaintenanceBills() {
               )}
 
               {billGenerationType === 'bulk' && (
-                <div className="bg-orange-50 border border-orange-200 rounded-md p-4 mb-6">
-                  <h3 className="font-medium text-orange-800 mb-2">Bulk Generation</h3>
-                  <p className="text-orange-700">
-                    This will generate bills for all residents with assigned flats in the society.
-                  </p>
-                  <p className="mt-4 font-medium text-gray-700">
-                    Total eligible residents: <span className="text-orange-700">
-                      {residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber).length}
-                    </span>
-                  </p>
-                  {isGeneratingBulk && (
-                    <div className="mt-4">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div
-                          className="bg-orange-600 h-2.5 rounded-full"
-                          style={{ width: `${bulkProgress}%` }}
-                        ></div>
+                <div>
+                  <div className="bg-orange-50 border border-orange-200 rounded-md p-4 mb-6">
+                    <h3 className="font-medium text-orange-800 mb-2">Bulk Generation</h3>
+                    <p className="text-orange-700">
+                      This will generate bills for all residents with assigned flats in the society.
+                    </p>
+                    <p className="mt-4 font-medium text-gray-700">
+                      Total eligible residents: <span className="text-orange-700">
+                        {residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber).length}
+                      </span>
+                    </p>
+                    {isGeneratingBulk && (
+                      <div className="mt-4">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div
+                            className="bg-orange-600 h-2.5 rounded-full"
+                            style={{ width: `${bulkProgress}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-sm mt-2 text-gray-600">
+                          Processing: {bulkProgress}% complete
+                        </p>
                       </div>
-                      <p className="text-sm mt-2 text-gray-600">
-                        Processing: {bulkProgress}% complete
-                      </p>
-                    </div>
+                    )}
+                  </div>
+                  
+                  {/* Add ResidentSelectionTable for bulk generation */}
+                  {selectedBillHead && residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber).length > 0 && (
+                    <ResidentSelectionTable 
+                      residents={residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber)}
+                      selectedResidents={selectedResidents.length > 0 ? selectedResidents : residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber)}
+                      onResidentToggle={(resident, isSelected) => {
+                        // For bulk generation, we'll auto-select all residents but allow deselection
+                        if (isSelected) {
+                          setSelectedResidents(prev => {
+                            const exists = prev.find(r => r._id === resident._id);
+                            return exists ? prev : [...prev, resident];
+                          });
+                        } else {
+                          setSelectedResidents(prev => prev.filter(r => r._id !== resident._id));
+                        }
+                      }}
+                      onUnitUsageChange={() => {}} // No-op for maintenance bills since they're fixed
+                      billHead={{
+                        ...selectedBillHead,
+                        calculationType: 'Fixed' // Always treat as fixed for maintenance
+                      }}
+                      onCalculate={() => {
+                        if (!selectedBillHead) {
+                          setNotificationWithTimeout('Please select a bill head first', 'error');
+                          return;
+                        }
+                        
+                        // Get all eligible residents if none selected
+                        const residentsToCalculate = selectedResidents.length > 0 
+                          ? selectedResidents 
+                          : residents.filter(r => r.flatDetails && r.flatDetails.blockName && r.flatDetails.flatNumber);
+                        
+                        if (residentsToCalculate.length === 0) {
+                          setNotificationWithTimeout('No eligible residents found', 'error');
+                          return;
+                        }
+                        
+                        // Calculate for each resident (all same amount since maintenance is fixed)
+                        const newCalculationResults = {};
+                        residentsToCalculate.forEach(resident => {
+                          // For maintenance bills, always use fixed amount
+                          let baseAmount = selectedBillHead.fixedAmount || 0;
+                          
+                          // Calculate GST
+                          let gstDetails = selectedBillHead.gstConfig?.isGSTApplicable
+                            ? {
+                                cgstAmount: (baseAmount * selectedBillHead.gstConfig.cgstPercentage) / 100,
+                                sgstAmount: (baseAmount * selectedBillHead.gstConfig.sgstPercentage) / 100,
+                                igstAmount: (baseAmount * selectedBillHead.gstConfig.igstPercentage) / 100,
+                                total: 0
+                              }
+                            : {
+                                cgstAmount: 0,
+                                sgstAmount: 0,
+                                igstAmount: 0,
+                                total: 0
+                              };
+                          gstDetails.total = gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
+                          
+                          // Calculate additional charges total
+                          const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+                          
+                          newCalculationResults[resident._id] = {
+                            baseAmount,
+                            gstAmount: gstDetails.total,
+                            additionalChargesTotal,
+                            totalAmount: baseAmount + gstDetails.total + additionalChargesTotal
+                          };
+                        });
+                        
+                        // Auto-select all residents if none were selected
+                        if (selectedResidents.length === 0) {
+                          setSelectedResidents(residentsToCalculate);
+                        }
+                        
+                        setCalculationResults(newCalculationResults);
+                        setShowResidentCalculation(true);
+                      }}
+                      showCalculation={showResidentCalculation}
+                      calculationResults={calculationResults}
+                      additionalCharges={additionalCharges}
+                      bulkMode={true} // Add a prop to indicate bulk mode
+                    />
                   )}
                 </div>
               )}
@@ -1013,9 +1144,9 @@ export default function MaintenanceBills() {
                   type="button"
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg"
                   disabled={
-                    !showCalculation ||
-                    (billGenerationType === 'individual' && !selectedResident) ||
-                    ((billGenerationType === 'block' || billGenerationType === 'floor') && bulkResidents.length === 0) ||
+                    (billGenerationType === 'individual' && (!showCalculation || !selectedResident)) ||
+                    ((billGenerationType === 'block' || billGenerationType === 'floor') && (!showResidentCalculation || selectedResidents.length === 0)) ||
+                    (billGenerationType === 'bulk' && !showCalculation) ||
                     isGeneratingBulk
                   }
                   onClick={
@@ -1420,7 +1551,16 @@ export default function MaintenanceBills() {
 
   // Update handleBulkGeneration function
   const handleBulkGeneration = async () => {
-    if (!selectedBillHead || !showCalculation) {
+    // For bulk generation, only check if bill head is selected
+    // For block/floor generation, check showResidentCalculation
+    let calculationCheck = true;
+    if (billGenerationType === 'individual') {
+      calculationCheck = showCalculation;
+    } else if (billGenerationType === 'block' || billGenerationType === 'floor') {
+      calculationCheck = showResidentCalculation;
+    }
+    
+    if (!selectedBillHead || !calculationCheck) {
       setNotificationWithTimeout('Please select bill head and calculate amount first', 'error');
       return;
     }
@@ -1478,6 +1618,26 @@ export default function MaintenanceBills() {
       // Log the form data before preparing bills
       console.log('Form data before bulk generation:', formData);
 
+      // Calculate base amount for maintenance bills (always fixed)
+      const baseAmount = selectedBillHead.fixedAmount || 0;
+      
+      // Calculate GST details
+      const gstDetails = selectedBillHead.gstConfig?.isGSTApplicable
+        ? {
+            cgstAmount: (baseAmount * selectedBillHead.gstConfig.cgstPercentage) / 100,
+            sgstAmount: (baseAmount * selectedBillHead.gstConfig.sgstPercentage) / 100,
+            igstAmount: (baseAmount * selectedBillHead.gstConfig.igstPercentage) / 100
+          }
+        : {
+            cgstAmount: 0,
+            sgstAmount: 0,
+            igstAmount: 0
+          };
+      
+      const totalGstAmount = gstDetails.cgstAmount + gstDetails.sgstAmount + gstDetails.igstAmount;
+      const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
+      const totalAmount = baseAmount + totalGstAmount + additionalChargesTotal;
+
       const billsData = residentsToProcess.map(resident => ({
         societyId: societyData.societyId,
         billHeadId: formData.billHeadId,
@@ -1490,17 +1650,17 @@ export default function MaintenanceBills() {
         ownerEmail: resident.email || '',
         unitUsage: formData.unitUsage,
         periodType: formData.periodType,  // Add period type
-        baseAmount: billCalculation.baseAmount,
+        baseAmount: baseAmount,
         gstDetails: {
           isGSTApplicable: selectedBillHead.gstConfig?.isGSTApplicable || false,
-          cgstAmount: billCalculation.gstDetails.cgstAmount,
-          sgstAmount: billCalculation.gstDetails.sgstAmount,
-          igstAmount: billCalculation.gstDetails.igstAmount,
+          cgstAmount: gstDetails.cgstAmount,
+          sgstAmount: gstDetails.sgstAmount,
+          igstAmount: gstDetails.igstAmount,
           cgstPercentage: selectedBillHead.gstConfig?.cgstPercentage || 0,
           sgstPercentage: selectedBillHead.gstConfig?.sgstPercentage || 0,
           igstPercentage: selectedBillHead.gstConfig?.igstPercentage || 0
         },
-        totalAmount: billCalculation.totalAmount,
+        totalAmount: totalAmount,
         additionalCharges: additionalCharges.map(charge => ({
           billHeadId: charge.billHeadId,
           chargeType: getValidChargeType(availableCharges.find(bh => bh._id === charge.billHeadId || bh.name === charge.chargeType)),

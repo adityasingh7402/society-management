@@ -3,6 +3,7 @@ import MaintenanceTicket from '../../../models/MaintenanceTicket';
 import Resident from '../../../models/Resident';
 import Society from '../../../models/Society';
 import jwt from 'jsonwebtoken';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -16,6 +17,13 @@ export default async function handler(req, res) {
 
     // Validate required fields
     if (!ticketId || !comment || !comment.trim()) {
+      await logFailure('ADD_MAINTENANCE_COMMENT', req, 'Ticket ID and comment text are required', {
+        providedFields: {
+          ticketId: !!ticketId,
+          comment: !!(comment && comment.trim())
+        },
+        errorType: 'VALIDATION_ERROR'
+      });
       return res.status(400).json({ 
         success: false, 
         message: 'Ticket ID and comment text are required' 
@@ -75,12 +83,24 @@ export default async function handler(req, res) {
     }
 
     if (!userInfo.name) {
+      await logFailure('ADD_MAINTENANCE_COMMENT', req, 'Unable to identify user', {
+        ticketId,
+        decodedPhone: decoded.phone,
+        errorType: 'USER_IDENTIFICATION_ERROR'
+      });
       return res.status(400).json({ success: false, message: 'Unable to identify user' });
     }
 
     // Find the ticket
     const ticket = await MaintenanceTicket.findById(ticketId);
     if (!ticket) {
+      await logFailure('ADD_MAINTENANCE_COMMENT', req, 'Ticket not found', {
+        ticketId,
+        userId: userInfo.id,
+        userName: userInfo.name,
+        userType: userInfo.type,
+        errorType: 'TICKET_NOT_FOUND'
+      });
       return res.status(404).json({ success: false, message: 'Ticket not found' });
     }
 
@@ -112,6 +132,21 @@ export default async function handler(req, res) {
     // Populate the ticket with resident details for response
     await updatedTicket.populate('residentId', 'name phone flatDetails');
 
+    // Log successful comment addition
+    await logSuccess('ADD_MAINTENANCE_COMMENT', req, {
+      message: 'Comment added successfully',
+      ticketId: ticket._id.toString(),
+      ticketTitle: ticket.title,
+      ticketStatus: ticket.status,
+      commentText: comment.trim(),
+      commentedBy: userInfo.name,
+      commenterType: userInfo.type,
+      commenterRole: userInfo.role || null,
+      isAdminComment: isAdmin,
+      hasAttachments: !!(attachments && attachments.length > 0),
+      attachmentCount: attachments ? attachments.length : 0
+    }, ticket._id.toString(), 'maintenance_ticket');
+
     return res.status(200).json({
       success: true,
       message: 'Comment added successfully',
@@ -123,6 +158,15 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error adding comment:', error);
+    
+    // Log failure
+    await logFailure('ADD_MAINTENANCE_COMMENT', req, 'Failed to add comment', {
+      errorMessage: error.message,
+      errorType: error.name || 'UNKNOWN_ERROR',
+      ticketId: req.body?.ticketId,
+      commentLength: req.body?.comment ? req.body.comment.length : 0
+    });
+    
     return res.status(500).json({
       success: false,
       message: 'Failed to add comment',

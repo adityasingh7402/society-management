@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import formidable from 'formidable';
 import { v2 as cloudinary } from 'cloudinary';
 import { createRouter } from 'next-connect';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -133,6 +134,11 @@ router.post(async (req, res) => {
 
     // Validate required fields
     if (!residentId || !message) {
+      await logFailure('SEND_HELPDESK_REPLY', req, 'Resident ID and message are required', {
+        providedFields: { residentId: !!residentId, message: !!message },
+        societyId,
+        errorType: 'VALIDATION_ERROR'
+      });
       return res.status(400).json({ success: false, message: 'Resident ID and message are required' });
     }
 
@@ -171,10 +177,21 @@ router.post(async (req, res) => {
     await newMessage.save();
 
     // Mark all previous messages from this resident as read
-    await HelpDeskMessage.updateMany(
+    const updateResult = await HelpDeskMessage.updateMany(
       { residentId, societyId, isFromResident: true, status: { $ne: 'read' } },
       { status: 'read' }
     );
+
+    // Log successful helpdesk reply
+    await logSuccess('SEND_HELPDESK_REPLY', req, {
+      messageId: newMessage._id.toString(),
+      residentId,
+      societyId,
+      messageLength: message.length,
+      hasMedia: !!mediaData,
+      mediaType: mediaData?.type,
+      markedAsReadCount: updateResult.modifiedCount
+    }, newMessage._id.toString(), 'helpdesk_message');
 
     // Return success response
     return res.status(201).json({
@@ -185,6 +202,13 @@ router.post(async (req, res) => {
     });
   } catch (error) {
     console.error('Error sending help desk reply:', error);
+    
+    // Log the failure
+    await logFailure('SEND_HELPDESK_REPLY', req, error.message, {
+      societyId: req.society?.societyId,
+      errorType: error.name
+    });
+    
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });

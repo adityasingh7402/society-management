@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { Check, CheckCheck, X, ArrowLeft, Send, MessageSquare, User, Clock, Loader2, ZoomIn, ZoomOut, Download, Maximize2, Minimize2, Image as ImageIcon, Paperclip, Shield, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { setupWebSocket } from '../../../services/CommunityService';
+import { setupSocietyWebSocket } from '../../../services/CommunityService';
 import PreloaderSociety from '../../components/PreloaderSociety';
 import { usePermissions } from "../../../components/PermissionsContext";
 import AccessDenied from "../widget/societyComponents/accessRestricted";
@@ -98,16 +98,14 @@ export default function SocietyDiscussionForm() {
     };
   }, []);
 
-  // Initial data fetch
+  // Initial data fetch - don't wait for discussionId since we're using society chat
   useEffect(() => {
-    if (discussionId) {
-      fetchSocietyData();
-    }
-  }, [router, discussionId]);
+    fetchSocietyData();
+  }, []);
 
   // Socket setup after society data is loaded
   useEffect(() => {
-    if (currentUser && currentUser.id && discussionId) {
+    if (currentUser && currentUser.id) {
       const setupSocket = () => {
         setSocketLoading(true);
         // Clear previous socket if it exists
@@ -130,7 +128,7 @@ export default function SocietyDiscussionForm() {
       };
 
       const createSocket = () => {
-        const socket = setupWebSocket(
+        const socket = setupSocietyWebSocket(
           {
             _id: currentUser.id,
             name: currentUser.name,
@@ -146,9 +144,8 @@ export default function SocietyDiscussionForm() {
         if (socket) {
           socketRef.current = socket;
           
-          // Join discussion room
-          socket.emit('join_discussion_room', {
-            discussionId: discussionId,
+          // Join society chat room - same as SocietyChat.js
+          socket.emit('join_society_chat', {
             societyCode: currentUser.societyCode || currentUser.id,
             userId: currentUser.id,
             userName: currentUser.name,
@@ -235,14 +232,14 @@ export default function SocietyDiscussionForm() {
         }
       };
     }
-  }, [currentUser, discussionId]);
+  }, [currentUser]);
 
   // Fetch messages after user data is loaded
   useEffect(() => {
-    if (currentUser && discussionId) {
+    if (currentUser) {
       fetchDiscussionMessages();
     }
-  }, [currentUser, discussionId]);
+  }, [currentUser]);
 
   const fetchSocietyData = async () => {
     try {
@@ -269,15 +266,9 @@ export default function SocietyDiscussionForm() {
       
       setCurrentUser(userObj);
 
-      // Fetch discussion details
-      const discussionResponse = await fetch(`/api/Discussion-Api/getDiscussion?discussionId=${discussionId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (discussionResponse.ok) {
-        const discussionData = await discussionResponse.json();
-        setDiscussionTopic(discussionData.discussion.topic || 'Discussion');
-      }
+      // Set discussion topic for society chat
+      setDiscussionTopic('Society Chat');
+      // This is the same chat that residents see in SocietyChat.js
     } catch (error) {
       console.error('Error fetching society details:', error);
       setError('Failed to load your profile');
@@ -295,7 +286,10 @@ export default function SocietyDiscussionForm() {
         return;
       }
 
-      const messagesResponse = await fetch(`/api/Discussion-Api/getDiscussionMessages?discussionId=${discussionId}`, {
+      // Use the same Message API as SocietyChat - this is the same chat system!
+      // Both residents (via SocietyChat) and society admins (via DiscussionForums) access the same messages
+      const societyId = currentUser.societyCode;
+      const messagesResponse = await fetch(`/api/Message-Api/getMessages?societyId=${societyId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -320,12 +314,9 @@ export default function SocietyDiscussionForm() {
     }
   };
 
-  // Socket message handlers
+  // Socket message handlers - same as SocietyChat since it's the same chat system
   const handleIncomingMessage = (message) => {
-    const { from, text, timestamp, id, media, senderName, isSociety, discussionId: msgDiscussionId } = message;
-    
-    // Only handle messages for this discussion
-    if (msgDiscussionId !== discussionId) return;
+    const { from, text, timestamp, id, media, senderName, isSociety } = message;
     
     // Update messages state - ensure we don't add duplicates by checking message ID
     setMessages(prevMessages => {
@@ -342,8 +333,7 @@ export default function SocietyDiscussionForm() {
         timestamp: timestamp,
         isSociety: isSociety || false,
         isDeleted: false,
-        media,
-        discussionId: msgDiscussionId
+        media
       };
       
       const updatedMessages = [...prevMessages, newMessage];
@@ -411,11 +401,11 @@ export default function SocietyDiscussionForm() {
       setMessages(prevMessages => [...prevMessages, optimisticMessage]);
       setMessageStatus(prev => ({ ...prev, [tempId]: 'sending' }));
 
-      const response = await fetch('/api/Discussion-Api/sendDiscussionMessage', {
+      const response = await fetch('/api/Message-Api/sendMessage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          discussionId: discussionId,
+          societyId: currentUser.societyCode,
           senderId: currentUser.id,
           senderName: currentUser.name,
           content: newMessage,
@@ -435,10 +425,10 @@ export default function SocietyDiscussionForm() {
         prev.map(msg => msg._id === tempId ? data.message : msg)
       );
       
-      // Emit message via socket if available
+      // Emit message via socket if available - use the same socket event as SocietyChat
       if (socketRef.current) {
-        socketRef.current.emit('discussion_message', {
-          discussionId: discussionId,
+        socketRef.current.emit('society_chat_message', {
+          societyCode: currentUser.societyCode,
           from: currentUser.id,
           senderName: currentUser.name,
           text: newMessage,
@@ -477,13 +467,11 @@ export default function SocietyDiscussionForm() {
     if (!messageToDelete) return;
 
     try {
-      const response = await fetch('/api/Discussion-Api/deleteDiscussionMessage', {
+      const response = await fetch('/api/Message-Api/deleteMessage', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          messageId: messageToDelete.id,
-          discussionId: discussionId,
-          deletedBy: currentUser.id
+          messageId: messageToDelete.id
         }),
       });
 
@@ -497,10 +485,10 @@ export default function SocietyDiscussionForm() {
         msg._id === messageToDelete.id ? data.message : msg
       ));
       
-      // Emit delete message event via socket
+      // Emit delete message event via socket - use the same socket event as SocietyChat
       if (socketRef.current) {
-        socketRef.current.emit('discussion_message_deleted', {
-          discussionId: discussionId,
+        socketRef.current.emit('society_message_deleted', {
+          societyCode: currentUser.societyCode,
           messageId: messageToDelete.id,
           deletedBy: currentUser.id
         });

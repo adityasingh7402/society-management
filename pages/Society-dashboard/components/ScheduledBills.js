@@ -142,7 +142,11 @@ export default function ScheduledBills() {
       }
 
       const data = await response.json();
-      setBillHeads(data.data);
+      // Filter to only show Maintenance and Amenity bill heads for scheduled bills
+      const filteredBillHeads = data.data.filter(head => 
+        head.category === 'Maintenance' || head.category === 'Amenity'
+      );
+      setBillHeads(filteredBillHeads);
     } catch (error) {
       console.error('Error fetching bill heads:', error);
       showNotification('Failed to fetch bill heads', 'error');
@@ -335,19 +339,6 @@ export default function ScheduledBills() {
                 onChange={(e) => setFilters(prev => ({ ...prev, billHeadId: e.target.value }))}
               >
                 <option value="">All Bill Heads</option>
-                {/* Utility Bills */}
-                {billHeads.filter(head => head.category === 'Utility').length > 0 && (
-                  <optgroup label="Utility Bills">
-                    {billHeads
-                      .filter(head => head.category === 'Utility')
-                      .map(head => (
-                        <option key={head._id} value={head._id}>
-                          {head.code} - {head.name}
-                        </option>
-                      ))
-                    }
-                  </optgroup>
-                )}
                 {/* Maintenance Bills */}
                 {billHeads.filter(head => head.category === 'Maintenance').length > 0 && (
                   <optgroup label="Maintenance Bills">
@@ -366,19 +357,6 @@ export default function ScheduledBills() {
                   <optgroup label="Amenity Bills">
                     {billHeads
                       .filter(head => head.category === 'Amenity')
-                      .map(head => (
-                        <option key={head._id} value={head._id}>
-                          {head.code} - {head.name}
-                        </option>
-                      ))
-                    }
-                  </optgroup>
-                )}
-                {/* Additional Charges */}
-                {billHeads.filter(head => head.category === 'Other').length > 0 && (
-                  <optgroup label="Additional Charges">
-                    {billHeads
-                      .filter(head => head.category === 'Other')
                       .map(head => (
                         <option key={head._id} value={head._id}>
                           {head.code} - {head.name}

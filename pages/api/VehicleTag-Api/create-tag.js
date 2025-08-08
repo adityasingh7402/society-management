@@ -1,6 +1,7 @@
 import connectToDatabase from "../../../lib/mongodb";
 import VehicleTag from "../../../models/VehicleTag";
 import { nanoid } from 'nanoid';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 // Function to generate a random 6-digit PIN
 const generatePIN = () => {
@@ -55,6 +56,19 @@ export default async function handler(req, res) {
 
     // Validate required fields
     if (!residentId || !societyId || !vehicleType || !brand || !model || !color || !registrationNumber || !validUntil) {
+      await logFailure('CREATE_VEHICLE_TAG', req, 'Missing required fields', {
+        providedFields: {
+          residentId: !!residentId,
+          societyId: !!societyId,
+          vehicleType: !!vehicleType,
+          brand: !!brand,
+          model: !!model,
+          color: !!color,
+          registrationNumber: !!registrationNumber,
+          validUntil: !!validUntil
+        },
+        errorType: 'VALIDATION_ERROR'
+      });
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -85,6 +99,23 @@ export default async function handler(req, res) {
     // Save to database
     await vehicleTag.save();
 
+    // Log successful vehicle tag creation
+    await logSuccess('CREATE_VEHICLE_TAG', req, {
+      message: 'Vehicle tag created successfully',
+      vehicleTagId: vehicleTag._id.toString(),
+      residentId,
+      societyId,
+      vehicleType,
+      vehicleBrand: brand,
+      vehicleModel: model,
+      vehicleColor: color,
+      registrationNumber,
+      pinCode: pinCode,
+      validFrom: vehicleTag.validFrom,
+      validUntil: vehicleTag.validUntil,
+      status: vehicleTag.status
+    }, vehicleTag._id.toString(), 'vehicle_tag');
+
     res.status(201).json({
       message: 'Vehicle tag created successfully',
       data: vehicleTag,
@@ -93,6 +124,17 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error creating vehicle tag:', error);
+    
+    // Log failure
+    await logFailure('CREATE_VEHICLE_TAG', req, error.message === 'Unable to generate unique PIN. Please try again.' ? error.message : 'Failed to create vehicle tag', {
+      errorMessage: error.message,
+      errorType: error.name || 'UNKNOWN_ERROR',
+      residentId: req.body?.residentId,
+      societyId: req.body?.societyId,
+      vehicleType: req.body?.vehicleType,
+      registrationNumber: req.body?.registrationNumber
+    });
+    
     if (error.message === 'Unable to generate unique PIN. Please try again.') {
       return res.status(500).json({ message: error.message });
     }

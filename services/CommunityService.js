@@ -252,4 +252,163 @@ export const setupWebSocket = (
   });
 
   return socket;
-}; 
+};
+
+// Society-specific WebSocket setup function
+export const setupSocietyWebSocket = (
+  societyDetails,
+  handleIncomingMessage,
+  updateMessageStatus,
+  markMessagesAsReadByRecipient
+) => {
+  // Check for society token before even trying to connect
+  let token = localStorage.getItem('Society');
+  if (!token) {
+    console.warn('No society authentication token found for socket connection');
+    return null; // Return null instead of a socket connection
+  }
+
+  // Clean up token format - remove Bearer prefix if present
+  if (token.startsWith('Bearer ')) {
+    token = token.slice(7).trim();
+  }
+  
+  // Debug token (show first few characters)
+  console.log('Using society token for socket connection: ', token.substring(0, 10) + '...');
+  
+  console.log('Setting up Society WebSocket connection');
+  
+  // Make sure socket.io client is loaded
+  if (typeof io === 'undefined') {
+    console.error('Socket.io client not found');
+    return null;
+  }
+  
+  // Create socket options with proper auth - explicitly send token WITHOUT Bearer prefix
+  const socketOptions = {
+    path: '/api/socketio',
+    auth: {
+      token
+    },
+    transports: ['polling', 'websocket'],
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
+    autoConnect: true
+  };
+
+  // Create a new socket instance
+  const socket = io('', socketOptions);
+
+  // Connect event handlers
+  socket.on('connect', () => {
+    console.log('Society connected to WebSocket server');
+    if (societyDetails && societyDetails._id) {
+      socket.emit('register', { userId: societyDetails._id });
+    }
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('Society socket connection error:', error.message);
+    
+    // Check if error is related to authentication
+    if (error.message && (
+      error.message.includes('auth') || 
+      error.message.includes('token') || 
+      error.message.includes('unauthorized')
+    )) {
+      console.warn('Society socket connection may have auth issues, checking token');
+      
+      // Try to get a fresh token - ensure it's clean
+      let freshToken = localStorage.getItem('Society');
+      if (freshToken) {
+        if (freshToken.startsWith('Bearer ')) {
+          freshToken = freshToken.slice(7).trim();
+        }
+        socket.auth.token = freshToken;
+      }
+    }
+  });
+
+  socket.on('reconnect', (attemptNumber) => {
+    console.log(`Society reconnected to socket server after ${attemptNumber} attempts`);
+    
+    // Re-register user ID after reconnection
+    if (societyDetails && societyDetails._id) {
+      socket.emit('register', { userId: societyDetails._id });
+    }
+  });
+
+  socket.on('reconnect_attempt', (attemptNumber) => {
+    console.log(`Society reconnection attempt ${attemptNumber}`);
+    
+    // Update auth token on each reconnection attempt in case it changed
+    let freshToken = localStorage.getItem('Society');
+    if (freshToken) {
+      if (freshToken.startsWith('Bearer ')) {
+        freshToken = freshToken.slice(7).trim();
+      }
+      socket.auth.token = freshToken;
+    }
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('Society disconnected from WebSocket server:', reason);
+    
+    // If server initiated disconnect due to auth issues, don't reconnect automatically
+    if (reason === 'io server disconnect') {
+      console.log('Server initiated disconnect, not reconnecting automatically');
+      // Try to reconnect once with fresh token
+      let freshToken = localStorage.getItem('Society');
+      if (freshToken) {
+        if (freshToken.startsWith('Bearer ')) {
+          freshToken = freshToken.slice(7).trim();
+        }
+        socket.auth.token = freshToken;
+        setTimeout(() => socket.connect(), 2000);
+      }
+    }
+  });
+
+  // Society chat message handler
+  socket.on('chat_message', (message) => {
+    console.log('Society received chat message:', message);
+    handleIncomingMessage(message);
+  });
+
+  socket.on('message_status', (data) => {
+    console.log('Society received message status update:', data);
+    updateMessageStatus(data);
+  });
+
+  socket.on('messages_read', (data) => {
+    console.log('Society received messages read update:', data);
+    markMessagesAsReadByRecipient(data);
+  });
+
+  socket.on('message_deleted', (data) => {
+    console.log('Society received message deleted update:', data);
+    // Handle message deletion updates from other users
+    // You can add this handler if needed
+  });
+
+  // Auth handlers
+  socket.on('auth_error', (data) => {
+    console.error('Society socket authentication error:', data.message);
+    
+    // Try to refresh the token from localStorage
+    let freshToken = localStorage.getItem('Society');
+    if (freshToken) {
+      console.log('Society trying with fresh token from localStorage');
+      if (freshToken.startsWith('Bearer ')) {
+        freshToken = freshToken.slice(7).trim();
+      }
+      socket.auth.token = freshToken;
+      socket.connect();
+    }
+  });
+
+  return socket;
+};

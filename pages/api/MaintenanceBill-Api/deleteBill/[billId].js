@@ -1,4 +1,4 @@
-import UtilityBill from '../../../../models/UtilityBill';
+import MaintenanceBill from '../../../../models/MaintenanceBill';
 import connectDB from '../../../../lib/mongodb';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
@@ -7,7 +7,7 @@ import { logSuccess, logFailure } from '../../../../services/loggingService';
 export default async function handler(req, res) {
   const { billId } = req.query;
   
-  if (req.method !== 'PUT') {
+  if (req.method !== 'DELETE') {
     return res.status(405).json({ 
       success: false,
       message: 'Method not allowed' 
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
   
   if (!billId) {
-    await logFailure('UTILITY_BILL_UPDATE', req, 'Bill ID is required');
+    await logFailure('MAINTENANCE_BILL_DELETE', req, 'Bill ID is required');
     return res.status(400).json({ 
       success: false,
       message: 'Bill ID is required' 
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     // Verify token
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
-      await logFailure('UTILITY_BILL_UPDATE', req, 'No authorization token provided', { billId });
+      await logFailure('MAINTENANCE_BILL_DELETE', req, 'No authorization token provided', { billId });
       return res.status(401).json({ 
         success: false,
         message: 'Unauthorized' 
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded) {
-      await logFailure('UTILITY_BILL_UPDATE', req, 'Invalid authorization token', { billId });
+      await logFailure('MAINTENANCE_BILL_DELETE', req, 'Invalid authorization token', { billId });
       return res.status(401).json({ 
         success: false,
         message: 'Invalid token' 
@@ -45,70 +45,54 @@ export default async function handler(req, res) {
     }
     
     if (!mongoose.Types.ObjectId.isValid(billId)) {
-      await logFailure('UTILITY_BILL_UPDATE', req, 'Invalid bill ID', { billId });
+      await logFailure('MAINTENANCE_BILL_DELETE', req, 'Invalid bill ID', { billId });
       return res.status(400).json({ 
         success: false,
         message: 'Invalid bill ID' 
       });
     }
     
-    // Find the bill first to get original details for logging
-    const bill = await UtilityBill.findById(billId);
+    // Find the bill first to get details for logging
+    const bill = await MaintenanceBill.findById(billId);
     
     if (!bill) {
-      await logFailure('UTILITY_BILL_UPDATE', req, 'Bill not found', { billId });
+      await logFailure('MAINTENANCE_BILL_DELETE', req, 'Bill not found', { billId });
       return res.status(404).json({ 
         success: false,
         message: 'Bill not found' 
       });
     }
     
-    const { status } = req.body;
-    const originalStatus = bill.status;
+    // Delete the bill
+    await MaintenanceBill.findByIdAndDelete(billId);
     
-    if (status === 'Paid') {
-      // If marking as paid, update payment date and paid amount
-      bill.status = 'Paid';
-      bill.paymentDate = new Date();
-      bill.paidAmount = bill.totalAmount;
-      bill.remainingAmount = 0;
-    } else {
-      bill.status = status;
-    }
-    
-    await bill.save();
-    
-    // Log successful update
-    await logSuccess('UTILITY_BILL_UPDATE', req, {
-      billId: bill._id,
+    // Log successful deletion
+    await logSuccess('MAINTENANCE_BILL_DELETE', req, {
+      billId: billId,
       billNumber: bill.billNumber,
       flatNumber: bill.flatNumber,
       blockName: bill.blockName,
       ownerName: bill.ownerName,
-      originalStatus: originalStatus,
-      newStatus: bill.status,
       totalAmount: bill.totalAmount,
-      paidAmount: bill.paidAmount || 0,
-      updateType: 'status_change'
-    }, bill._id, 'UtilityBill');
+      status: bill.status
+    }, billId, 'MaintenanceBill');
     
     res.status(200).json({ 
       success: true, 
-      bill 
+      message: 'Maintenance bill deleted successfully' 
     });
   } catch (error) {
-    console.error('Error updating utility bill status:', error);
+    console.error('Error deleting maintenance bill:', error);
     
     // Log the failure
-    await logFailure('UTILITY_BILL_UPDATE', req, error.message, {
+    await logFailure('MAINTENANCE_BILL_DELETE', req, error.message, {
       billId: req.query?.billId,
-      requestedStatus: req.body?.status,
       errorType: error.name
     });
     
     res.status(500).json({ 
       success: false,
-      message: 'Failed to update utility bill status', 
+      message: 'Failed to delete maintenance bill', 
       error: error.message 
     });
   }

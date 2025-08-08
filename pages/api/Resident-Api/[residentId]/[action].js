@@ -1,38 +1,60 @@
 import connectToDatabase from '../../../../lib/mongodb';
 import Resident from '../../../../models/Resident';
 import Society from '../../../../models/Society';
+import { logSuccess, logFailure } from '../../../../services/loggingService';
 import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
-  if (req.method === 'PUT') {
-    const { residentId, action } = req.query;
-    const { flatDetails } = req.body;
+  if (req.method !== 'PUT') {
+    return res.status(405).json({ message: 'Method Not Allowed' });
+  }
 
-    await connectToDatabase();
+  const { residentId, action } = req.query;
+  const { flatDetails } = req.body;
 
-    let adminDetails = null;
-    try {
-      // Decode JWT from Authorization header
-      const authHeader = req.headers.authorization || req.headers.Authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        adminDetails = {
-          adminId: decoded.id,
-          adminName: decoded.name,
-          approvedAt: new Date()
-        };
-      }
-    } catch (err) {
-      // If decoding fails, continue without adminDetails
-      adminDetails = null;
-    }
+  await connectToDatabase();
+
+  // Verify token and authorization
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    await logFailure('RESIDENT_STATUS_UPDATE', req, 'Unauthorized: Token missing', {
+      residentId,
+      action,
+      errorType: 'NO_TOKEN'
+    });
+    return res.status(401).json({ error: 'Unauthorized: Token missing' });
+  }
+
+  let adminDetails = null;
+  let decoded = null;
+  try {
+    const token = authHeader.split(' ')[1];
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    adminDetails = {
+      adminId: decoded.id,
+      adminName: decoded.name,
+      adminPhone: decoded.phone,
+      approvedAt: new Date()
+    };
+  } catch (err) {
+    await logFailure('RESIDENT_STATUS_UPDATE', req, 'Unauthorized: Invalid token', {
+      residentId,
+      action,
+      errorType: 'INVALID_TOKEN'
+    });
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  }
 
     try {
       // First, get the resident details
       const resident = await Resident.findById(residentId);
       
       if (!resident) {
+        await logFailure('RESIDENT_STATUS_UPDATE', req, 'Resident not found', {
+          residentId,
+          action,
+          errorType: 'RESIDENT_NOT_FOUND'
+        });
         return res.status(404).json({ message: 'Resident not found' });
       }
 
@@ -61,6 +83,13 @@ export default async function handler(req, res) {
         
         // Validate required fields
         if (!blockName || floorIndex === undefined || !flatNumber) {
+          await logFailure('RESIDENT_STATUS_UPDATE', req, 'Missing required flat details', {
+            residentId,
+            action,
+            residentName: resident.name,
+            providedFlatDetails: { blockName, floorIndex, flatNumber },
+            errorType: 'MISSING_FLAT_DETAILS'
+          });
           return res.status(400).json({ message: 'Missing required flat details' });
         }
 
@@ -68,6 +97,13 @@ export default async function handler(req, res) {
         const society = await Society.findOne({ _id: resident.societyId });
         
         if (!society) {
+          await logFailure('RESIDENT_STATUS_UPDATE', req, 'Society not found', {
+            residentId,
+            action,
+            residentName: resident.name,
+            societyId: resident.societyId,
+            errorType: 'SOCIETY_NOT_FOUND'
+          });
           return res.status(404).json({ message: 'Society not found' });
         }
 
@@ -178,19 +214,41 @@ export default async function handler(req, res) {
         await society.save();
       }
 
+      // Log successful resident status update
+      await logSuccess('RESIDENT_STATUS_UPDATE', req, {
+        residentId: resident._id,
+        residentName: resident.name,
+        residentEmail: resident.email,
+        residentPhone: resident.phone,
+        action: action,
+        previousStatus: resident.societyVerification,
+        newStatus: action,
+        societyName: resident.societyName,
+        flatDetails: resident.flatDetails,
+        approvedBy: adminDetails?.adminName || 'Unknown',
+        approvedById: adminDetails?.adminId,
+        approvedAt: new Date().toISOString()
+      }, resident._id, 'resident');
+
       res.status(200).json({ 
         message: `Resident ${action} successfully!`,
         resident: resident
       });
     } catch (error) {
       console.error('Error updating resident status:', error);
+      
+      // Log the failure
+      await logFailure('RESIDENT_STATUS_UPDATE', req, error.message, {
+        residentId,
+        action,
+        errorType: error.name || 'UNKNOWN_ERROR',
+        errorMessage: error.message
+      });
+      
       res.status(500).json({ 
         message: 'Internal server error', 
         error: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
-  } else {
-    res.status(405).json({ message: 'Method Not Allowed' });
-  }
 }

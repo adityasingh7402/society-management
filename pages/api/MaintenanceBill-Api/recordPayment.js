@@ -4,6 +4,7 @@ import PaymentEntry from '../../../models/PaymentEntry';
 import JournalVoucher from '../../../models/JournalVoucher';
 import Ledger from '../../../models/Ledger';
 import jwt from 'jsonwebtoken';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,11 +15,13 @@ export default async function handler(req, res) {
     // Verify token
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
+      await logFailure('MAINTENANCE_PAYMENT_RECORD', req, 'No authorization token provided');
       return res.status(401).json({ error: 'No token provided' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || !decoded.id) {
+      await logFailure('MAINTENANCE_PAYMENT_RECORD', req, 'Invalid authorization token');
       return res.status(401).json({ error: 'Invalid token' });
     }
 
@@ -166,6 +169,21 @@ export default async function handler(req, res) {
     await paymentLedger.updateBalance(amount, 'debit');
     await receivableLedger.updateBalance(amount, 'credit');
 
+    // Log successful payment recording
+    await logSuccess('MAINTENANCE_PAYMENT_RECORD', req, {
+      paymentId: paymentEntry._id,
+      billId: billId,
+      billNumber: bill.billNumber,
+      amount: amount,
+      paymentMethod: paymentMethod,
+      transactionId: transactionId,
+      voucherNumber: journalVoucher.voucherNumber,
+      residentId: residentId,
+      societyId: societyId,
+      originalBillStatus: 'Pending',
+      newBillStatus: bill.status
+    }, paymentEntry._id, 'PaymentEntry');
+
     res.status(200).json({
       message: 'Payment recorded successfully',
       data: {
@@ -177,6 +195,17 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error recording payment:', error);
+    
+    // Log the failure
+    await logFailure('MAINTENANCE_PAYMENT_RECORD', req, error.message, {
+      billId: req.body?.billId,
+      amount: req.body?.amount,
+      paymentMethod: req.body?.paymentMethod,
+      societyId: req.body?.societyId,
+      residentId: req.body?.residentId,
+      errorType: error.name
+    });
+    
     res.status(500).json({ error: error.message || 'Failed to record payment' });
   }
 }

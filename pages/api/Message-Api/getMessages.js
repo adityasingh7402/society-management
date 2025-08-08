@@ -1,4 +1,5 @@
-// In your /api/Message-Api/getMessages.js file, modify it to:
+import connectDB from '../../../lib/mongodb';
+import MessageG from '../../../models/MessageG';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -19,7 +20,7 @@ export default async function handler(req, res) {
       filter.discussionId = discussionId;
     }
 
-    const messages = await Message.find(filter)
+    const messages = await MessageG.find(filter)
       .sort({ timestamp: 1 })
       .lean();
 

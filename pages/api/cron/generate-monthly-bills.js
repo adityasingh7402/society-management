@@ -211,7 +211,7 @@ async function handler(req, res) {
                 gstDetails: scheduledBill.gstDetails,
                 latePaymentDetails: scheduledBill.latePaymentConfig,
                 totalAmount: scheduledBill.totalAmount,
-                additionalCharges: scheduledBill.additionalCharges || [],
+                additionalCharges: scheduledBill.additionalCharges || [], // Include additional charges
                 issueDate: now,
                 dueDate: dueDate,
                 status: 'Pending',

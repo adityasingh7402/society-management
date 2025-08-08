@@ -1,6 +1,7 @@
 import connectToDatabase from '../../../lib/mongodb';
 import Society from '../../../models/Society';
 import jwt from 'jsonwebtoken';
+import { logSuccess, logFailure } from '../../../services/loggingService';
 
 export default async function handler(req, res) {
   await connectToDatabase();
@@ -38,6 +39,11 @@ export default async function handler(req, res) {
 
         // Validate required fields
         if (!name || !phone || !email || !role) {
+          await logFailure('ADD_SOCIETY_MEMBER', req, 'Missing required fields', {
+            providedFields: { name: !!name, phone: !!phone, email: !!email, role: !!role },
+            societyId: society._id.toString(),
+            errorType: 'VALIDATION_ERROR'
+          });
           return res.status(400).json({ success: false, message: 'Missing required fields' });
         }
 
@@ -46,6 +52,13 @@ export default async function handler(req, res) {
 
         // Check if member already exists
         if (society.members.some(m => m.phone === formattedPhone)) {
+          await logFailure('ADD_SOCIETY_MEMBER', req, 'Member with this phone number already exists', {
+            phone: formattedPhone,
+            name,
+            role,
+            societyId: society._id.toString(),
+            errorType: 'DUPLICATE_MEMBER'
+          });
           return res.status(400).json({ success: false, message: 'Member with this phone number already exists' });
         }
 
@@ -61,6 +74,20 @@ export default async function handler(req, res) {
         });
 
         await society.save();
+        
+        // Log successful member addition
+        const newMember = society.members[society.members.length - 1];
+        await logSuccess('ADD_SOCIETY_MEMBER', req, {
+          message: 'Member added successfully',
+          memberName: name,
+          memberPhone: formattedPhone,
+          memberEmail: email,
+          memberRole: role,
+          memberId: newMember._id.toString(),
+          societyId: society._id.toString(),
+          addedBy: decoded.name || decoded.phone
+        }, newMember._id.toString(), 'society_member');
+        
         return res.status(201).json({ success: true, message: 'Member added successfully' });
 
       case 'PUT': // Update member
@@ -68,6 +95,11 @@ export default async function handler(req, res) {
         const memberIndex = society.members.findIndex(m => m._id.toString() === memberId);
 
         if (memberIndex === -1) {
+          await logFailure('UPDATE_SOCIETY_MEMBER', req, 'Member not found', {
+            memberId,
+            societyId: society._id.toString(),
+            errorType: 'MEMBER_NOT_FOUND'
+          });
           return res.status(404).json({ success: false, message: 'Member not found' });
         }
 
@@ -84,6 +116,20 @@ export default async function handler(req, res) {
         };
 
         await society.save();
+        
+        // Log successful member update
+        const updatedMember = society.members[memberIndex];
+        await logSuccess('UPDATE_SOCIETY_MEMBER', req, {
+          message: 'Member updated successfully',
+          memberId,
+          memberName: updatedMember.name,
+          memberPhone: updatedMember.phone,
+          memberRole: updatedMember.role,
+          updatedFields: Object.keys(updates),
+          societyId: society._id.toString(),
+          updatedBy: decoded.name || decoded.phone
+        }, memberId, 'society_member');
+        
         return res.status(200).json({ success: true, message: 'Member updated successfully' });
 
       case 'DELETE': // Remove member
@@ -91,11 +137,29 @@ export default async function handler(req, res) {
         const memberToDeleteIndex = society.members.findIndex(m => m._id.toString() === memberIdToDelete);
 
         if (memberToDeleteIndex === -1) {
+          await logFailure('DELETE_SOCIETY_MEMBER', req, 'Member not found', {
+            memberIdToDelete,
+            societyId: society._id.toString(),
+            errorType: 'MEMBER_NOT_FOUND'
+          });
           return res.status(404).json({ success: false, message: 'Member not found' });
         }
 
+        const memberToDelete = society.members[memberToDeleteIndex];
         society.members.splice(memberToDeleteIndex, 1);
         await society.save();
+        
+        // Log successful member deletion
+        await logSuccess('DELETE_SOCIETY_MEMBER', req, {
+          message: 'Member removed successfully',
+          deletedMemberName: memberToDelete.name,
+          deletedMemberPhone: memberToDelete.phone,
+          deletedMemberRole: memberToDelete.role,
+          memberIdToDelete,
+          societyId: society._id.toString(),
+          deletedBy: decoded.name || decoded.phone
+        }, memberIdToDelete, 'society_member');
+        
         return res.status(200).json({ success: true, message: 'Member removed successfully' });
 
       default:
@@ -103,6 +167,15 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.error('Error in manage-members:', error);
+    
+    // Log failure
+    await logFailure('MANAGE_SOCIETY_MEMBERS', req, 'Failed to manage society members', {
+      errorMessage: error.message,
+      errorType: error.name || 'UNKNOWN_ERROR',
+      method: req.method,
+      requestData: req.body
+    });
+    
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 }
