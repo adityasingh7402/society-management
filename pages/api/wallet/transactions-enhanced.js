@@ -4,10 +4,10 @@ import TenantWalletTransaction from '../../../models/TenantWalletTransaction';
 import Wallet from '../../../models/Wallet';
 import TenantWallet from '../../../models/TenantWallet';
 import Resident from '../../../models/Resident';
-const connectToDatabase = require('../../../lib/mongodb');
+import dbConnect from '../../../lib/mongodb';
 
 export default async function handler(req, res) {
-  await connectToDatabase();
+  await dbConnect();
 
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
@@ -21,9 +21,8 @@ export default async function handler(req, res) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userType = decoded.userType;
-    const role = decoded.role;
-    
+    const { phone, userType, role, id, residentId: parentResidentId } = decoded;
+
     // Query parameters
     const {
       page = 1,
@@ -35,28 +34,29 @@ export default async function handler(req, res) {
       transactionFlow,
       unlimited = false
     } = req.query;
-    
-    // Handle main residents
-    if (userType === 'main_resident' || role === 'resident') {
-      const residentId = decoded.id;
-      
-      if (!residentId) {
-        return res.status(401).json({ success: false, error: 'Invalid token: no resident ID' });
-      }
 
-      // Find the resident by ID
-      const resident = await Resident.findById(residentId);
+    let transactions = [];
+    let totalCount = 0;
+    let transactionSummary = { totalCredit: 0, totalDebit: 0, transactionCount: 0 };
+    let currentBalance = 0;
+    let walletId = null;
+
+    if (userType === 'main_resident' && role === 'resident') {
+      // Handle main resident transactions
+      const resident = await Resident.findOne({ phone });
       if (!resident) {
         return res.status(404).json({ success: false, error: 'Resident not found' });
       }
 
-      // Get wallet
       const wallet = await Wallet.findOne({ residentId: resident._id });
       if (!wallet) {
         return res.status(404).json({ success: false, error: 'Wallet not found' });
       }
 
-      // Build filter
+      walletId = wallet._id;
+      currentBalance = wallet.currentBalance;
+
+      // Build filter for resident transactions
       const filter = { walletId: wallet._id };
       
       if (type) filter.type = type;
@@ -79,22 +79,16 @@ export default async function handler(req, res) {
 
       // Apply pagination logic
       if (limit) {
-        // Use provided limit
         const skip = (parseInt(page) - 1) * parseInt(limit);
         query = query.skip(skip).limit(parseInt(limit));
       } else if (unlimited !== 'true') {
-        // Safety limit when no explicit limit provided (unless unlimited=true)
-        query = query.limit(1000); // Safety limit of 1000 transactions
+        query = query.limit(1000);
       }
-      // If unlimited=true, no limit is applied
 
-      // Get transactions
-      const transactions = await query;
+      transactions = await query;
+      totalCount = await WalletTransaction.countDocuments(filter);
 
-      // Get total count
-      const totalCount = await WalletTransaction.countDocuments(filter);
-
-      // Calculate summary for current filter
+      // Calculate summary
       const summary = await WalletTransaction.aggregate([
         { $match: filter },
         {
@@ -115,52 +109,27 @@ export default async function handler(req, res) {
         }
       ]);
 
-      const transactionSummary = summary[0] || {
-        totalCredit: 0,
-        totalDebit: 0,
-        transactionCount: 0
-      };
+      transactionSummary = summary[0] || transactionSummary;
 
-      const response = {
-        transactions,
-        walletType: 'main_resident',
-        pagination: limit ? {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(totalCount / parseInt(limit)),
-          totalCount,
-          limit: parseInt(limit)
-        } : unlimited === 'true' ? {
-          totalCount,
-          unlimited: true
-        } : {
-          totalCount,
-          safetyLimit: 1000,
-          hasMore: totalCount > 1000
-        },
-        summary: transactionSummary,
-        currentBalance: wallet.currentBalance
-      };
+    } else if (userType === 'member' && role === 'tenant') {
+      // Handle tenant transactions
+      let tenantWallet = await TenantWallet.findOne({ 
+        tenantId: id,
+        tenantPhone: phone 
+      });
 
-      return res.status(200).json({ success: true, data: response });
-    }
-
-    // Handle tenants/members
-    else if (userType === 'member' && (role === 'tenant' || role === 'family_member')) {
-      const tenantId = decoded.id;
-      const parentResidentId = decoded.residentId;
-      
-      if (!tenantId || !parentResidentId) {
-        return res.status(401).json({ success: false, error: 'Invalid token: missing tenant or parent resident ID' });
-      }
-
-      // Get tenant wallet
-      const tenantWallet = await TenantWallet.findOne({ tenantId: tenantId });
       if (!tenantWallet) {
         return res.status(404).json({ success: false, error: 'Tenant wallet not found' });
       }
 
-      // Build filter for tenant transactions
-      const filter = { walletId: tenantWallet._id };
+      walletId = tenantWallet._id;
+      currentBalance = tenantWallet.currentBalance;
+
+      // For tenant transactions, we'll use the same WalletTransaction model
+      // but filter by tenantWalletId (you might need to add this field to WalletTransaction model)
+      // For now, let's assume we use a tenantWalletId field in WalletTransaction
+
+      const filter = { tenantWalletId: tenantWallet._id };
       
       if (type) filter.type = type;
       if (status) filter.status = status;
@@ -173,7 +142,7 @@ export default async function handler(req, res) {
       }
 
       // Build query for tenant transactions
-      let query = TenantWalletTransaction.find(filter)
+      let query = WalletTransaction.find(filter)
         .sort({ createdAt: -1 })
         .populate('billDetails.billId', 'billNumber totalAmount')
         .populate('marketplaceDetails.itemId', 'title price')
@@ -182,23 +151,17 @@ export default async function handler(req, res) {
 
       // Apply pagination logic
       if (limit) {
-        // Use provided limit
         const skip = (parseInt(page) - 1) * parseInt(limit);
         query = query.skip(skip).limit(parseInt(limit));
       } else if (unlimited !== 'true') {
-        // Safety limit when no explicit limit provided (unless unlimited=true)
-        query = query.limit(1000); // Safety limit of 1000 transactions
+        query = query.limit(1000);
       }
-      // If unlimited=true, no limit is applied
 
-      // Get transactions
-      const transactions = await query;
+      transactions = await query;
+      totalCount = await WalletTransaction.countDocuments(filter);
 
-      // Get total count
-      const totalCount = await TenantWalletTransaction.countDocuments(filter);
-
-      // Calculate summary for current filter
-      const summary = await TenantWalletTransaction.aggregate([
+      // Calculate summary for tenant
+      const summary = await WalletTransaction.aggregate([
         { $match: filter },
         {
           $group: {
@@ -218,38 +181,37 @@ export default async function handler(req, res) {
         }
       ]);
 
-      const transactionSummary = summary[0] || {
-        totalCredit: 0,
-        totalDebit: 0,
-        transactionCount: 0
-      };
+      transactionSummary = summary[0] || transactionSummary;
 
-      const response = {
-        transactions,
-        walletType: 'tenant',
-        pagination: limit ? {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(totalCount / parseInt(limit)),
-          totalCount,
-          limit: parseInt(limit)
-        } : unlimited === 'true' ? {
-          totalCount,
-          unlimited: true
-        } : {
-          totalCount,
-          safetyLimit: 1000,
-          hasMore: totalCount > 1000
-        },
-        summary: transactionSummary,
-        currentBalance: tenantWallet.currentBalance
-      };
-
-      return res.status(200).json({ success: true, data: response });
+    } else {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid user type or role for transaction access' 
+      });
     }
 
-    else {
-      return res.status(401).json({ success: false, error: 'Invalid user type or role' });
-    }
+    const response = {
+      transactions,
+      pagination: limit ? {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalCount / parseInt(limit)),
+        totalCount,
+        limit: parseInt(limit)
+      } : unlimited === 'true' ? {
+        totalCount,
+        unlimited: true
+      } : {
+        totalCount,
+        safetyLimit: 1000,
+        hasMore: totalCount > 1000
+      },
+      summary: transactionSummary,
+      currentBalance,
+      walletType: userType === 'main_resident' ? 'RESIDENT' : 'TENANT'
+    };
+
+    res.status(200).json({ success: true, data: response });
+
   } catch (error) {
     console.error('Error getting wallet transactions:', error);
     if (error.name === 'JsonWebTokenError') {

@@ -74,8 +74,8 @@ const AndroidDashboard = ({ onLoaded }) => {
           const decoded = jwt.decode(token);
           if (decoded && decoded.role) {
             setUserRole(decoded.role);
-            // Only main residents can access wallet and bills
-            setIsAuthorized(decoded.role === 'resident');
+            // Both main residents and tenants can access wallet and bills
+            setIsAuthorized(decoded.role === 'resident' || decoded.role === 'tenant');
           }
         }
       } catch (error) {
@@ -394,7 +394,6 @@ const AndroidDashboard = ({ onLoaded }) => {
       color: 'bg-orange-500',
       items: [
         { icon: Hammer, label: 'New Request', href: '/Resident-dashboard/components/NewRequest' },
-        { icon: Search, label: 'Track Request', href: '/Resident-dashboard/components/TrackRequest' },
         { icon: Lightbulb, label: 'Utility Bills', href: '/Resident-dashboard/components/Bills' },
         { icon: History, label: 'Bill History', href: '/Resident-dashboard/components/MaintenanceBills' }
       ]
@@ -407,7 +406,8 @@ const AndroidDashboard = ({ onLoaded }) => {
       items: [
         { icon: Megaphone, label: 'Announcements', href: '/Resident-dashboard/components/Announcements' },
         { icon: BarChart, label: 'Polls & Surveys', href: '/Resident-dashboard/components/PollsSurveys' },
-        { icon: ShieldAlert, label: 'Visitor Entry', href: '/Resident-dashboard/components/VisitorEntry' }
+        { icon: ShieldAlert, label: 'Visitor Entry', href: '/Resident-dashboard/components/VisitorEntry' },
+        { icon: MessageCircle, label: 'Community Board', href: '/Resident-dashboard/components/CommunityBoard' }
       ]
     },
     {

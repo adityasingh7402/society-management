@@ -1,10 +1,10 @@
 import jwt from 'jsonwebtoken';
 import Wallet from '../../../models/Wallet';
 import Resident from '../../../models/Resident';
-import dbConnect from '../../../lib/mongodb';
+const connectToDatabase = require('../../../lib/mongodb');
 
 export default async function handler(req, res) {
-  await dbConnect();
+  await connectToDatabase();
 
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
@@ -18,10 +18,14 @@ export default async function handler(req, res) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const phone = decoded.phone;
+    const residentId = decoded.residentId || decoded.id;
+    
+    if (!residentId) {
+      return res.status(401).json({ success: false, error: 'Invalid token: no resident ID' });
+    }
 
-    // First find the resident by phone
-    const resident = await Resident.findOne({ phone });
+    // Find the resident by ID
+    const resident = await Resident.findById(residentId);
     if (!resident) {
       return res.status(404).json({ success: false, error: 'Resident not found' });
     }

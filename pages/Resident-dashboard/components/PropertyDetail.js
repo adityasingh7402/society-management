@@ -7,40 +7,41 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 
-const {
-  Heart, ArrowLeft, Share, Flag, MessageCircle, Send, Phone,
-  Calendar, Tag, MapPin, Package, X, CheckCircle, Facebook,
-  Twitter, Linkedin, Copy, Check, WhatsApp, Home
+const { 
+  Heart, ChevronLeft, Share, Flag, MessageCircle, Send, Phone, 
+  Calendar, Tag, MapPin, Package, X, CheckCircle, Facebook, 
+  Twitter, Linkedin, Copy, Check, WhatsApp, Info, Star,
+  Shield, Truck, RotateCcw, Award, Clock, Users, Eye, ArrowRight,
+  ShoppingCart, Zap, Gift, BadgeCheck, Home, Bed, Bath, Car
 } = LucideIcons;
 
 const PropertyDetail = () => {
   const router = useRouter();
   const { id } = router.query;
-
+  
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [residentData, setResidentData] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [comment, setComment] = useState('');
+  const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [showContact, setShowContact] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [hasNativeShare, setHasNativeShare] = useState(false);
+  const [showFullDescription, setShowFullDescription] = useState(false);
 
   useEffect(() => {
     fetchResidentData();
   }, []);
 
   useEffect(() => {
-    // Fetch property details when id is available
     if (id) {
-      fetchPropertyDetails();
+      fetchPropertyDetails(id);
     }
   }, [id]);
 
   useEffect(() => {
-    // Check if the Web Share API is available
     setHasNativeShare(typeof navigator !== 'undefined' && !!navigator.share);
   }, []);
 
@@ -69,11 +70,11 @@ const PropertyDetail = () => {
     }
   };
 
-  const fetchPropertyDetails = async () => {
+  const fetchPropertyDetails = async (propertyId) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('Resident');
-      const response = await axios.get(`/api/Property-Api/get-property?propertyId=${id}`, {
+      const response = await axios.get(`/api/Property-Api/get-property?propertyId=${propertyId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         }
@@ -88,13 +89,13 @@ const PropertyDetail = () => {
 
   const handleLike = async () => {
     if (!residentData) {
-      alert('Please login to like properties');
+      toast.error('Please login to like properties');
       return;
     }
 
     try {
       const token = localStorage.getItem('Resident');
-      const response = await axios.post('/api/Property-Api/like-property',
+      const response = await axios.post('/api/Property-Api/like-property', 
         {
           propertyId: id,
           residentId: residentData._id
@@ -107,7 +108,6 @@ const PropertyDetail = () => {
         }
       );
 
-      // Update property state with updated like status
       setProperty(prevProperty => {
         if (response.data.liked) {
           return {
@@ -128,27 +128,27 @@ const PropertyDetail = () => {
 
   const handleSubmitComment = async (e) => {
     e.preventDefault();
-
+    
     if (!residentData) {
-      alert('Please login to comment on properties');
+      toast.error('Please login to comment on properties');
       return;
     }
-
-    if (!comment.trim()) {
+    
+    if (!commentText.trim()) {
       return;
     }
-
+    
     try {
       setSubmittingComment(true);
       const token = localStorage.getItem('Resident');
-
-      const response = await axios.post('/api/Property-Api/add-comment',
+      
+      const response = await axios.post('/api/Property-Api/add-comment', 
         {
           propertyId: id,
           residentId: residentData._id,
           residentName: residentData.name,
           residentImage: residentData.userImage,
-          text: comment
+          text: commentText
         },
         {
           headers: {
@@ -157,15 +157,13 @@ const PropertyDetail = () => {
           }
         }
       );
-
-      // Update property state with new comments
+      
       setProperty(prevProperty => ({
         ...prevProperty,
         comments: response.data.comments
       }));
-
-      // Clear comment text
-      setComment('');
+      
+      setCommentText('');
     } catch (error) {
       console.error('Error submitting comment:', error);
     } finally {
@@ -179,8 +177,8 @@ const PropertyDetail = () => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-IN', {
-      day: 'numeric',
+    return new Intl.DateTimeFormat('en-IN', { 
+      day: 'numeric', 
       month: 'short',
       year: 'numeric'
     }).format(date);
@@ -188,16 +186,16 @@ const PropertyDetail = () => {
 
   const formatTime = (dateString) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-IN', {
-      hour: '2-digit',
+    return new Intl.DateTimeFormat('en-IN', { 
+      hour: '2-digit', 
       minute: '2-digit',
       hour12: true
     }).format(date);
   };
 
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
+    return new Intl.NumberFormat('en-IN', { 
+      style: 'currency', 
       currency: 'INR',
       maximumFractionDigits: 0
     }).format(price);
@@ -205,10 +203,6 @@ const PropertyDetail = () => {
 
   const goBack = () => {
     router.back();
-  };
-
-  const toggleContactInfo = () => {
-    setShowContact(!showContact);
   };
 
   const toggleShareOptions = () => {
@@ -220,17 +214,17 @@ const PropertyDetail = () => {
     navigator.clipboard.writeText(url).then(() => {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
+      toast.success('Link copied to clipboard!');
     });
   };
 
   const shareOnSocial = (platform) => {
     if (!property) return;
-
+    
     const title = `Check out this property: ${property.title}`;
     const text = `${property.title} - ${formatPrice(property.price)}`;
     const url = window.location.href;
-
-    // Try to use the Web Share API first if available (mobile devices)
+    
     if (platform === 'native' && navigator.share) {
       navigator.share({
         title: title,
@@ -241,15 +235,13 @@ const PropertyDetail = () => {
       });
       return;
     }
-
-    // Fallback to conventional sharing
+    
     const encodedUrl = encodeURIComponent(url);
     const encodedTitle = encodeURIComponent(title);
-    const encodedText = encodeURIComponent(text);
-
+    
     let shareUrl = '';
-
-    switch (platform) {
+    
+    switch(platform) {
       case 'whatsapp':
         shareUrl = `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`;
         break;
@@ -265,7 +257,7 @@ const PropertyDetail = () => {
       default:
         return;
     }
-
+    
     if (shareUrl) {
       window.open(shareUrl, '_blank', 'width=600,height=400');
     }
@@ -279,8 +271,7 @@ const PropertyDetail = () => {
         router.push('/login');
         return;
       }
-
-      // Wait for property and resident data to be loaded
+      
       if (!residentData) {
         toast.error('Please wait while we load your profile');
         return;
@@ -293,590 +284,573 @@ const PropertyDetail = () => {
 
       if (!property._id || !property.sellerId || !property.title) {
         toast.error('Invalid property data. Please refresh the page.');
-        console.error('Invalid property data:', property);
         return;
       }
 
-      // Don't allow contacting your own listing
       if (residentData._id === property.sellerId) {
         toast.error('This is your own listing');
         return;
       }
 
-      // Format property details in a structured way
-      const formattedPrice = new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
-        maximumFractionDigits: 0
-      }).format(property.price);
+      const formattedPrice = formatPrice(property.price);
+      const initialMessage = `Hi, I'm interested in your property:\n\nTitle: ${property.title}\nPrice: ${formattedPrice}\nType: ${property.propertyType}\nBedrooms: ${property.bedrooms}\nBathrooms: ${property.bathrooms}\nArea: ${property.area} sq.ft\nFurnishing: ${property.furnishingStatus}\nLocation: Block ${property.location.block}, Floor ${property.location.floor}`;
 
-      const initialMessage = `
-Title: ${property.title}
-Details:
-- Type: ${property.propertyType}
-- Bedrooms: ${property.bedrooms}
-- Bathrooms: ${property.bathrooms}
-- Area: ${property.area} sq.ft
-- Furnishing: ${property.furnishingStatus}
-- Location: Block ${property.location.block}, Floor ${property.location.floor}, Flat ${property.location.flatNumber}
-Price: ${formattedPrice}
-
-I'm interested in this property. Would like to know more details.`;
-
-      // Send initial interest message
-      const response = await axios.post('/api/Property-Api/send-message', {
-        propertyId: property._id,
-        message: initialMessage,
-        receiverId: property.sellerId
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const response = await axios.post(
+        '/api/Property-Api/send-message',
+        {
+          propertyId: property._id,
+          message: initialMessage,
+          receiverId: property.sellerId
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          }
         }
-      });
+      );
 
       if (response.data.success) {
         toast.success('Message sent successfully!');
-        // Navigate to chat
-        router.push(`/Resident-dashboard/components/PropertyChat?buyerId=${property.sellerId}&propertyId=${property._id}`);
+        router.push(`/Resident-dashboard/components/PropertyChat?buyerId=${residentData._id}&propertyId=${property._id}`);
       } else {
         throw new Error(response.data.message || 'Failed to send message');
       }
     } catch (error) {
-      console.error('Error sending message:', error);
       toast.error('Failed to send message. Please try again.');
     }
   };
 
   if (loading) {
     return (
-      <motion.div
-        className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 flex items-center justify-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-indigo-700 font-medium">Loading property details...</p>
+      <div className="min-h-screen bg-gray-50">
+        {/* Amazon-style loading skeleton */}
+        <div className="bg-white shadow-sm">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+            <div className="w-24 h-6 bg-gray-200 rounded animate-pulse"></div>
+            <div className="flex space-x-3">
+              <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+              <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+          </div>
         </div>
-      </motion.div>
+        <div className="px-4 py-6">
+          <div className="w-full h-80 bg-gray-200 rounded animate-pulse mb-4"></div>
+          <div className="w-3/4 h-6 bg-gray-200 rounded animate-pulse mb-2"></div>
+          <div className="w-1/2 h-8 bg-gray-200 rounded animate-pulse mb-4"></div>
+          <div className="space-y-2">
+            <div className="w-full h-4 bg-gray-200 rounded animate-pulse"></div>
+            <div className="w-5/6 h-4 bg-gray-200 rounded animate-pulse"></div>
+            <div className="w-4/5 h-4 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (!property) {
     return (
-      <motion.div
-        className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 flex items-center justify-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        <div className="text-center max-w-lg bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
-          <div className="w-20 h-20 mx-auto mb-4 text-red-500">
-            <X size={80} className="mx-auto" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center px-6">
+          <div className="w-24 h-24 mx-auto mb-6 text-gray-400">
+            <Home size={96} className="mx-auto" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Property Not Found</h1>
+          <h1 className="text-2xl font-semibold text-gray-800 mb-2">Property Not Found</h1>
           <p className="text-gray-600 mb-6">
-            Sorry, the property you're looking for doesn't exist or may have been removed.
+            The property you're looking for doesn't exist or may have been removed.
           </p>
-          <motion.button
+          <button
             onClick={goBack}
-            className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-200 font-medium"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className="bg-orange-500 text-white px-8 py-3 rounded-lg font-medium hover:bg-orange-600 transition-colors"
           >
             Go Back
-          </motion.button>
+          </button>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div
-      className="min-h-screen bg-gradient-to-r from-indigo-100 to-purple-50 relative"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      {/* Background pattern overlay */}
-      <div className="absolute inset-0 z-0 opacity-10"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236366F1' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          backgroundSize: '60px 60px'
-        }}>
-      </div>
-      
-      {/* Header */}
-      <motion.div
-        className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-4 px-4 shadow-lg relative z-10"
-        initial={{ y: -50 }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 100 }}
-      >
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between">
-            <motion.button
-              onClick={goBack}
-              className="flex items-center space-x-2 text-white bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 hover:bg-white/30 transition-colors transform hover:scale-105 duration-200"
-              whileTap={{ scale: 0.95 }}
+    <div className="min-h-screen bg-gray-50">
+      {/* Amazon-style Header */}
+      <div className="bg-white shadow-sm sticky top-0 z-50">
+        <div className="flex items-center justify-between px-4 py-3">
+          <button
+            onClick={goBack}
+            className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <ChevronLeft size={24} className="text-gray-700" />
+          </button>
+          
+          <div className="flex-1 text-center">
+            <h1 className="text-lg font-medium text-gray-800 truncate">Property Details</h1>
+          </div>
+          
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={hasNativeShare ? () => shareOnSocial('native') : toggleShareOptions}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
             >
-              <ArrowLeft size={20} />
-              <span className="text-base font-medium">Back</span>
-            </motion.button>
+              <Share size={20} className="text-gray-700" />
+            </button>
             
-            <motion.h1
-              className="text-2xl font-bold"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
+            <button
+              onClick={handleLike}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center space-x-1"
             >
-              Property Details
-            </motion.h1>
+              <Heart 
+                size={20} 
+                className={isLikedByUser() ? 'text-red-500' : 'text-gray-700'} 
+                fill={isLikedByUser() ? 'currentColor' : 'none'} 
+              />
+              <span className="text-sm text-gray-600">{property.likes.length}</span>
+            </button>
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      <div className="max-w-6xl mx-auto px-4 mt-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Property Images and Details */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Property Images */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-indigo-50 overflow-hidden">
-              <div className="relative h-64 md:h-80 lg:h-96 bg-gray-200">
-                {property.images && property.images.length > 0 ? (
+      <div className="pb-20">
+        {/* Property Images */}
+        <div className="bg-white mb-2">
+          <div className="relative flex justify-center">
+            <div className="w-80 h-80 bg-gray-100 rounded-lg overflow-hidden">
+              {property.images && property.images.length > 0 ? (
+                <img
+                  src={property.images[activeImageIndex]}
+                  alt={property.title}
+                  className="w-80 h-80 object-cover"
+                />
+              ) : (
+                <div className="w-80 h-80 flex items-center justify-center">
+                  <Home size={80} className="text-gray-300" />
+                </div>
+              )}
+            </div>
+            
+            {/* Image indicators */}
+            {property.images && property.images.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                {property.images.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-2 h-2 rounded-full ${
+                      activeImageIndex === index ? 'bg-white' : 'bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+            
+            {/* Status Badge */}
+            <div className="absolute top-4 left-4">
+              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                property.status === 'Available' ? 'bg-green-500 text-white' :
+                property.status === 'Reserved' ? 'bg-yellow-500 text-white' :
+                'bg-red-500 text-white'
+              }`}>
+                {property.status}
+              </div>
+            </div>
+          </div>
+          
+          {/* Thumbnail scroll */}
+          {property.images && property.images.length > 1 && (
+            <div className="flex overflow-x-auto space-x-2 p-4 scrollbar-hide">
+              {property.images.map((image, index) => (
+                <button
+                  key={index}
+                  onClick={() => setActiveImageIndex(index)}
+                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${
+                    activeImageIndex === index ? 'border-orange-500' : 'border-gray-200'
+                  }`}
+                >
                   <img
-                    src={property.images[activeImageIndex]}
-                    alt={property.title}
-                    className="w-full h-full object-contain"
+                    src={image}
+                    alt={`Thumbnail ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Property Info */}
+        <div className="bg-white px-4 py-2 mb-2">
+          <h1 className="text-xl font-medium text-gray-900 mb-3 leading-snug">
+            {property.title}
+          </h1>
+          
+          {/* Property Stats */}
+          <div className="flex items-center mb-4">
+            <span className="text-sm text-gray-600">{property.likes.length} likes</span>
+            <span className="mx-2 text-gray-300">|</span>
+            <span className="text-sm text-gray-600">{property.comments.length} reviews</span>
+          </div>
+
+          {/* Price */}
+          <div className="mb-4">
+            <div className="flex items-baseline">
+              <span className="text-2xl font-bold text-red-600">
+                {formatPrice(property.price)}
+              </span>
+            </div>
+          </div>
+
+          {/* Property Type */}
+          <div className="mb-4">
+            <div className="flex items-center space-x-2 text-sm">
+              <Home size={16} className="text-orange-600" />
+              <span className="text-gray-700">{property.propertyType}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Location Info */}
+        <div className="bg-white px-4 py-2 mb-2">
+          <h3 className="font-medium text-gray-900 mb-3">Location</h3>
+          <div className="flex items-center space-x-3">
+            <MapPin size={20} className="text-gray-500" />
+            <div>
+              <p className="font-medium text-gray-900">Block {property.location.block}, Floor {property.location.floor}</p>
+              <p className="text-sm text-gray-600">{property.location.societyName}</p>
+              {property.location.flatNumber && (
+                <p className="text-sm text-gray-600">Flat {property.location.flatNumber}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Property Details */}
+        <div className="bg-white px-4 py-2 mb-2">
+          <h3 className="font-medium text-gray-900 mb-3">Property Details</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Type</span>
+              <span className="text-gray-900">{property.propertyType}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Bedrooms</span>
+              <span className="text-gray-900">{property.bedrooms} BHK</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Bathrooms</span>
+              <span className="text-gray-900">{property.bathrooms}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Area</span>
+              <span className="text-gray-900">{property.area} sq.ft</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Furnishing</span>
+              <span className="text-gray-900">{property.furnishingStatus}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Parking</span>
+              <span className="text-gray-900">{property.parking ? 'Available' : 'Not Available'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Posted on</span>
+              <span className="text-gray-900">{formatDate(property.createdAt)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Description */}
+        <div className="bg-white px-4 py-2 mb-2">
+          <h3 className="font-medium text-gray-900 mb-3">About this property</h3>
+          <div className="text-gray-700 text-sm leading-relaxed">
+            {showFullDescription ? (
+              <p className="whitespace-pre-line">{property.description}</p>
+            ) : (
+              <p className="whitespace-pre-line">
+                {property.description.length > 200 
+                  ? `${property.description.substring(0, 200)}...` 
+                  : property.description}
+              </p>
+            )}
+            {property.description.length > 200 && (
+              <button
+                onClick={() => setShowFullDescription(!showFullDescription)}
+                className="text-blue-600 hover:underline mt-2 text-sm font-medium"
+              >
+                {showFullDescription ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Amenities */}
+        {property.amenities && property.amenities.length > 0 && (
+          <div className="bg-white px-4 py-2 mb-2">
+            <h3 className="font-medium text-gray-900 mb-3">Amenities</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {property.amenities.map((amenity, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <CheckCircle size={16} className="text-green-500" />
+                  <span className="text-sm text-gray-700">{amenity}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Owner Information */}
+        <div className="bg-white px-4 py-2 mb-2">
+          <h3 className="font-medium text-gray-900 mb-3">Owner Information</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              {property.sellerImage ? (
+                <img
+                  src={property.sellerImage}
+                  alt={property.sellerName}
+                  className="h-12 w-12 rounded-full"
+                />
+              ) : (
+                <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center">
+                  <span className="text-lg font-medium text-gray-500">
+                    {property.sellerName.charAt(0)}
+                  </span>
+                </div>
+              )}
+              <div>
+                <div className="flex items-center space-x-2">
+                  <p className="font-medium text-gray-900">{property.sellerName}</p>
+                  <BadgeCheck size={16} className="text-blue-500" />
+                </div>
+                <p className="text-sm text-gray-500">{property.location.societyName}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="bg-white px-4 py-2 mb-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium text-gray-900">Customer Reviews ({property.comments.length})</h3>
+          </div>
+          
+          {/* Review Summary */}
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <div className="text-sm text-gray-600">Based on {property.comments.length} reviews</div>
+          </div>
+
+          {/* Comment Form */}
+          <form onSubmit={handleSubmitComment} className="mb-4">
+            <div className="flex space-x-3">
+              <div className="flex-shrink-0">
+                {residentData?.userImage ? (
+                  <img
+                    src={residentData.userImage}
+                    alt={residentData.name}
+                    className="h-8 w-8 rounded-full"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                    <Home size={64} className="text-gray-400" />
-                  </div>
-                )}
-                
-                {/* Image Navigation buttons if multiple images */}
-                {property.images && property.images.length > 1 && (
-                  <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
-                    {property.images.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setActiveImageIndex(index)}
-                        className={`w-3 h-3 rounded-full ${
-                          activeImageIndex === index ? 'bg-blue-600' : 'bg-gray-300'
-                        }`}
-                      />
-                    ))}
+                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                    <span className="text-xs font-medium text-gray-500">
+                      {residentData?.name?.charAt(0) || 'U'}
+                    </span>
                   </div>
                 )}
               </div>
-              
-              {/* Thumbnail images */}
-              {property.images && property.images.length > 1 && (
-                <div className="flex overflow-x-auto p-2 space-x-2">
-                  {property.images.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setActiveImageIndex(index)}
-                      className={`flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 ${
-                        activeImageIndex === index ? 'border-blue-500' : 'border-transparent'
-                      }`}
-                    >
-                      <img
-                        src={image}
-                        alt={`Thumbnail ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
+              <div className="flex-1">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Share your thoughts about this property..."
+                  className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
+                  rows={2}
+                />
+                <div className="flex justify-end mt-2">
+                  <button
+                    type="submit"
+                    disabled={!commentText.trim() || submittingComment}
+                    className="bg-orange-500 text-white px-4 py-1 rounded-md text-sm font-medium hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submittingComment ? 'Posting...' : 'Post Review'}
+                  </button>
                 </div>
-              )}
-            </div>
-
-
-            {/* Property Description */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">{property.title}</h2>
-              <p className="text-gray-700 whitespace-pre-line">{property.description}</p>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-                <div className="flex items-center">
-                  <Home className="text-gray-500 mr-2" size={20} />
-                  <div>
-                    <p className="text-sm text-gray-500">Property Type</p>
-                    <p className="text-sm font-medium">{property.propertyType}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <Tag className="text-gray-500 mr-2" size={20} />
-                  <div>
-                    <p className="text-sm text-gray-500">Furnishing</p>
-                    <p className="text-sm font-medium">{property.furnishingStatus}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <MapPin className="text-gray-500 mr-2" size={20} />
-                  <div>
-                    <p className="text-sm text-gray-500">Location</p>
-                    <p className="text-sm font-medium">Block {property.location.block}, Floor {property.location.floor}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <Calendar className="text-gray-500 mr-2" size={20} />
-                  <div>
-                    <p className="text-sm text-gray-500">Posted On</p>
-                    <p className="text-sm font-medium">{formatDate(property.createdAt)}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <Package className="text-gray-500 mr-2" size={20} />
-                  <div>
-                    <p className="text-sm text-gray-500">Property Size</p>
-                    <p className="text-sm font-medium">{property.size} sq ft</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <Home className="text-gray-500 mr-2" size={20} />
-                  <div>
-                    <p className="text-sm text-gray-500">Bedrooms</p>
-                    <p className="text-sm font-medium">{property.bedrooms} BHK</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <Home className="text-gray-500 mr-2" size={20} />
-                  <div>
-                    <p className="text-sm text-gray-500">Bathrooms</p>
-                    <p className="text-sm font-medium">{property.bathrooms}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <Home className="text-gray-500 mr-2" size={20} />
-                  <div>
-                    <p className="text-sm text-gray-500">Parking</p>
-                    <p className="text-sm font-medium">{property.parking ? 'Available' : 'Not Available'}</p>
-                  </div>
-                </div>
-
-                {/* <div className="flex items-center">
-                  <Home className="text-gray-500 mr-2" size={20} />
-                  <div>
-                    <p className="text-sm text-gray-500">Balcony</p>
-                    <p className="text-sm font-medium">{property.balcony ? 'Yes' : 'No'}</p>
-                  </div>
-                </div> */}
               </div>
-
-              {/* Additional Amenities */}
-              {property.amenities && property.amenities.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Amenities</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {property.amenities.map((amenity, index) => (
-                      <div key={index} className="flex items-center space-x-2 text-gray-700">
-                        <CheckCircle size={16} className="text-green-500" />
-                        <span className="text-sm">{amenity}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
+          </form>
 
-            {/* Comments Section */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">
-                Comments ({property.comments.length})
-              </h2>
-
-              {/* Comment Form */}
-              <form onSubmit={handleSubmitComment} className="mb-6">
-                <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0">
-                    {residentData?.userImage ? (
-                      <img
-                        src={residentData.userImage}
-                        alt={residentData.name}
-                        className="h-8 w-8 rounded-full"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-800">
-                          {residentData?.name?.charAt(0) || 'U'}
+          {/* Comments List */}
+          <div className="space-y-4">
+            {property.comments.length === 0 ? (
+              <div className="text-center py-6">
+                <MessageCircle size={40} className="mx-auto text-gray-400 mb-2" />
+                <p className="text-gray-500 text-sm">No reviews yet. Be the first to review!</p>
+              </div>
+            ) : (
+              property.comments.slice(0, 3).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((comment, index) => (
+                <div key={index} className="border-b border-gray-100 pb-4 last:border-b-0">
+                  <div className="flex space-x-3">
+                    <div className="flex-shrink-0">
+                      {comment.commenterImage || comment.residentImage ? (
+                        <img
+                          src={comment.commenterImage || comment.residentImage}
+                          alt={comment.commenterName || comment.residentName}
+                          className="h-8 w-8 rounded-full"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-xs font-medium text-gray-500">
+                            {(comment.commenterName || comment.residentName)?.charAt(0)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <p className="font-medium text-sm text-gray-900">{comment.commenterName || comment.residentName}</p>
+                        <span className="text-xs text-gray-500">
+                          {formatDate(comment.createdAt)}
                         </span>
                       </div>
-                    )}
-                  </div>
-                  <div className="flex-grow relative">
-                    <textarea
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      placeholder="Add a comment..."
-                      className="w-full border border-gray-300 rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                      rows={2}
-                    />
-                    <button
-                      type="submit"
-                      disabled={!comment.trim() || submittingComment}
-                      className={`absolute right-2 bottom-6 p-1.5 rounded-full ${!comment.trim() || submittingComment
-                          ? 'text-gray-400 bg-gray-100'
-                          : 'text-blue-600 hover:bg-blue-50'
-                        }`}
-                    >
-                      <Send size={18} />
-                    </button>
-                  </div>
-                </div>
-              </form>
-
-              {/* Comments List */}
-              <div className="space-y-4">
-                {property.comments.length === 0 ? (
-                  <div className="text-center py-6">
-                    <MessageCircle size={36} className="mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-500">No comments yet. Be the first to comment!</p>
-                  </div>
-                ) : (
-                  property.comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((comment, index) => (
-                    <div key={index} className="flex space-x-3">
-                      <div className="flex-shrink-0">
-                        {comment.commenterImage || comment.residentImage ? (
-                          <img
-                            src={comment.commenterImage || comment.residentImage}
-                            alt={comment.commenterName || comment.residentName}
-                            className="h-8 w-8 rounded-full"
-                          />
-                        ) : (
-                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-sm font-medium text-gray-500">
-                              {(comment.commenterName || comment.residentName)?.charAt(0) || 'U'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-grow">
-                        <div className="bg-gray-50 rounded-lg px-4 py-3">
-                          <div className="flex justify-between items-center mb-1">
-                            <p className="font-medium text-sm text-gray-900">{comment.commenterName || comment.residentName}</p>
-                            <p className="text-xs text-gray-500">
-                              {formatDate(comment.createdAt)} at {formatTime(comment.createdAt)}
-                            </p>
-                          </div>
-                          <p className="text-gray-700 text-xs">{comment.text}</p>
-                        </div>
-                      </div>
+                      <p className="text-gray-700 text-sm leading-relaxed">{comment.text}</p>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Price, Actions, and Seller Info */}
-          <div className="space-y-4">
-            {/* Price and Status */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-blue-600">{formatPrice(property.price)}</h2>
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  property.status === 'Available' ? 'bg-green-100 text-green-800' :
-                  property.status === 'Reserved' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {property.status}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                {/* Only show Contact Seller button if user is not the seller */}
-                {residentData && property && residentData._id !== property.sellerId && (
-                  <button
-                    onClick={handleContactSeller}
-                    className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
-                  >
-                    <MessageCircle size={18} className="mr-2" />
-                    Contact Seller
-                  </button>
-                )}
-
-                <button
-                  onClick={handleLike}
-                  className={`w-full py-3 rounded-lg border flex items-center justify-center ${isLikedByUser() ?
-                      'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' :
-                      'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                    }`}
-                >
-                  <Heart size={18} className="mr-2" fill={isLikedByUser() ? 'currentColor' : 'none'} />
-                  {isLikedByUser() ? 'Liked' : 'Like'} ({property.likes ? property.likes.length : 0})
-                </button>
-
-                {/* Share button */}
-                {hasNativeShare ? (
-                  <button
-                    onClick={() => shareOnSocial('native')}
-                    className="w-full py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
-                  >
-                    <Share size={18} className="mr-2" />
-                    Share
-                  </button>
-                ) : (
-                  <button
-                    onClick={toggleShareOptions}
-                    className="w-full py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
-                  >
-                    <Share size={18} className="mr-2" />
-                    Share
-                  </button>
-                )}
-
-                <button
-                  className="w-full py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
-                >
-                  <Flag size={18} className="mr-2" />
-                  Report
-                </button>
-              </div>
-
-              {/* Share Options Modal */}
-              {showShare && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-semibold text-blue-800">Share this listing</h3>
-                    <button
-                      onClick={toggleShareOptions}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2 mb-3">
-                    <button
-                      onClick={() => shareOnSocial('whatsapp')}
-                      className="flex flex-col items-center justify-center p-3 bg-green-100 rounded-lg hover:bg-green-200"
-                    >
-                      <WhatsApp size={24} className="text-green-600 mb-1" />
-                      <span className="text-xs">WhatsApp</span>
-                    </button>
-
-                    <button
-                      onClick={() => shareOnSocial('facebook')}
-                      className="flex flex-col items-center justify-center p-3 bg-blue-100 rounded-lg hover:bg-blue-200"
-                    >
-                      <Facebook size={24} className="text-blue-600 mb-1" />
-                      <span className="text-xs">Facebook</span>
-                    </button>
-
-                    <button
-                      onClick={() => shareOnSocial('twitter')}
-                      className="flex flex-col items-center justify-center p-3 bg-sky-100 rounded-lg hover:bg-sky-200"
-                    >
-                      <Twitter size={24} className="text-sky-500 mb-1" />
-                      <span className="text-xs">Twitter</span>
-                    </button>
-
-                    <button
-                      onClick={() => shareOnSocial('linkedin')}
-                      className="flex flex-col items-center justify-center p-3 bg-blue-100 rounded-lg hover:bg-blue-200"
-                    >
-                      <Linkedin size={24} className="text-blue-700 mb-1" />
-                      <span className="text-xs">LinkedIn</span>
-                    </button>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="flex items-center bg-white rounded-lg border border-gray-200 overflow-hidden">
-                      <div className="flex-1 truncate px-3 py-2 text-sm text-gray-600">
-                        {window.location.href}
-                      </div>
-                      <button
-                        onClick={copyToClipboard}
-                        className="px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 border-l"
-                      >
-                        {linkCopied ? (
-                          <Check size={18} className="text-green-600" />
-                        ) : (
-                          <Copy size={18} />
-                        )}
-                      </button>
-                    </div>
-                    {linkCopied && (
-                      <p className="text-xs text-green-600 mt-1">Link copied to clipboard!</p>
-                    )}
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Seller Info */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Seller Information</h2>
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  {property.sellerImage ? (
-                    <img
-                      src={property.sellerImage}
-                      alt={property.sellerName}
-                      className="h-14 w-14 rounded-full"
-                    />
-                  ) : (
-                    <div className="h-14 w-14 rounded-full bg-gray-200 flex items-center justify-center">
-                      <span className="text-xl font-medium text-gray-500">
-                        {property.sellerName ? property.sellerName.charAt(0) : 'S'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="ml-4">
-                  <p className="font-semibold text-gray-900">{property.sellerName}</p>
-                  <p className="text-sm text-gray-500">{property.location.societyName}</p>
-                  <div className="mt-1 flex items-center">
-                    <CheckCircle size={14} className="text-green-500 mr-1" />
-                    <span className="text-xs text-green-600">Verified Resident</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 text-center">
-                <Link
-                  href={`/Resident-dashboard/components/SellerProfile?id=${property.sellerId}`}
-                  className="text-blue-600 text-sm hover:underline"
-                >
-                  View all listings from this seller
-                </Link>
-              </div>
-            </div>
-
-            {/* Safety Tips */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-indigo-50 p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-2">Safety Tips</h2>
-              <ul className="text-sm text-gray-700 space-y-2">
-                <li className="flex items-start">
-                  <span className="text-yellow-500 mr-2">•</span>
-                  Meet seller at a safe public place
-                </li>
-                <li className="flex items-start">
-                  <span className="text-yellow-500 mr-2">•</span>
-                  Check the property before finalizing
-                </li>
-                <li className="flex items-start">
-                  <span className="text-yellow-500 mr-2">•</span>
-                  Complete documentation properly
-                </li>
-              </ul>
-            </div>
+              ))
+            )}
           </div>
         </div>
+
+        {/* Share Modal */}
+        <AnimatePresence>
+          {showShare && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center"
+              onClick={toggleShareOptions}
+            >
+              <motion.div
+                initial={{ y: 300, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 300, opacity: 0 }}
+                className="bg-white w-full max-w-md mx-4 rounded-t-2xl sm:rounded-2xl p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Share this property</h3>
+                  <button 
+                    onClick={toggleShareOptions}
+                    className="p-2 hover:bg-gray-100 rounded-full"
+                  >
+                    <X size={20} className="text-gray-500" />
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <button 
+                    onClick={() => shareOnSocial('whatsapp')}
+                    className="flex flex-col items-center justify-center p-4 bg-green-50 rounded-xl hover:bg-green-100 transition-colors"
+                  >
+                    <WhatsApp size={32} className="text-green-600 mb-2" />
+                    <span className="text-xs font-medium text-gray-700">WhatsApp</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => shareOnSocial('facebook')}
+                    className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+                  >
+                    <Facebook size={32} className="text-blue-600 mb-2" />
+                    <span className="text-xs font-medium text-gray-700">Facebook</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => shareOnSocial('twitter')}
+                    className="flex flex-col items-center justify-center p-4 bg-sky-50 rounded-xl hover:bg-sky-100 transition-colors"
+                  >
+                    <Twitter size={32} className="text-sky-500 mb-2" />
+                    <span className="text-xs font-medium text-gray-700">Twitter</span>
+                  </button>
+                  
+                  <button 
+                    onClick={copyToClipboard}
+                    className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    {linkCopied ? (
+                      <Check size={32} className="text-green-600 mb-2" />
+                    ) : (
+                      <Copy size={32} className="text-gray-600 mb-2" />
+                    )}
+                    <span className="text-xs font-medium text-gray-700">
+                      {linkCopied ? 'Copied!' : 'Copy Link'}
+                    </span>
+                  </button>
+                </div>
+                
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">{property.title}</p>
+                      <p className="text-xs text-gray-500 truncate">{window.location.href}</p>
+                    </div>
+                    <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden">
+                      {property.images && property.images[0] && (
+                        <img
+                          src={property.images[0]}
+                          alt={property.title}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </motion.div>
+
+      {/* Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40">
+        <div className="flex items-center space-x-3">
+          {residentData && property && residentData._id !== property.sellerId ? (
+            <>
+              <button
+                onClick={handleLike}
+                className={`flex-shrink-0 p-3 rounded-xl border-2 transition-all flex items-center space-x-2 ${
+                  isLikedByUser() 
+                    ? 'border-red-500 bg-red-50' 
+                    : 'border-gray-300 bg-white hover:bg-gray-50'
+                }`}
+              >
+                <Heart 
+                  size={20} 
+                  className={isLikedByUser() ? 'text-red-500' : 'text-gray-600'} 
+                  fill={isLikedByUser() ? 'currentColor' : 'none'} 
+                />
+                <span className="text-sm font-medium text-gray-600">{property.likes.length}</span>
+              </button>
+              
+              <button
+                onClick={handleContactSeller}
+                className="flex-1 bg-gradient-to-r from-orange-400 to-orange-500 text-white py-3 px-6 rounded-xl font-semibold hover:from-orange-500 hover:to-orange-600 transition-all shadow-lg flex items-center justify-center space-x-2"
+              >
+                <MessageCircle size={20} />
+                <span>Contact Owner</span>
+              </button>
+            </>
+          ) : (
+            <div className="flex-1 bg-gray-100 text-gray-500 py-3 px-6 rounded-xl font-semibold text-center">
+              {residentData && property && residentData._id === property.sellerId 
+                ? 'This is your listing' 
+                : 'Please log in to contact owner'
+              }
+            </div>
+          )}
+        </div>
+        
+      </div>
+
+      {/* Add some padding at bottom to account for fixed action bar */}
+      <div className="h-32"></div>
+    </div>
   );
 };
 
-export default PropertyDetail; 
+export default PropertyDetail;

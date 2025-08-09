@@ -2,10 +2,10 @@ import jwt from 'jsonwebtoken';
 import Wallet from '../../../models/Wallet';
 import TenantWallet from '../../../models/TenantWallet';
 import Resident from '../../../models/Resident';
-import connectDB from '../../../lib/mongodb';
+import dbConnect from '../../../lib/mongodb';
 
 export default async function handler(req, res) {
-  await connectDB();
+  await dbConnect();
 
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
@@ -19,29 +19,22 @@ export default async function handler(req, res) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userType = decoded.userType;
-    const role = decoded.role;
-    
-    // Handle main residents
-    if (userType === 'main_resident' || role === 'resident') {
-      const residentId = decoded.id;
-      
-      if (!residentId) {
-        return res.status(401).json({ success: false, error: 'Invalid token: no resident ID' });
-      }
+    const { phone, userType, role, id, residentId: parentResidentId } = decoded;
 
-      // Find the resident by ID
-      const resident = await Resident.findById(residentId);
+    let balanceInfo = null;
+
+    if (userType === 'main_resident' && role === 'resident') {
+      // Handle main resident wallet
+      const resident = await Resident.findOne({ phone });
       if (!resident) {
         return res.status(404).json({ success: false, error: 'Resident not found' });
       }
 
-      // Get wallet information or create if doesn't exist
       let wallet = await Wallet.findOne({ residentId: resident._id })
         .populate('residentId', 'name phone email flatDetails');
 
       if (!wallet) {
-        // Create wallet automatically
+        // Create wallet automatically for resident
         wallet = new Wallet({ 
           residentId: resident._id, 
           societyId: resident.societyId, 
@@ -50,11 +43,9 @@ export default async function handler(req, res) {
         
         await wallet.save();
         
-        // Link wallet to resident
         resident.walletId = wallet._id;
         await resident.save();
         
-        // Populate the resident data
         wallet = await Wallet.findById(wallet._id)
           .populate('residentId', 'name phone email flatDetails');
       }
@@ -64,14 +55,14 @@ export default async function handler(req, res) {
       wallet.resetMonthlyLimits();
       await wallet.save();
 
-      const balanceInfo = {
+      balanceInfo = {
+        walletType: 'RESIDENT',
         currentBalance: wallet.currentBalance,
         totalCredits: wallet.totalCredits,
         totalDebits: wallet.totalDebits,
         walletId: wallet.walletId,
         isActive: wallet.isActive,
         isFrozen: wallet.isFrozen,
-        walletType: 'main_resident',
         limits: {
           daily: {
             maxAmount: wallet.limits.daily.maxAmount,
@@ -92,42 +83,43 @@ export default async function handler(req, res) {
         residentInfo: {
           name: wallet.residentId.name,
           phone: wallet.residentId.phone,
-          flatNumber: wallet.residentId.flatDetails?.flatNumber || 'N/A'
+          flatNumber: wallet.residentId.flatDetails?.flatNumber || 'N/A',
+          userType: 'Main Resident'
         }
       };
 
-      return res.status(200).json({ success: true, data: balanceInfo });
-    }
-
-    // Handle tenants/members
-    else if (userType === 'member' && (role === 'tenant' || role === 'family_member')) {
-      const tenantId = decoded.id;
-      const parentResidentId = decoded.residentId;
-      const tenantPhone = decoded.phone;
-      
-      if (!tenantId || !parentResidentId) {
-        return res.status(401).json({ success: false, error: 'Invalid token: missing tenant or parent resident ID' });
-      }
-
-      // Find parent resident for society info
-      const parentResident = await Resident.findById(parentResidentId);
-      if (!parentResident) {
-        return res.status(404).json({ success: false, error: 'Parent resident not found' });
-      }
-
-      // Get or create tenant wallet
-      let tenantWallet = await TenantWallet.findOne({ tenantId: tenantId });
+    } else if (userType === 'member' && role === 'tenant') {
+      // Handle tenant wallet
+      let tenantWallet = await TenantWallet.findOne({ 
+        tenantId: id,
+        tenantPhone: phone 
+      });
 
       if (!tenantWallet) {
+        // Find parent resident
+        const parentResident = await Resident.findById(parentResidentId);
+        if (!parentResident) {
+          return res.status(404).json({ success: false, error: 'Parent resident not found' });
+        }
+
+        // Find tenant in parent resident's members
+        const tenantMember = parentResident.members.find(
+          member => member._id.toString() === id && member.phone === phone
+        );
+
+        if (!tenantMember) {
+          return res.status(404).json({ success: false, error: 'Tenant member not found' });
+        }
+
         // Create tenant wallet automatically
-        tenantWallet = new TenantWallet({ 
-          tenantId: tenantId,
-          tenantPhone: tenantPhone,
+        tenantWallet = new TenantWallet({
+          tenantId: id,
+          tenantPhone: phone,
           parentResidentId: parentResidentId,
           societyId: parentResident.societyId,
           createdBy: parentResidentId
         });
-        
+
         await tenantWallet.save();
       }
 
@@ -136,17 +128,20 @@ export default async function handler(req, res) {
       tenantWallet.resetMonthlyLimits();
       await tenantWallet.save();
 
-      // Find tenant member info from parent resident
-      const tenantMember = parentResident.members.find(m => m._id.toString() === tenantId);
+      // Get tenant info from parent resident
+      const parentResident = await Resident.findById(tenantWallet.parentResidentId);
+      const tenantMember = parentResident.members.find(
+        member => member._id.toString() === id
+      );
 
-      const balanceInfo = {
+      balanceInfo = {
+        walletType: 'TENANT',
         currentBalance: tenantWallet.currentBalance,
         totalCredits: tenantWallet.totalCredits,
         totalDebits: tenantWallet.totalDebits,
         walletId: tenantWallet.walletId,
         isActive: tenantWallet.isActive,
         isFrozen: tenantWallet.isFrozen,
-        walletType: 'tenant',
         limits: {
           daily: {
             maxAmount: tenantWallet.limits.daily.maxAmount,
@@ -166,18 +161,28 @@ export default async function handler(req, res) {
         lastActivity: tenantWallet.lastActivity,
         residentInfo: {
           name: tenantMember?.name || 'Unknown',
-          phone: tenantPhone,
-          flatNumber: parentResident.flatDetails?.flatNumber || 'N/A',
-          role: role
+          phone: tenantMember?.phone || phone,
+          flatNumber: tenantMember?.flatDetails?.flatNumber || parentResident.flatDetails?.flatNumber || 'N/A',
+          userType: 'Tenant',
+          parentResident: parentResident.name
+        },
+        restrictions: tenantWallet.settings?.restrictions || {
+          canAddMoney: true,
+          canTransferMoney: true,
+          canPayUtilities: true,
+          maxDailyAddMoney: 10000
         }
       };
 
-      return res.status(200).json({ success: true, data: balanceInfo });
+    } else {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid user type or role for wallet access' 
+      });
     }
 
-    else {
-      return res.status(401).json({ success: false, error: 'Invalid user type or role' });
-    }
+    res.status(200).json({ success: true, data: balanceInfo });
+
   } catch (error) {
     console.error('Error getting wallet balance:', error);
     if (error.name === 'JsonWebTokenError') {

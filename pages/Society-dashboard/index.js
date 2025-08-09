@@ -12,6 +12,7 @@ import Tickets from "./components/Tickets";
 import Announcements from "./components/Announcements";
 import PollsSurveys from "./components/PollsSurveys";
 import DiscussionForums from "./components/DiscussionForums";
+import CommunityBoard from "./components/CommunityBoard";
 import ApartmentStructureForm from "./components/ApartmentStructureForm";
 import VisitorEntry from "./components/VisitorEntry";
 import DeliveryManagement from "./components/DeliveryManagement";
@@ -73,6 +74,7 @@ const NAV_SECTIONS = [
     section: "Community Engagement",
     items: [
       { label: "Announcements", component: "Announcements", icon: <FaBullhorn className="mr-3" />, requiredPermissions: ["manage_notices"] },
+      { label: "Community Board", component: "CommunityBoard", icon: <FaUsers className="mr-3" />, requiredPermissions: ["manage_community"] },
       { label: "Polls & Surveys", component: "PollsSurveys", icon: <FaPoll className="mr-3" />, requiredPermissions: ["manage_notices"] },
       { label: "Discussion Forums", component: "DiscussionForums", icon: <FaComments className="mr-3" />, requiredPermissions: ["manage_notices"] },
     ],
@@ -205,6 +207,8 @@ export default function Home() {
                 return <Tickets />;
             case "Announcements":
                 return <Announcements />;
+            case "CommunityBoard":
+                return <CommunityBoard />;
             case "PollsSurveys":
                 return <PollsSurveys />;
             case "DiscussionForums":

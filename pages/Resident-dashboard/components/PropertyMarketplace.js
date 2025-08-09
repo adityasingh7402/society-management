@@ -835,8 +835,8 @@ const PropertyMarketplace = () => {
                 )}
               </div>
             ) : (
-              // Regular Properties Grid
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              // Regular Properties Grid - OLX-like 2x2 layout
+              <div className="grid grid-cols-2 gap-3">
                 {getFilteredProperties().map((property, index) => (
                   <motion.div
                     key={property._id}
@@ -852,7 +852,7 @@ const PropertyMarketplace = () => {
                     >
                       <div className="bg-white/90 backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-indigo-50 h-full">
                         {/* Property Image */}
-                        <div className="relative w-full h-48">
+                        <div className="relative w-full h-32">
                           {/* Delete button - only show for the property owner */}
                           {residentData && property.sellerId === residentData._id && (
                             <motion.button
@@ -905,85 +905,44 @@ const PropertyMarketplace = () => {
                           </motion.button>
                         </div>
 
-                        {/* Property Info */}
-                        <div className="p-5">
-                          <h3 className="text-lg font-semibold text-gray-800 hover:text-indigo-600 line-clamp-1 mb-2">
+                        {/* Property Info - Compact OLX-like */}
+                        <div className="p-3">
+                          <h3 className="text-sm font-semibold text-gray-800 hover:text-indigo-600 line-clamp-1 mb-1">
                             {property.title}
                           </h3>
 
-                          <div className="mb-3">
-                            <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                          <div className="mb-2">
+                            <span className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                               {formatPrice(property.price)}
                             </span>
                           </div>
 
-                          <div className="mb-3 flex gap-2 flex-wrap">
+                          <div className="mb-2 text-xs text-gray-600 flex items-center gap-3">
+                            <span>{property.bedrooms} BHK</span>
+                            <span>{property.area} sq.ft</span>
+                            <span>Floor {property.location?.floor || 'N/A'}</span>
+                          </div>
+
+                          <div className="mb-2">
                             <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
                               {property.propertyType}
                             </span>
-                            <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                              {property.furnishingStatus}
-                            </span>
                           </div>
 
-                          <div className="mb-3 grid grid-cols-2 gap-2 text-xs text-gray-600">
-                            <div className="flex items-center">
-                              <span>{property.bedrooms} Beds</span>
+                          {/* Seller Info - Compact */}
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <div className="text-xs text-gray-500">
+                              {formatDate(property.createdAt)}
                             </div>
-                            <div className="flex items-center">
-                              <span>{property.bathrooms} Baths</span>
-                            </div>
-                            <div className="flex items-center">
-                              <span>{property.area} sq.ft</span>
-                            </div>
-                            <div className="flex items-center">
-                              <span>Floor {property.location?.floor}</span>
-                            </div>
-                          </div>
-
-                          <p className="text-xs text-gray-600 line-clamp-2 mb-4">{property.description}</p>
-
-                          {/* Location Info */}
-                          {property.location && (
-                            <div className="mb-4 text-xs text-gray-500 bg-gray-50 p-2 rounded-lg">
-                              <p>Block {property.location.block}, Floor {property.location.floor}, Flat {property.location.flatNumber}</p>
-                            </div>
-                          )}
-
-                          {/* Seller Info */}
-                          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                             <div className="flex items-center space-x-2">
-                              <div className="flex-shrink-0">
-                                {property.sellerImage ? (
-                                  <img
-                                    src={property.sellerImage}
-                                    alt={property.sellerName}
-                                    className="h-8 w-8 rounded-full border-2 border-indigo-100"
-                                  />
-                                ) : (
-                                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 flex items-center justify-center border-2 border-indigo-200">
-                                    <span className="text-xs font-medium text-indigo-600">
-                                      {property.sellerName?.charAt(0)}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <p className="text-xs font-medium text-gray-700">{property.sellerName}</p>
-                                <p className="text-xs text-gray-500">{formatDate(property.createdAt)}</p>
-                              </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center space-x-3">
                               <div className="flex items-center space-x-1 text-gray-500">
-                                <Heart size={14} className={isLikedByUser(property) ? 'text-red-500' : 'text-gray-500'}
+                                <Heart size={12} className={isLikedByUser(property) ? 'text-red-500' : 'text-gray-500'}
                                   fill={isLikedByUser(property) ? 'currentColor' : 'none'} />
-                                <span className="text-xs font-medium">{property.likes?.length || 0}</span>
+                                <span className="text-xs">{property.likes?.length || 0}</span>
                               </div>
                               {unreadMessages[property._id] > 0 && (
                                 <div className="flex items-center space-x-1">
-                                  <MessageCircle size={14} className="text-indigo-500" />
+                                  <MessageCircle size={12} className="text-indigo-500" />
                                   <span className="text-xs font-medium text-indigo-500">
                                     {unreadMessages[property._id]}
                                   </span>

@@ -132,6 +132,27 @@ const SocietySchema = new mongoose.Schema({
 
   // Apartment Structure - now using the new schema that includes structure type
   apartmentStructure: ApartmentStructureSchema,
+
+  // Social Feed - Blocked residents from community board
+  blockedResidents: [{
+    residentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Resident',
+      required: true
+    },
+    blockedAt: {
+      type: Date,
+      default: Date.now
+    },
+    blockedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Society'
+    },
+    reason: {
+      type: String,
+      default: 'Community guidelines violation'
+    }
+  }]
 }, { timestamps: true });
 
 export default mongoose.models.Society || mongoose.model('Society', SocietySchema);

@@ -7,7 +7,10 @@ import PaymentEntry from '../../../models/PaymentEntry';  // Import PaymentEntry
 import Ledger from '../../../models/Ledger';
 import JournalVoucher from '../../../models/JournalVoucher';
 import Wallet from '../../../models/Wallet';
+import TenantWallet from '../../../models/TenantWallet';
 import WalletTransaction from '../../../models/WalletTransaction';
+import TenantWalletTransaction from '../../../models/TenantWalletTransaction';
+import Resident from '../../../models/Resident';
 import { verifyToken } from '../../../utils/auth';
 import { logSuccess, logFailure } from '../../../services/loggingService';
 
@@ -184,54 +187,119 @@ export default async function handler(req, res) {
 
     // Handle wallet payment - deduct from wallet and create transaction
     if (paymentMethod === 'Wallet') {
-      console.log('Processing wallet payment for resident:', bill.residentId);
-      const wallet = await Wallet.findOne({ residentId: bill.residentId });
+      console.log('Processing wallet payment for user:', decoded.id, 'userType:', decoded.userType, 'role:', decoded.role);
       
-      if (!wallet) {
-        throw new Error('Wallet not found for resident');
+      // Determine if user is a main resident or tenant
+      const userType = decoded.userType;
+      const role = decoded.role;
+      
+      if (userType === 'main_resident' || role === 'resident') {
+        // Handle main resident wallet payment
+        console.log('Processing main resident wallet payment');
+        const wallet = await Wallet.findOne({ residentId: decoded.id });
+        
+        if (!wallet) {
+          throw new Error('Main resident wallet not found');
+        }
+
+        console.log('Main resident wallet found. Current balance:', wallet.currentBalance, 'Payment amount:', amount);
+        
+        // Ensure wallet has sufficient balance
+        if (wallet.currentBalance < amount) {
+          throw new Error('Insufficient wallet balance');
+        }
+
+        // Store balance before deduction for transaction record
+        const balanceBefore = wallet.currentBalance;
+        
+        // Debit wallet
+        wallet.updateBalance(amount, 'debit');
+        console.log('Main resident wallet balance after deduction:', wallet.currentBalance);
+        
+        // Create wallet transaction with correct balance values
+        const walletTransaction = new WalletTransaction({
+          walletId: wallet._id,
+          residentId: decoded.id,
+          societyId: bill.societyId,
+          transactionFlow: 'DEBIT',
+          amount,
+          balanceBefore: balanceBefore,
+          balanceAfter: wallet.currentBalance,
+          status: 'SUCCESS',
+          type: billType === 'MaintenanceBill' ? 'MAINTENANCE_PAYMENT' : 
+                billType === 'AmenityBill' ? 'AMENITY_PAYMENT' : 'UTILITY_PAYMENT',
+          description: `${billType} payment for bill ${bill.billNumber}`,
+          billDetails: {
+            billId: bill._id,
+            billType: billType,
+            billNumber: bill.billNumber,
+            dueDate: bill.dueDate
+          },
+          completedAt: new Date(),
+          createdBy: decoded.id
+        });
+
+        console.log('Saving main resident wallet and wallet transaction...');
+        await wallet.save();
+        await walletTransaction.save();
+        console.log('Main resident wallet and wallet transaction saved successfully');
       }
+      else if (userType === 'member' && (role === 'tenant' || role === 'family_member')) {
+        // Handle tenant wallet payment
+        console.log('Processing tenant wallet payment for tenant ID:', decoded.id);
+        const tenantWallet = await TenantWallet.findOne({ tenantId: decoded.id });
+        
+        if (!tenantWallet) {
+          throw new Error('Tenant wallet not found');
+        }
 
-      console.log('Wallet found. Current balance:', wallet.currentBalance, 'Payment amount:', amount);
-      
-      // Ensure wallet has sufficient balance
-      if (wallet.currentBalance < amount) {
-        throw new Error('Insufficient wallet balance');
+        console.log('Tenant wallet found. Current balance:', tenantWallet.currentBalance, 'Payment amount:', amount);
+        
+        // Ensure wallet has sufficient balance
+        if (tenantWallet.currentBalance < amount) {
+          throw new Error('Insufficient tenant wallet balance');
+        }
+
+        // Store balance before deduction for transaction record
+        const balanceBefore = tenantWallet.currentBalance;
+        
+        // Debit tenant wallet
+        tenantWallet.updateBalance(amount, 'debit');
+        console.log('Tenant wallet balance after deduction:', tenantWallet.currentBalance);
+        
+        // Create tenant wallet transaction with correct balance values
+        const tenantWalletTransaction = new TenantWalletTransaction({
+          walletId: tenantWallet._id,
+          tenantId: decoded.id,
+          tenantPhone: decoded.phone,
+          parentResidentId: decoded.residentId,
+          societyId: bill.societyId,
+          transactionFlow: 'DEBIT',
+          amount,
+          balanceBefore: balanceBefore,
+          balanceAfter: tenantWallet.currentBalance,
+          status: 'SUCCESS',
+          type: billType === 'MaintenanceBill' ? 'MAINTENANCE_PAYMENT' : 
+                billType === 'AmenityBill' ? 'AMENITY_PAYMENT' : 'UTILITY_PAYMENT',
+          description: `${billType} payment for bill ${bill.billNumber} (Tenant)`,
+          billDetails: {
+            billId: bill._id,
+            billType: billType,
+            billNumber: bill.billNumber,
+            dueDate: bill.dueDate
+          },
+          completedAt: new Date(),
+          createdBy: decoded.id
+        });
+
+        console.log('Saving tenant wallet and tenant wallet transaction...');
+        await tenantWallet.save();
+        await tenantWalletTransaction.save();
+        console.log('Tenant wallet and tenant wallet transaction saved successfully');
       }
-
-      // Store balance before deduction for transaction record
-      const balanceBefore = wallet.currentBalance;
-      
-      // Debit wallet
-      wallet.updateBalance(amount, 'debit');
-      console.log('Wallet balance after deduction:', wallet.currentBalance);
-      
-      // Create wallet transaction with correct balance values
-      const walletTransaction = new WalletTransaction({
-        walletId: wallet._id,
-        residentId: bill.residentId,
-        societyId: bill.societyId,
-        transactionFlow: 'DEBIT',
-        amount,
-        balanceBefore: balanceBefore,
-        balanceAfter: wallet.currentBalance,
-        status: 'SUCCESS', // Set status to SUCCESS for completed payment
-        type: billType === 'MaintenanceBill' ? 'MAINTENANCE_PAYMENT' : 
-              billType === 'AmenityBill' ? 'AMENITY_PAYMENT' : 'UTILITY_PAYMENT',
-        description: `${billType} payment for bill ${bill.billNumber}`,
-        billDetails: {
-          billId: bill._id,
-          billType: billType,
-          billNumber: bill.billNumber,
-          dueDate: bill.dueDate
-        },
-        completedAt: new Date(), // Set completion timestamp
-        createdBy: decoded.id
-      });
-
-      console.log('Saving wallet and wallet transaction...');
-      await wallet.save();
-      await walletTransaction.save();
-      console.log('Wallet and wallet transaction saved successfully');
+      else {
+        throw new Error('Invalid user type for wallet payment');
+      }
     }
 
     // Update bill payment status

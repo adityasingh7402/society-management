@@ -808,8 +808,8 @@ const Marketplace = () => {
                 )}
               </div>
             ) : (
-              // Regular Products Grid
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              // Regular Products Grid - OLX-like 2x2 layout
+              <div className="grid grid-cols-2 gap-3">
                 {getFilteredProducts().map((product, index) => (
                   <motion.div
                     key={product._id}
@@ -825,7 +825,7 @@ const Marketplace = () => {
                     >
                       <div className="bg-white/90 backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-indigo-50 h-full">
                         {/* Product Image */}
-                        <div className="relative w-full h-48">
+                        <div className="relative w-full h-32">
                           {/* Delete button - only show for the product owner */}
                           {residentData && product.sellerId === residentData._id && (
                             <motion.button
@@ -875,19 +875,19 @@ const Marketplace = () => {
                           </motion.button>
                         </div>
 
-                        {/* Product Info */}
-                        <div className="p-5">
-                          <h3 className="text-lg font-semibold text-gray-800 hover:text-indigo-600 line-clamp-1 mb-2">
+                        {/* Product Info - Compact OLX-like */}
+                        <div className="p-3">
+                          <h3 className="text-sm font-semibold text-gray-800 hover:text-indigo-600 line-clamp-1 mb-1">
                             {product.title}
                           </h3>
 
-                          <div className="mb-3">
-                            <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                          <div className="mb-2">
+                            <span className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                               {formatPrice(product.price)}
                             </span>
                           </div>
 
-                          <div className="mb-3 flex gap-2">
+                          <div className="mb-2 flex gap-2">
                             <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
                               {product.category}
                             </span>
@@ -896,42 +896,20 @@ const Marketplace = () => {
                             </span>
                           </div>
 
-                          <p className="text-xs text-gray-600 line-clamp-2 mb-4">{product.description}</p>
-
-                          {/* Seller Info */}
-                          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                            <div className="flex items-center space-x-2">
-                              <div className="flex-shrink-0">
-                                {product.sellerImage ? (
-                                  <img
-                                    src={product.sellerImage}
-                                    alt={product.sellerName}
-                                    className="h-8 w-8 rounded-full border-2 border-indigo-100"
-                                  />
-                                ) : (
-                                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 flex items-center justify-center border-2 border-indigo-200">
-                                    <span className="text-xs font-medium text-indigo-600">
-                                      {product.sellerName.charAt(0)}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <p className="text-xs font-medium text-gray-700">{product.sellerName}</p>
-                                <p className="text-xs text-gray-500">{formatDate(product.createdAt)}</p>
-                              </div>
+                          {/* Compact Footer */}
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <div className="text-xs text-gray-500">
+                              {formatDate(product.createdAt)}
                             </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
                               <div className="flex items-center space-x-1 text-gray-500">
-                                <Heart size={14} className={isLikedByUser(product) ? 'text-red-500' : 'text-gray-500'}
+                                <Heart size={12} className={isLikedByUser(product) ? 'text-red-500' : 'text-gray-500'}
                                   fill={isLikedByUser(product) ? 'currentColor' : 'none'} />
-                                <span className="text-xs font-medium">{product.likes.length}</span>
+                                <span className="text-xs">{product.likes?.length || 0}</span>
                               </div>
                               {unreadMessages[product._id] > 0 && (
                                 <div className="flex items-center space-x-1">
-                                  <MessageCircle size={14} className="text-indigo-500" />
+                                  <MessageCircle size={12} className="text-indigo-500" />
                                   <span className="text-xs font-medium text-indigo-500">
                                     {unreadMessages[product._id]}
                                   </span>
